@@ -1,0 +1,4 @@
+/* Global styles for SweetAlert2 z-index */
+.swal-higher-zindex {
+  z-index: 99999 !important; /* Un valor extremadamente alto para asegurar que esté por encima de cualquier modal */
+}
