@@ -1,40 +1,60 @@
-name: 🪄 Build Tauri App for Windows
+name: Build and Release Tauri App (Windows)
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch: # Permite ejecutar el build manualmente desde GitHub
+  workflow_dispatch:
 
 jobs:
   build:
+    name: Build for Windows
     runs-on: windows-latest
 
     steps:
-      - name: 📦 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
-      - name: 🦀 Setup Rust
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: 📥 Install pnpm
-        run: npm install -g pnpm
+      - name: Install dependencies
+        run: |
+          npm install -g pnpm
+          pnpm install
 
-      - name: 📚 Install dependencies
-        run: pnpm install
-        working-directory: ./front # cambia si tu proyecto Tauri está en otra carpeta
-
-      - name: 🏗️ Build Tauri app
+      - name: Build Tauri app
         run: pnpm tauri build
-        working-directory: ./front
 
-      - name: 📤 Upload built artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Tauri-Windows-Build
-          path: front/src-tauri/target/release/bundle/
+          name: tauri-windows-build
+          path: src-tauri/target/release/bundle/
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tauri-windows-build
+          path: dist
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "Tauri Build #${{ github.run_number }}"
+          body: "Versión generada automáticamente desde GitHub Actions"
+          files: dist/**/*.msi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
