@@ -126,327 +126,103 @@ const Informes = () => {
             const reportTitle = filters.reportType === 'salesSummary' ? 'Ventas' : 'Compras';
             const currentDate = moment().format('DD/MM/YYYY HH:mm');
 
-            Swal.close();
-
-            const printWindow = window.open('', '_blank');
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.width = '0px';
+            iframe.style.height = '0px';
+            iframe.style.border = 'none';
+            iframe.style.visibility = 'hidden';
+            document.body.appendChild(iframe);
 
             let htmlContent = `
-        <html>
-        <head>
-            <title>Informe de ${reportTitle}</title>
-            <meta charset="UTF-8">
-            <style>
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
-                
-                body { 
-                    font-family: 'Segoe UI', Arial, sans-serif; 
-                    margin: 0;
-                    padding: 20px;
-                    color: #333;
-                    background: #fff;
-                    line-height: 1.4;
-                }
-                
-                .report-container {
-                    max-width: 1200px;
-                    margin: 0 auto;
-                    background: #fff;
-                }
-                
-                .report-header {
-                    background: #f8f9fa;
-                    color: #333;
-                    padding: 30px;
-                    text-align: center;
-                    margin-bottom: 30px;
-                    border-radius: 8px;
-                    border: 2px solid #667eea;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                }
-                
-                .company-info {
-                    margin-bottom: 20px;
-                }
-                
-                .company-name {
-                    font-size: 32px;
-                    font-weight: bold;
-                    margin-bottom: 8px;
-                    color: #667eea;
-                }
-                
-                .company-details {
-                    font-size: 14px;
-                    color: #666;
-                    margin-bottom: 20px;
-                }
-                
-                .report-title {
-                    font-size: 28px;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                    text-transform: uppercase;
-                    letter-spacing: 2px;
-                    color: #333;
-                }
-                
-                .report-period {
-                    font-size: 16px;
-                    opacity: 0.9;
-                    margin-bottom: 5px;
-                }
-                
-                .generated-date {
-                    font-size: 12px;
-                    opacity: 0.8;
-                }
-                
-                .filters-summary {
-                    background: #f8f9fa;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin-bottom: 25px;
-                    border-left: 4px solid #667eea;
-                }
-                
-                .filters-title {
-                    font-size: 18px;
-                    font-weight: bold;
-                    margin-bottom: 15px;
-                    color: #333;
-                }
-                
-                .filter-item {
-                    display: inline-block;
-                    background: white;
-                    padding: 8px 12px;
-                    margin: 4px;
-                    border-radius: 20px;
-                    border: 1px solid #ddd;
-                    font-size: 12px;
-                    color: #555;
-                }
-                
-                .summary-section {
-                    background: #f8f9fa;
-                    color: #333;
-                    padding: 25px;
-                    border-radius: 8px;
-                    margin-bottom: 30px;
-                    text-align: center;
-                    border: 2px solid #667eea;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }
-                
-                .summary-title {
-                    font-size: 20px;
-                    margin-bottom: 10px;
-                    opacity: 0.9;
-                }
-                
-                .summary-amount {
-                    font-size: 36px;
-                    font-weight: bold;
-                    color: #667eea;
-                }
-                
-                .table-container {
-                    background: white;
-                    border-radius: 8px;
-                    overflow: hidden;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    margin-bottom: 30px;
-                }
-                
-                table { 
-                    width: 100%; 
-                    border-collapse: collapse;
-                    font-size: 11px;
-                }
-                
-                thead {
-                    background: #f8f9fa;
-                    border-bottom: 2px solid #667eea;
-                }
-                
-                th { 
-                    color: #333;
-                    padding: 15px 8px;
-                    text-align: left;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    border-bottom: 1px solid #ddd;
-                }
-                
-                td { 
-                    padding: 12px 8px;
-                    border-bottom: 1px solid #eee;
-                    vertical-align: middle;
-                }
-                
-                tbody tr:nth-child(even) {
-                    background-color: #f8f9fa;
-                }
-                
-                tbody tr:hover {
-                    background-color: #e3f2fd;
-                }
-                
-                .text-center { text-align: center; }
-                .text-right { text-align: right; }
-                .text-left { text-align: left; }
-                
-                .total-row {
-                    background: #e3f2fd !important;
-                    color: #333;
-                    font-weight: bold;
-                    font-size: 12px;
-                    border-top: 2px solid #667eea;
-                }
-                
-                .total-row td {
-                    border-bottom: none;
-                    padding: 15px 8px;
-                }
-                
-                .statistics-section {
-                    display: flex;
-                    justify-content: space-around;
-                    margin: 30px 0;
-                    gap: 20px;
-                }
-                
-                .stat-card {
-                    background: white;
-                    padding: 20px;
-                    border-radius: 8px;
-                    text-align: center;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    border-top: 4px solid #667eea;
-                    flex: 1;
-                }
-                
-                .stat-number {
-                    font-size: 24px;
-                    font-weight: bold;
-                    color: #667eea;
-                    margin-bottom: 5px;
-                }
-                
-                .stat-label {
-                    font-size: 12px;
-                    color: #666;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                
-                .report-footer {
-                    background: #f8f9fa;
-                    padding: 20px;
-                    text-align: center;
-                    border-top: 2px dashed #ddd;
-                    margin-top: 30px;
-                    border-radius: 8px;
-                }
-                
-                .footer-info {
-                    font-size: 11px;
-                    color: #666;
-                    line-height: 1.4;
-                }
-                
-                .page-break {
-                    page-break-before: always;
-                }
-                
-                @media print {
-                    body { 
-                        margin: 0; 
-                        padding: 15px; 
-                        font-size: 10px;
+            <html>
+            <head>
+                <title>Informe de ${reportTitle}</title>
+                <meta charset="UTF-8">
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; color: #333; background: #fff; line-height: 1.4; }
+                    .report-container { max-width: 1200px; margin: 0 auto; background: #fff; }
+                    .report-header { background: #f8f9fa; color: #333; padding: 30px; text-align: center; margin-bottom: 30px; border-radius: 8px; border: 2px solid #667eea; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+                    .company-info { margin-bottom: 20px; }
+                    .company-name { font-size: 32px; font-weight: bold; margin-bottom: 8px; color: #667eea; }
+                    .company-details { font-size: 14px; color: #666; margin-bottom: 20px; }
+                    .report-title { font-size: 28px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; color: #333; }
+                    .report-period { font-size: 16px; opacity: 0.9; margin-bottom: 5px; }
+                    .generated-date { font-size: 12px; opacity: 0.8; }
+                    .filters-summary { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #667eea; }
+                    .filters-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; }
+                    .filter-item { display: inline-block; background: white; padding: 8px 12px; margin: 4px; border-radius: 20px; border: 1px solid #ddd; font-size: 12px; color: #555; }
+                    .summary-section { background: #f8f9fa; color: #333; padding: 25px; border-radius: 8px; margin-bottom: 30px; text-align: center; border: 2px solid #667eea; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                    .summary-title { font-size: 20px; margin-bottom: 10px; opacity: 0.9; }
+                    .summary-amount { font-size: 36px; font-weight: bold; color: #667eea; }
+                    .table-container { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 30px; }
+                    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                    thead { background: #f8f9fa; border-bottom: 2px solid #667eea; }
+                    th { color: #333; padding: 15px 8px; text-align: left; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #ddd; }
+                    td { padding: 12px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+                    tbody tr:nth-child(even) { background-color: #f8f9fa; }
+                    tbody tr:hover { background-color: #e3f2fd; }
+                    .text-center { text-align: center; }
+                    .text-right { text-align: right; }
+                    .text-left { text-align: left; }
+                    .total-row { background: #e3f2fd !important; color: #333; font-weight: bold; font-size: 12px; border-top: 2px solid #667eea; }
+                    .total-row td { border-bottom: none; padding: 15px 8px; }
+                    .statistics-section { display: flex; justify-content: space-around; margin: 30px 0; gap: 20px; }
+                    .stat-card { background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-top: 4px solid #667eea; flex: 1; }
+                    .stat-number { font-size: 24px; font-weight: bold; color: #667eea; margin-bottom: 5px; }
+                    .stat-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+                    .report-footer { background: #f8f9fa; padding: 20px; text-align: center; border-top: 2px dashed #ddd; margin-top: 30px; border-radius: 8px; }
+                    .footer-info { font-size: 11px; color: #666; line-height: 1.4; }
+                    .page-break { page-break-before: always; }
+                    @media print {
+                        body { margin: 0; padding: 15px; font-size: 10px; }
+                        .report-header, .summary-section, thead, .total-row { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        .report-header { background: #f8f9fa !important; border: 1px solid #333 !important; }
+                        .summary-section { background: #f8f9fa !important; border: 1px solid #333 !important; }
+                        thead { background: #f8f9fa !important; border-bottom: 2px solid #333 !important; }
+                        .total-row { background: #f0f0f0 !important; border-top: 2px solid #333 !important; }
+                        .no-print { display: none; }
+                        table { font-size: 9px; }
+                        th { padding: 8px 4px; }
+                        td { padding: 6px 4px; }
                     }
-                    
-                    .report-header { 
-                        background: #f8f9fa !important;
-                        border: 1px solid #333 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    
-                    .summary-section {
-                        background: #f8f9fa !important;
-                        border: 1px solid #333 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    
-                    thead {
-                        background: #f8f9fa !important;
-                        border-bottom: 2px solid #333 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    
-                    .total-row {
-                        background: #f0f0f0 !important;
-                        border-top: 2px solid #333 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    
-                    .no-print { display: none; }
-                    
-                    table { font-size: 9px; }
-                    th { padding: 8px 4px; }
-                    td { padding: 6px 4px; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="report-container">
-                <div class="report-header">
-                    <div class="company-info">
-                        <div class="company-name">Mi Empresa</div>
-                        <div class="company-details">
-                            Dirección: Calle Principal 123<br>
-                            Tel: (123) 456-7890 | Email: info@miempresa.com
+                </style>
+            </head>
+            <body>
+                <div class="report-container">
+                    <div class="report-header">
+                        <div class="company-info">
+                            <div class="company-name">Mi Empresa</div>
+                            <div class="company-details">
+                                Dirección: Calle Principal 123<br>
+                                Tel: (123) 456-7890 | Email: info@miempresa.com
+                            </div>
                         </div>
+                        <div class="report-title">Informe de ${reportTitle}</div>
+                        <div class="report-period">
+                            Período: ${moment(filters.startDate).format('DD/MM/YYYY')} - ${moment(filters.endDate).format('DD/MM/YYYY')}
+                        </div>
+                        <div class="generated-date">Generado el ${currentDate}</div>
                     </div>
-                    <div class="report-title">Informe de ${reportTitle}</div>
-                    <div class="report-period">
-                        Período: ${moment(filters.startDate).format('DD/MM/YYYY')} - ${moment(filters.endDate).format('DD/MM/YYYY')}
-                    </div>
-                    <div class="generated-date">Generado el ${currentDate}</div>
-                </div>
-        `;
+            `;
 
-            // Sección de filtros aplicados
             htmlContent += '<div class="filters-summary">';
             htmlContent += '<div class="filters-title">Filtros Aplicados</div>';
-
             if (filters.startDate || filters.endDate) {
                 htmlContent += `<span class="filter-item">Período: ${moment(filters.startDate).format('DD/MM/YYYY')} - ${moment(filters.endDate).format('DD/MM/YYYY')}</span>`;
             }
-
             if (filters.productId) {
                 const selectedProduct = products?.products?.find(p => p.id == filters.productId);
                 htmlContent += `<span class="filter-item">Producto: ${selectedProduct?.name || 'N/A'}</span>`;
             }
-
             if (filters.supplierId) {
                 const selectedSupplier = suppliers?.find(s => s.id == filters.supplierId);
                 htmlContent += `<span class="filter-item">Proveedor: ${selectedSupplier?.nombre || 'N/A'}</span>`;
             }
-
             htmlContent += `<span class="filter-item">Tipo: ${reportTitle}</span>`;
             htmlContent += '</div>';
 
-            // Resumen total
             if (summaryData?.total) {
                 const formattedTotal = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(summaryData.total);
                 htmlContent += `
@@ -457,7 +233,6 @@ const Informes = () => {
             `;
             }
 
-            // Estadísticas adicionales
             const totalItems = printData.length;
             const avgAmount = summaryData?.total ? (summaryData.total / totalItems) : 0;
             const totalQuantity = printData.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
@@ -479,15 +254,12 @@ const Informes = () => {
             </div>
         `;
 
-            // Tabla de datos
             htmlContent += '<div class="table-container">';
             htmlContent += '<table>';
             htmlContent += '<thead><tr>';
-
             columns.forEach(col => {
                 htmlContent += `<th class="${col.id === 'quantity' || col.id.includes('cost') ? 'text-right' : col.id === 'date' ? 'text-center' : 'text-left'}">${col.label}</th>`;
             });
-
             htmlContent += '</tr></thead><tbody>';
 
             printData.forEach((row, index) => {
@@ -500,7 +272,6 @@ const Informes = () => {
                 htmlContent += '</tr>';
             });
 
-            // Fila de totales
             if (summaryData?.total) {
                 const formattedTotal = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(summaryData.total);
                 htmlContent += `
@@ -512,8 +283,6 @@ const Informes = () => {
             }
 
             htmlContent += '</tbody></table></div>';
-
-            // Footer
             htmlContent += `
             <div class="report-footer">
                 <div class="footer-info">
@@ -523,33 +292,34 @@ const Informes = () => {
                 </div>
             </div>
         `;
-
             htmlContent += '</div></body></html>';
 
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
-
-            // Esperar a que el contenido se cargue antes de imprimir
-            printWindow.onload = function () {
-                printWindow.focus();
-                printWindow.print();
-
-                // Cerrar ventana después de imprimir
-                printWindow.onafterprint = function () {
-                    printWindow.close();
-                };
-
-                // Fallback para cerrar la ventana
-                setTimeout(() => {
-                    if (!printWindow.closed) {
-                        printWindow.close();
-                    }
-                }, 1000);
+            iframe.onload = () => {
+                Swal.close();
+                try {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                } catch (error) {
+                    console.error('Error al intentar imprimir:', error);
+                    mostrarError('No se pudo abrir el diálogo de impresión.', theme);
+                } finally {
+                    setTimeout(() => {
+                        if (iframe.parentNode) {
+                            iframe.parentNode.removeChild(iframe);
+                        }
+                    }, 1000);
+                }
             };
 
+            const printDocument = iframe.contentDocument || iframe.contentWindow.document;
+            printDocument.open();
+            printDocument.write(htmlContent);
+            printDocument.close();
+
         } catch (error) {
+            Swal.close();
             console.error("Error al generar el informe para imprimir:", error);
-            mostrarError('No se pudo generar el informe completo. Por favor, intente de nuevo.');
+            mostrarError('No se pudo generar el informe completo. Por favor, intente de nuevo.', theme);
         }
     };
 

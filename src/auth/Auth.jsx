@@ -1,9 +1,8 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StyledButton as Button } from '../styledComponents/ui/StyledButton';
 import { AuthContext } from '../context/AuthContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { OFFLINE_USER } from '../db/offlineDB';
 import { motion } from 'framer-motion';
 import {
   Alert,
@@ -15,18 +14,19 @@ import {
   Link,
   InputAdornment,
   IconButton,
-  LinearProgress
+  LinearProgress,
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import PersonIcon from '@mui/icons-material/Person';
+import LockIcon from '@mui/icons-material/Lock';
 import { mostrarError } from '../functions/MostrarError';
 import { mostrarHTML } from '../functions/mostrarHTML';
 import { useTheme } from '@mui/material/styles';
-import { exit } from '@tauri-apps/api/app';
-import ExitToAppIcon from '@mui/icons-material/ExitToApp';
-import { Tooltip } from '@mui/material';
+import { useIsTauri } from '../hooks/useIsTauri';
 
 const Auth = () => {
+  const isTauri = useIsTauri();
   const theme = useTheme();
   const { isOnline } = useOnlineStatus();
   const navigate = useNavigate();
@@ -37,14 +37,34 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleExitApp = async () => {
-    await exit();
-  };
+  // Permitir cerrar la app desde login
+  useEffect(() => {
+    if (!isTauri) return;
 
-  // const handleQuickOfflineLogin = () => {
-  //   setUsername(OFFLINE_USER.username);
-  //   setPassword(OFFLINE_USER.password);
-  // };
+    let unlisten;
+
+    const setup = async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        const appWindow = getCurrentWindow();
+
+        unlisten = await appWindow.onCloseRequested(async () => {
+          const { exit } = await import('@tauri-apps/plugin-process');
+          await exit(0);
+        });
+      } catch (error) {
+        console.log('No es Tauri');
+      }
+    };
+
+    setup();
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [isTauri]);
+
+
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -67,61 +87,185 @@ const Auth = () => {
 
   const Copyright = () => {
     const handleContactClick = () => {
-      mostrarHTML({ title: 'Contacto', html: `Teléfono: <a href="tel:+543764941490">3764-941490</a><br/>Correo: <a href="mailto:hugogoncalvez@gmail.com">hugogoncalvez@gmail.com</a>` }, theme);
+      mostrarHTML({
+        title: 'Contacto',
+        html: `Teléfono: <a href="tel:+543764941490">3764-941490</a><br/>Correo: <a href="mailto:hugogoncalvez@gmail.com">hugogoncalvez@gmail.com</a>`
+      }, theme);
     };
+
     return (
-      <Typography variant="body2" color="text.secondary" align="center">
-        {'Copyright © '}<Link color="inherit" href="#" onClick={handleContactClick}>Hugo Goncalvez</Link>{' '}2025{'.'}
+      <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 3 }}>
+        {'Copyright © '}
+        <Link color="inherit" href="#" onClick={handleContactClick} sx={{ fontWeight: 500 }}>
+          Hugo Goncalvez
+        </Link>
+        {' 2025'}
       </Typography>
     );
   };
 
-  const variants = { hidden: { opacity: 0, y: 50 }, enter: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 50 } };
+  const variants = {
+    hidden: { opacity: 0, y: 50 },
+    enter: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: 50 }
+  };
 
   return (
-    <Grid container component="main" sx={{ height: '100vh', justifyContent: 'center', alignItems: 'center', p: 2 }}>
-      {window.__TAURI__ && (
-        <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
-          <Tooltip title="Cerrar Aplicación">
-            <IconButton onClick={handleExitApp} color="primary">
-              <ExitToAppIcon sx={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }} />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      )}
-      <motion.div initial="hidden" animate="enter" exit="exit" variants={variants} transition={{ duration: 0.5 }}>
-        <Paper elevation={6} sx={{ width: 'clamp(350px, 80vw, 450px)', p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <img src='/logo.png' alt='Logo' style={{ width: 'clamp(120px, 25vw, 180px)', objectFit: 'contain', mb: 2 }} />
+    <Grid
+      container
+      component="main"
+      sx={{
+        height: '100vh',
+        background: theme.palette.mode === 'dark'
+          ? 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)'
+          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        p: 2
+      }}
+    >
+      <motion.div
+        initial="hidden"
+        animate="enter"
+        exit="exit"
+        variants={variants}
+        transition={{ duration: 0.5 }}
+      >
+        <Paper
+          elevation={24}
+          sx={{
+            width: 'clamp(350px, 90vw, 480px)',
+            p: 5,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            borderRadius: 3,
+            backdropFilter: 'blur(10px)',
+            background: theme.palette.mode === 'dark'
+              ? 'rgba(42, 48, 62, 0.6)' // Aumentamos transparencia
+              : 'rgba(255, 255, 255, 0.75)',
+            border: '1px solid rgba(255, 255, 255, 0.15)', // Borde sutil
+          }}
+        >
+          <Box sx={{ mb: 3 }}>
+            <img
+              src='/logo.png'
+              alt='POS System'
+              style={{
+                width: 'clamp(140px, 30vw, 200px)',
+                objectFit: 'contain',
+                filter: theme.palette.mode === 'dark' ? 'brightness(1.1)' : 'brightness(1)'
+              }}
+            />
+          </Box>
 
           {!isOnline && (
-            <Alert severity="info" sx={{ width: '100%', mt: 2 }}>
-              <strong>Modo Offline Activado.</strong> Puede acceder con sus credenciales locales.
+            <Alert
+              severity="info"
+              sx={{
+                width: '100%',
+                mb: 3,
+                borderRadius: 2
+              }}
+            >
+              <strong>Modo Offline.</strong> Acceda con sus credenciales locales.
             </Alert>
           )}
 
-          <Box component="form" noValidate onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
+          <Box component="form" noValidate onSubmit={handleSubmit} sx={{ width: '100%' }}>
             <TextField
-              margin="normal" required fullWidth id="username" label="Nombre de Usuario" name="username"
-              autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)}
-            />
-            <TextField
-              margin="normal" required fullWidth name="password" label='Contraseña' type={showPassword ? 'text' : 'password'}
-              id="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}
+              margin="normal"
+              required
+              fullWidth
+              id="username"
+              label="Usuario"
+              name="username"
+              autoComplete="username"
+              autoFocus
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <PersonIcon color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                }
+              }}
+            />
+
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label='Contraseña'
+              type={showPassword ? 'text' : 'password'}
+              id="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <LockIcon color="action" />
+                  </InputAdornment>
+                ),
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton onClick={() => setShowPassword(!showPassword)} onMouseDown={(e) => e.preventDefault()} edge="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                    >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
                   </InputAdornment>
                 ),
               }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                }
+              }}
             />
-            <Box sx={{ position: 'relative', mt: 3, mb: 2 }}>
-              <Button type="submit" fullWidth variant="contained" disabled={isLoading}>Entrar</Button>
-              {isLoading && <LinearProgress sx={{ position: 'absolute', bottom: -4, width: '100%' }} />}
-            </Box>
 
+            <Box sx={{ position: 'relative', mt: 4 }}>
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={isLoading}
+                sx={{
+                  py: 1.5,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  boxShadow: 3,
+                  '&:hover': {
+                    boxShadow: 6,
+                  }
+                }}
+              >
+                {isLoading ? 'Ingresando...' : 'Entrar'}
+              </Button>
+              {isLoading && (
+                <LinearProgress
+                  sx={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    borderBottomLeftRadius: 8,
+                    borderBottomRightRadius: 8,
+                  }}
+                />
+              )}
+            </Box>
 
             <Copyright />
           </Box>

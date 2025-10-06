@@ -15,7 +15,7 @@ const ENDPOINT_TO_TABLE = {
   '/units': 'units',
   '/pending-tickets': 'pending_tickets',
   '/elements': 'elements',
-  '/api/theme': 'theme_settings' // Asumiendo que tienes una tabla para esto
+  '/theme': 'theme_settings' // Asumiendo que tienes una tabla para esto
 };
 
 const handleOfflineQuery = async (url) => {
@@ -67,6 +67,18 @@ const handleOfflineQuery = async (url) => {
       } else {
         console.log('[Offline Query] No se encontró sesión de caja activa local.');
         return { hasActiveSession: false, session: null };
+      }
+    }
+
+    // Lógica para la configuración del tema
+    if (tableName === 'theme_settings') {
+      const theme = await db.theme_settings.get(1); // Asumimos que siempre se guarda con id: 1
+      if (theme) {
+        console.log('[Offline Query] Configuración de tema encontrada localmente.');
+        return theme;
+      } else {
+        console.log('[Offline Query] No se encontró configuración de tema local.');
+        return null; // O un objeto de tema por defecto si es necesario
       }
     }
 

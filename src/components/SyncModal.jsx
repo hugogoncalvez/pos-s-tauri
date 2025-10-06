@@ -1,5 +1,4 @@
 import { useState, useContext, useEffect } from 'react';
-import { db } from '../db/offlineDB';
 import {
   DialogTitle,
   DialogContent,
@@ -8,7 +7,6 @@ import {
   Alert,
   Box,
   CircularProgress,
-  InputAdornment,
   Grid,
   IconButton
 } from '@mui/material';
@@ -19,42 +17,41 @@ import { StyledButton } from '../styledComponents/ui/StyledButton';
 import { StyledTextField } from '../styledComponents/ui/StyledTextField';
 import { AuthContext } from '../context/AuthContext';
 import { syncService } from '../services/syncService';
-import { Api } from '../api/api';
 import { mostrarError } from '../functions/MostrarError';
 import { mostrarExito } from '../functions/mostrarExito';
 
-export const SyncModal = ({ open, onSyncComplete }) => {
+export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingSession }) => {
   const theme = useTheme();
   const { login, isAuthenticated, usuario } = useContext(AuthContext);
 
   const [credentials, setCredentials] = useState({ username: '', password: '' });
-  const [sessionData, setSessionData] = useState({ opening_amount: '' });
   const [error, setError] = useState('');
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeCashSessionId, setActiveCashSessionId] = useState(null);
   const [pendingSalesCount, setPendingSalesCount] = useState(0);
 
+  // Set pendingSalesCount from syncService
   useEffect(() => {
-    const checkInitialState = async () => {
+    const getPendingSales = async () => {
       if (open) {
         setError('');
         setIsSyncing(false);
         const stats = await syncService.getSyncStats();
         setPendingSalesCount(stats.pendingSales);
-
-        if (isAuthenticated && usuario && !usuario.isOfflineUser) {
-          const activeSession = await db.active_cash_session.toCollection().first();
-          if (activeSession && activeSession.id) {
-            setActiveCashSessionId(activeSession.id);
-          } else {
-            setActiveCashSessionId(null);
-          }
-        }
       }
     };
-    checkInitialState();
-  }, [open, isAuthenticated, usuario]);
+    getPendingSales();
+  }, [open]);
+
+  // Derive activeCashSessionId from props
+  useEffect(() => {
+    if (activeSessionData && activeSessionData.id) {
+      setActiveCashSessionId(activeSessionData.id);
+    } else {
+      setActiveCashSessionId(null);
+    }
+  }, [activeSessionData]);
 
   const handleLogin = async () => {
     setError('');
@@ -65,22 +62,6 @@ export const SyncModal = ({ open, onSyncComplete }) => {
       }
     } catch (err) {
       setError('Error de conexión al intentar iniciar sesión.');
-    }
-  };
-
-  const handleOpenCashSession = async () => {
-    setError('');
-    try {
-      const response = await Api.post('/cash-sessions', {
-        opening_amount: parseFloat(sessionData.opening_amount) || 0
-      });
-      if (response.data && response.data.id) {
-        setActiveCashSessionId(response.data.id);
-      } else {
-        setError('No se pudo obtener un ID de sesión de caja válido.');
-      }
-    } catch (err) {
-      setError('Error al abrir sesión de caja: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -111,6 +92,15 @@ export const SyncModal = ({ open, onSyncComplete }) => {
   };
 
   const renderContent = () => {
+    if (isCheckingSession) {
+      return (
+        <Box sx={{ textAlign: 'center', py: 5 }}>
+          <CircularProgress size={60} sx={{ mb: 3 }} />
+          <Typography variant="h6" gutterBottom>Verificando sesión de caja...</Typography>
+        </Box>
+      );
+    }
+
     if (isSyncing) {
       return (
         <Box sx={{ textAlign: 'center', py: 5 }}>
@@ -153,29 +143,6 @@ export const SyncModal = ({ open, onSyncComplete }) => {
       );
     }
 
-    if (isAuthenticated && !activeCashSessionId) {
-      return (
-        <Box component="form" onSubmit={(e) => { e.preventDefault(); handleOpenCashSession(); }}>
-          <Alert severity="warning" sx={{ mb: 3 }}>
-            Las <strong>{pendingSalesCount}</strong> ventas offline se asociarán a una <strong>nueva sesión de caja</strong>.
-          </Alert>
-          <Grid container spacing={2} justifyContent="center">
-            <Grid item xs={12}>
-              <StyledTextField
-                label="Monto de Apertura"
-                type="number"
-                fullWidth
-                value={sessionData.opening_amount}
-                onChange={(e) => setSessionData(prev => ({ ...prev, opening_amount: e.target.value }))}
-                autoFocus
-                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-              />
-            </Grid>
-          </Grid>
-        </Box>
-      );
-    }
-
     if (isAuthenticated && activeCashSessionId) {
       return (
         <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -187,6 +154,15 @@ export const SyncModal = ({ open, onSyncComplete }) => {
       );
     }
 
+    // This case should not be reached if App.jsx logic is correct, but it's a good fallback.
+    if (isAuthenticated && !activeCashSessionId) {
+        return (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Alert severity="error">No se ha encontrado una sesión de caja activa. Por favor, cierre este diálogo y abra una sesión de caja primero.</Alert>
+            </Box>
+        );
+    }
+
     return null;
   };
 
@@ -196,13 +172,6 @@ export const SyncModal = ({ open, onSyncComplete }) => {
         return (
           <StyledButton variant="contained" onClick={handleLogin} disabled={!credentials.username || !credentials.password}>
             Iniciar Sesión
-          </StyledButton>
-        );
-      }
-      if (isAuthenticated && !activeCashSessionId) {
-        return (
-          <StyledButton variant="contained" onClick={handleOpenCashSession} disabled={isSyncing || !sessionData.opening_amount || parseFloat(sessionData.opening_amount) < 0}>
-            Abrir Caja y Sincronizar
           </StyledButton>
         );
       }

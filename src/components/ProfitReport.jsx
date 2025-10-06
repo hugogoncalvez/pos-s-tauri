@@ -70,7 +70,14 @@ function ProfitReport() {
 
         try {
             const currentDate = moment().format('DD/MM/YYYY HH:mm');
-            const printWindow = window.open('', '_blank');
+            const totalProfit = parseFloat(profitMarginData.summary.overallProfit || 0);
+            const processedData = profitMarginData.report.map(item => ({
+                productName: item.productName,
+                totalQuantitySold: item.totalQuantitySold,
+                totalCost: `$ ${parseFloat(item.totalCost || 0).toFixed(2)}`,
+                totalSales: `$ ${parseFloat(item.totalRevenue || 0).toFixed(2)}`,
+                profit: parseFloat(item.totalProfit || 0)
+            }));
 
             let htmlContent = `
             <html>
@@ -78,281 +85,46 @@ function ProfitReport() {
                 <title>Reporte de Márgenes de Ganancia</title>
                 <meta charset="UTF-8">
                 <style>
+                    /* CSS content remains the same */
                     * {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
                     }
-                    
-                    body { 
-                        font-family: 'Segoe UI', Arial, sans-serif; 
-                        margin: 0;
-                        padding: 20px;
-                        color: #333;
-                        background: #fff;
-                        line-height: 1.4;
-                    }
-                    
-                    .report-container {
-                        max-width: 1000px;
-                        margin: 0 auto;
-                        background: #fff;
-                    }
-                    
-                    .report-header {
-                        background: #f8f9fa;
-                        color: #333;
-                        padding: 30px;
-                        text-align: center;
-                        margin-bottom: 30px;
-                        border-radius: 8px;
-                        border: 2px solid #28a745;
-                        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                    }
-                    
-                    .company-info {
-                        margin-bottom: 20px;
-                    }
-                    
-                    .company-name {
-                        font-size: 32px;
-                        font-weight: bold;
-                        margin-bottom: 8px;
-                        color: #28a745;
-                    }
-                    
-                    .company-details {
-                        font-size: 14px;
-                        color: #666;
-                        margin-bottom: 20px;
-                    }
-                    
-                    .report-title {
-                        font-size: 28px;
-                        font-weight: bold;
-                        margin-bottom: 10px;
-                        text-transform: uppercase;
-                        letter-spacing: 2px;
-                        color: #333;
-                    }
-                    
-                    .report-period {
-                        font-size: 16px;
-                        color: #666;
-                        margin-bottom: 5px;
-                    }
-                    
-                    .generated-date {
-                        font-size: 12px;
-                        color: #999;
-                    }
-                    
-                    .filters-summary {
-                        background: #f8f9fa;
-                        padding: 20px;
-                        border-radius: 8px;
-                        margin-bottom: 25px;
-                        border-left: 4px solid #28a745;
-                    }
-                    
-                    .filters-title {
-                        font-size: 18px;
-                        font-weight: bold;
-                        margin-bottom: 15px;
-                        color: #333;
-                    }
-                    
-                    .filter-item {
-                        display: inline-block;
-                        background: white;
-                        padding: 8px 12px;
-                        margin: 4px;
-                        border-radius: 20px;
-                        border: 1px solid #ddd;
-                        font-size: 12px;
-                        color: #555;
-                    }
-                    
-                    .summary-section {
-                        background: #f8f9fa;
-                        color: #333;
-                        padding: 25px;
-                        border-radius: 8px;
-                        margin-bottom: 30px;
-                        text-align: center;
-                        border: 2px solid #28a745;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    }
-                    
-                    .summary-title {
-                        font-size: 20px;
-                        margin-bottom: 10px;
-                        color: #666;
-                    }
-                    
-                    .summary-amount {
-                        font-size: 36px;
-                        font-weight: bold;
-                        color: ${totalProfit >= 0 ? '#28a745' : '#dc3545'};
-                    }
-                    
-                    .table-container {
-                        background: white;
-                        border-radius: 8px;
-                        overflow: hidden;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                        margin-bottom: 30px;
-                    }
-                    
-                    table { 
-                        width: 100%; 
-                        border-collapse: collapse;
-                        font-size: 11px;
-                    }
-                    
-                    thead {
-                        background: #f8f9fa;
-                        border-bottom: 2px solid #28a745;
-                    }
-                    
-                    th { 
-                        color: #333;
-                        padding: 15px 8px;
-                        text-align: left;
-                        font-weight: 600;
-                        text-transform: uppercase;
-                        letter-spacing: 0.5px;
-                        border-bottom: 1px solid #ddd;
-                    }
-                    
-                    td { 
-                        padding: 12px 8px;
-                        border-bottom: 1px solid #eee;
-                        vertical-align: middle;
-                    }
-                    
-                    tbody tr:nth-child(even) {
-                        background-color: #f8f9fa;
-                    }
-                    
-                    tbody tr:hover {
-                        background-color: #e8f5e9;
-                    }
-                    
-                    .text-center { text-align: center; }
-                    .text-right { text-align: right; }
-                    .text-left { text-align: left; }
-                    
-                    .profit-positive {
-                        color: #28a745;
-                        font-weight: bold;
-                    }
-                    
-                    .profit-negative {
-                        color: #dc3545;
-                        font-weight: bold;
-                    }
-                    
-                    .total-row {
-                        background: #e8f5e9 !important;
-                        color: #333;
-                        font-weight: bold;
-                        font-size: 12px;
-                        border-top: 2px solid #28a745;
-                    }
-                    
-                    .total-row td {
-                        border-bottom: none;
-                        padding: 15px 8px;
-                    }
-                    
-                    .statistics-section {
-                        display: flex;
-                        justify-content: space-around;
-                        margin: 30px 0;
-                        gap: 20px;
-                    }
-                    
-                    .stat-card {
-                        background: white;
-                        padding: 20px;
-                        border-radius: 8px;
-                        text-align: center;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                        border-top: 4px solid #28a745;
-                        flex: 1;
-                    }
-                    
-                    .stat-number {
-                        font-size: 24px;
-                        font-weight: bold;
-                        color: #28a745;
-                        margin-bottom: 5px;
-                    }
-                    
-                    .stat-label {
-                        font-size: 12px;
-                        color: #666;
-                        text-transform: uppercase;
-                        letter-spacing: 0.5px;
-                    }
-                    
-                    .report-footer {
-                        background: #f8f9fa;
-                        padding: 20px;
-                        text-align: center;
-                        border-top: 2px dashed #ddd;
-                        margin-top: 30px;
-                        border-radius: 8px;
-                    }
-                    
-                    .footer-info {
-                        font-size: 11px;
-                        color: #666;
-                        line-height: 1.4;
-                    }
-                    
-                    @media print {
-                        body { 
-                            margin: 0; 
-                            padding: 15px; 
-                            font-size: 10px;
-                        }
-                        
-                        .report-header { 
-                            background: #f8f9fa !important;
-                            border: 1px solid #333 !important;
-                            -webkit-print-color-adjust: exact;
-                            print-color-adjust: exact;
-                        }
-                        
-                        .summary-section {
-                            background: #f8f9fa !important;
-                            border: 1px solid #333 !important;
-                            -webkit-print-color-adjust: exact;
-                            print-color-adjust: exact;
-                        }
-                        
-                        thead {
-                            background: #f8f9fa !important;
-                            border-bottom: 2px solid #333 !important;
-                            -webkit-print-color-adjust: exact;
-                            print-color-adjust: exact;
-                        }
-                        
-                        .total-row {
-                            background: #f0f0f0 !important;
-                            border-top: 2px solid #333 !important;
-                            -webkit-print-color-adjust: exact;
-                            print-color-adjust: exact;
-                        }
-                        
-                        .no-print { display: none; }
-                        
-                        table { font-size: 9px; }
-                        th { padding: 8px 4px; }
-                        td { padding: 6px 4px; }
-                    }
+                    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; color: #333; background: #fff; line-height: 1.4; }
+                    .report-container { max-width: 1000px; margin: 0 auto; background: #fff; }
+                    .report-header { background: #f8f9fa; color: #333; padding: 30px; text-align: center; margin-bottom: 30px; border-radius: 8px; border: 2px solid #28a745; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+                    .company-info { margin-bottom: 20px; }
+                    .company-name { font-size: 32px; font-weight: bold; margin-bottom: 8px; color: #28a745; }
+                    .company-details { font-size: 14px; color: #666; margin-bottom: 20px; }
+                    .report-title { font-size: 28px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; color: #333; }
+                    .report-period { font-size: 16px; color: #666; margin-bottom: 5px; }
+                    .generated-date { font-size: 12px; color: #999; }
+                    .filters-summary { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #28a745; }
+                    .filters-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; }
+                    .filter-item { display: inline-block; background: white; padding: 8px 12px; margin: 4px; border-radius: 20px; border: 1px solid #ddd; font-size: 12px; color: #555; }
+                    .summary-section { background: #f8f9fa; color: #333; padding: 25px; border-radius: 8px; margin-bottom: 30px; text-align: center; border: 2px solid #28a745; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                    .summary-title { font-size: 20px; margin-bottom: 10px; color: #666; }
+                    .summary-amount { font-size: 36px; font-weight: bold; color: ${totalProfit >= 0 ? '#28a745' : '#dc3545'}; }
+                    .table-container { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 30px; }
+                    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                    thead { background: #f8f9fa; border-bottom: 2px solid #28a745; }
+                    th { color: #333; padding: 15px 8px; text-align: left; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #ddd; }
+                    td { padding: 12px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+                    tbody tr:nth-child(even) { background-color: #f8f9fa; }
+                    tbody tr:hover { background-color: #e8f5e9; }
+                    .text-center { text-align: center; } .text-right { text-align: right; } .text-left { text-align: left; }
+                    .profit-positive { color: #28a745; font-weight: bold; }
+                    .profit-negative { color: #dc3545; font-weight: bold; }
+                    .total-row { background: #e8f5e9 !important; color: #333; font-weight: bold; font-size: 12px; border-top: 2px solid #28a745; }
+                    .total-row td { border-bottom: none; padding: 15px 8px; }
+                    .statistics-section { display: flex; justify-content: space-around; margin: 30px 0; gap: 20px; }
+                    .stat-card { background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-top: 4px solid #28a745; flex: 1; }
+                    .stat-number { font-size: 24px; font-weight: bold; color: #28a745; margin-bottom: 5px; }
+                    .stat-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+                    .report-footer { background: #f8f9fa; padding: 20px; text-align: center; border-top: 2px dashed #ddd; margin-top: 30px; border-radius: 8px; }
+                    .footer-info { font-size: 11px; color: #666; line-height: 1.4; }
+                    @media print { body { margin: 0; padding: 15px; font-size: 10px; } .report-header, .summary-section, thead, .total-row { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .report-header { background: #f8f9fa !important; border: 1px solid #333 !important; } .summary-section { background: #f8f9fa !important; border: 1px solid #333 !important; } thead { background: #f8f9fa !important; border-bottom: 2px solid #333 !important; } .total-row { background: #f0f0f0 !important; border-top: 2px solid #333 !important; } .no-print { display: none; } table { font-size: 9px; } th { padding: 8px 4px; } td { padding: 6px 4px; } }
                 </style>
             </head>
             <body>
@@ -360,121 +132,70 @@ function ProfitReport() {
                     <div class="report-header">
                         <div class="company-info">
                             <div class="company-name">Mi Empresa</div>
-                            <div class="company-details">
-                                Dirección: Calle Principal 123<br>
-                                Tel: (123) 456-7890 | Email: info@miempresa.com
-                            </div>
+                            <div class="company-details">Dirección: Calle Principal 123<br>Tel: (123) 456-7890 | Email: info@miempresa.com</div>
                         </div>
                         <div class="report-title">Reporte de Márgenes de Ganancia</div>
-                        <div class="report-period">
-                            Período: ${moment(filters.startDate).format('DD/MM/YYYY')} - ${moment(filters.endDate).format('DD/MM/YYYY')}
-                        </div>
+                        <div class="report-period">Período: ${moment(filters.startDate).format('DD/MM/YYYY')} - ${moment(filters.endDate).format('DD/MM/YYYY')}</div>
                         <div class="generated-date">Generado el ${currentDate}</div>
                     </div>
             `;
 
-            // Sección de filtros aplicados
-            htmlContent += '<div class="filters-summary">';
-            htmlContent += '<div class="filters-title">Filtros Aplicados</div>';
+            htmlContent += '<div class="filters-summary"><div class="filters-title">Filtros Aplicados</div>';
             htmlContent += `<span class="filter-item">Período: ${moment(filters.startDate).format('DD/MM/YYYY')} - ${moment(filters.endDate).format('DD/MM/YYYY')}</span>`;
-            htmlContent += '<span class="filter-item">Tipo: Márgenes de Ganancia</span>';
-            htmlContent += '</div>';
+            htmlContent += '<span class="filter-item">Tipo: Márgenes de Ganancia</span></div>';
 
-            // Resumen de ganancia total
             const formattedTotal = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(totalProfit);
-            htmlContent += `
-                <div class="summary-section">
-                    <div class="summary-title">Ganancia Total del Período</div>
-                    <div class="summary-amount">${formattedTotal}</div>
-                </div>
-            `;
+            htmlContent += `<div class="summary-section"><div class="summary-title">Ganancia Total del Período</div><div class="summary-amount">${formattedTotal}</div></div>`;
 
-            // Estadísticas adicionales
             const totalProducts = processedData.length;
             const totalQuantitySold = processedData.reduce((sum, item) => sum + parseFloat(item.totalQuantitySold || 0), 0);
             const profitableProducts = processedData.filter(item => parseFloat(item.profit) > 0).length;
 
-            htmlContent += `
-                <div class="statistics-section">
-                    <div class="stat-card">
-                        <div class="stat-number">${totalProducts}</div>
-                        <div class="stat-label">Productos Analizados</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${totalQuantitySold.toLocaleString()}</div>
-                        <div class="stat-label">Unidades Vendidas</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${profitableProducts}</div>
-                        <div class="stat-label">Productos Rentables</div>
-                    </div>
-                </div>
-            `;
+            htmlContent += `<div class="statistics-section"><div class="stat-card"><div class="stat-number">${totalProducts}</div><div class="stat-label">Productos Analizados</div></div><div class="stat-card"><div class="stat-number">${totalQuantitySold.toLocaleString()}</div><div class="stat-label">Unidades Vendidas</div></div><div class="stat-card"><div class="stat-number">${profitableProducts}</div><div class="stat-label">Productos Rentables</div></div></div>`;
 
-            // Tabla de datos
-            htmlContent += '<div class="table-container">';
-            htmlContent += '<table>';
-            htmlContent += '<thead><tr>';
-            htmlContent += '<th class="text-left">Producto</th>';
-            htmlContent += '<th class="text-center">Cantidad Vendida</th>';
-            htmlContent += '<th class="text-right">Costo Total</th>';
-            htmlContent += '<th class="text-right">Venta Total</th>';
-            htmlContent += '<th class="text-right">Ganancia</th>';
-            htmlContent += '</tr></thead><tbody>';
+            htmlContent += '<div class="table-container"><table><thead><tr><th class="text-left">Producto</th><th class="text-center">Cantidad Vendida</th><th class="text-right">Costo Total</th><th class="text-right">Venta Total</th><th class="text-right">Ganancia</th></tr></thead><tbody>';
 
             processedData.forEach(row => {
                 const profitValue = parseFloat(row.profit);
                 const profitClass = profitValue >= 0 ? 'profit-positive' : 'profit-negative';
-
-                htmlContent += '<tr>';
-                htmlContent += `<td class="text-left">${row.productName || 'N/A'}</td>`;
-                htmlContent += `<td class="text-center">${row.totalQuantitySold}</td>`;
-                htmlContent += `<td class="text-right">${row.totalCost}</td>`;
-                htmlContent += `<td class="text-right">${row.totalSales}</td>`;
-                htmlContent += `<td class="text-right ${profitClass}">$ ${profitValue.toFixed(2)}</td>`;
-                htmlContent += '</tr>';
+                htmlContent += `<tr><td class="text-left">${row.productName || 'N/A'}</td><td class="text-center">${row.totalQuantitySold}</td><td class="text-right">${row.totalCost}</td><td class="text-right">${row.totalSales}</td><td class="text-right ${profitClass}">$ ${profitValue.toFixed(2)}</td></tr>`;
             });
 
-            // Fila de total
-            htmlContent += `
-                <tr class="total-row">
-                    <td colspan="4" class="text-right"><strong>GANANCIA TOTAL:</strong></td>
-                    <td class="text-right"><strong>${formattedTotal}</strong></td>
-                </tr>
-            `;
-
+            htmlContent += `<tr class="total-row"><td colspan="4" class="text-right"><strong>GANANCIA TOTAL:</strong></td><td class="text-right"><strong>${formattedTotal}</strong></td></tr>`;
             htmlContent += '</tbody></table></div>';
 
-            // Footer
-            htmlContent += `
-                <div class="report-footer">
-                    <div class="footer-info">
-                        Este reporte de márgenes fue generado automáticamente el ${currentDate}<br>
-                        Los datos reflejan las ganancias obtenidas en el período seleccionado<br>
-                        Para consultas o aclaraciones, contacte al administrador del sistema
-                    </div>
-                </div>
-            `;
-
+            htmlContent += `<div class="report-footer"><div class="footer-info">Este reporte de márgenes fue generado automáticamente el ${currentDate}<br>Los datos reflejan las ganancias obtenidas en el período seleccionado<br>Para consultas o aclaraciones, contacte al administrador del sistema</div></div>`;
             htmlContent += '</div></body></html>';
 
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
-            printWindow.focus(); // Focus en la nueva ventana para asegurar la impresión
-            printWindow.print(); // Abrir diálogo de impresión inmediatamente
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.width = '0px';
+            iframe.style.height = '0px';
+            iframe.style.border = 'none';
+            iframe.style.visibility = 'hidden';
+            document.body.appendChild(iframe);
 
-            printWindow.onafterprint = function () {
-                printWindow.close();
+            iframe.onload = () => {
+                try {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                } catch (error) {
+                    console.error('Error al intentar imprimir:', error);
+                    Swal.fire({ icon: 'error', title: 'Error de Impresión', text: 'No se pudo abrir el diálogo de impresión.' });
+                } finally {
+                    setTimeout(() => {
+                        if (iframe.parentNode) {
+                            iframe.parentNode.removeChild(iframe);
+                        }
+                    }, 1000);
+                    Swal.close();
+                }
             };
 
-            // Fallback por si onafterprint no funciona en todos los navegadores
-            setTimeout(() => {
-                if (!printWindow.closed) {
-                    printWindow.close();
-                }
-            }, 1000);
-
-            Swal.close();
+            const printDocument = iframe.contentDocument || iframe.contentWindow.document;
+            printDocument.open();
+            printDocument.write(htmlContent);
+            printDocument.close();
 
         } catch (error) {
             console.error("Error al generar el reporte para imprimir:", error);
@@ -566,7 +287,7 @@ function ProfitReport() {
                             type="date"
                             name="startDate"
                             value={filters.startDate}
-                            onChange={handleDateFilterChange}
+                            onChange={(e) => { handleDateFilterChange(e); e.target.blur(); }}
                             fullWidth
                             InputLabelProps={{ shrink: true }}
                             InputProps={{
@@ -581,25 +302,24 @@ function ProfitReport() {
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(250px, 25%, 350px)' }}>
-                        <StyledTextField
-                            label="Fecha Hasta"
-                            type="date"
-                            name="endDate"
-                            value={filters.endDate}
-                            onChange={handleDateFilterChange}
-                            fullWidth
-                            InputLabelProps={{ shrink: true }}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton size="small" onClick={() => resetFilter('endDate')}>
-                                            <ClearIcon fontSize="small" color="error" />
-                                        </IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-                    </Grid>
+                                    <StyledTextField
+                                        label="Fecha Hasta"
+                                        type="date"
+                                        name="endDate"
+                                        value={filters.endDate}
+                                        onChange={(e) => { handleDateFilterChange(e); e.target.blur(); }}
+                                        fullWidth
+                                        InputLabelProps={{ shrink: true }}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <IconButton size="small" onClick={() => resetFilter('endDate')}>
+                                                        <ClearIcon fontSize="small" color="error" />
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            )
+                                        }}
+                                    />                    </Grid>
                     <Grid sx={{ width: 'clamp(150px, 15%, 250px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <StyledButton
                             variant="contained"

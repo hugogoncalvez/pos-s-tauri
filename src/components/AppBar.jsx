@@ -22,8 +22,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ColorModeContext } from '../context/ThemeContextProvider';
 import { usePermissions } from '../hooks/usePermissions';
 import { useCashRegister } from '../hooks/useCashRegister';
-import { exit } from '@tauri-apps/api/app';
-import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import { useIsTauri } from '../hooks/useIsTauri';
 import CashMovementModal from '../styledComponents/CashMovementModal';
 
 export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }) {
@@ -34,23 +33,12 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
   const { logout, usuario } = useContext(AuthContext);
   const { SetColorMode, mode } = useContext(ColorModeContext);
   const { tienePermiso } = usePermissions();
+  const isTauri = useIsTauri();
   const { activeSession, isLoadingActiveSession, createCashMovement, isSavingMovement, userName } = useCashRegister();
   const [isCashMovementModalOpen, setIsCashMovementModalOpen] = useState(false);
 
   const handleOpenCashMovementModal = () => setIsCashMovementModalOpen(true);
   const handleCloseCashMovementModal = () => setIsCashMovementModalOpen(false);
-
-  const handleExitApp = async () => {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    }
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Logout failed during app exit:", error);
-    }
-    await exit();
-  };
 
   const handleLogout = () => {
     if (document.fullscreenElement) {
@@ -98,7 +86,7 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
 
           <Box component={'div'} sx={{ display: 'flex', alignItems: 'center' }}>
             {usuario && (
-               <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
                 <Tooltip title={isOnline ? 'Online' : 'Offline'}>
                   <Box
                     sx={{
@@ -118,26 +106,26 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
             )}
 
             {pendingSalesCount > 0 && (
-                            <Button
-                              color="warning"
-                              variant="contained"
-                              size="small"
-                              startIcon={<SyncIcon />}
-                              onClick={onSyncClick}
-                              disabled={!isOnline} // Deshabilitar si no hay conexión
-                              sx={{
-                                mr: 2,
-                                color: 'white',
-                                '&:hover': { color: 'warning.main' },
-                                // Estilo para el estado deshabilitado
-                                '&.Mui-disabled': {
-                                  backgroundColor: theme.palette.grey[500],
-                                  color: theme.palette.action.disabled,
-                                },
-                              }}
-                            >
-                              {isOnline ? `Sincronizar (${pendingSalesCount})` : `${pendingSalesCount} Ventas Pendientes`}
-                            </Button>            )}
+              <Button
+                color="warning"
+                variant="contained"
+                size="small"
+                startIcon={<SyncIcon />}
+                onClick={onSyncClick}
+                disabled={!isOnline} // Deshabilitar si no hay conexión
+                sx={{
+                  mr: 2,
+                  color: 'white',
+                  '&:hover': { color: 'warning.main' },
+                  // Estilo para el estado deshabilitado
+                  '&.Mui-disabled': {
+                    backgroundColor: theme.palette.grey[500],
+                    color: theme.palette.action.disabled,
+                  },
+                }}
+              >
+                {isOnline ? `Sincronizar (${pendingSalesCount})` : `${pendingSalesCount} Ventas Pendientes`}
+              </Button>)}
 
             <Tooltip title="Inicio">
               <IconButton
@@ -183,14 +171,6 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
                 {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
               </IconButton>
             </Tooltip>
-
-            {window.__TAURI__ && (
-              <Tooltip title="Cerrar Aplicación">
-                <IconButton onClick={handleExitApp} color="inherit">
-                  <ExitToAppIcon />
-                </IconButton>
-              </Tooltip>
-            )}
 
             <Tooltip title="Cerrar Sesión">
               <IconButton size='small' onClick={handleLogout} edge="start" color="inherit" aria-label="cerrar sesión">

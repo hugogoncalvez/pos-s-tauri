@@ -76,6 +76,28 @@ const StockManager = () => {
         low_stock: false
     });
 
+    const [nameInputValue, setNameInputValue] = useState(filters.name || '');
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            if (nameInputValue !== filters.name) {
+                handleFilterChange({ target: { name: 'name', value: nameInputValue } });
+                setPage(0);
+            }
+        }, 500); // 500ms delay
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [nameInputValue]);
+
+    useEffect(() => {
+        // Sync input when filters are cleared externally
+        if (filters.name === '' && nameInputValue !== '') {
+            setNameInputValue('');
+        }
+    }, [filters.name]);
+
     const tipoVentaOptions = [
         { value: '', label: 'Todos' },
         { value: 'unitario', label: 'Unitario' },
@@ -369,9 +391,9 @@ const StockManager = () => {
                                         <StyledTextField
                                             label="Nombre"
                                             name="name"
-                                            value={filters.name || ''}
-                                            onChange={(e) => { handleFilterChange(e); setPage(0); }}
-                                            InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleFilterChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                                            value={nameInputValue}
+                                            onChange={(e) => setNameInputValue(e.target.value)}
+                                            InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setNameInputValue('')}><ClearIcon color='error' /></IconButton></InputAdornment> }}
                                         />
                                     </Grid>
                                     <Grid xs={12} sm={6} md={4}>
@@ -447,7 +469,7 @@ const StockManager = () => {
                                             label="Mostrar solo con stock bajo"
                                         />
                                     </Grid>
-                                    <Grid xs={12} sm={6} md={4} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Grid xs={12} sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                                         <StyledButton variant="outlined" color="secondary" onClick={() => { resetFilters(); setPage(0); }}>
                                             Limpiar Filtros
                                         </StyledButton>

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { UseFetchQuery } from '../hooks/useQuery';
 import { useSubmit } from '../hooks/useSubmit';
 import { Update } from '../hooks/useUpdate';
+import { useDelete } from '../hooks/useDelete';
 import {
     Box,
     Typography,
@@ -23,12 +24,16 @@ import {
 import EditIcon from '@mui/icons-material/Edit';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import LockIcon from '@mui/icons-material/Lock';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { useTheme } from '@mui/material/styles';
 import EditSurchargeModal from '../styledComponents/EditSurchargeModal';
 import PaymentMethodModal from '../styledComponents/PaymentMethodModal';
 import AddIcon from '@mui/icons-material/Add';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
 import PaymentMethodSurchargeManagerSkeleton from '../styledComponents/skeletons/PaymentMethodSurchargeManagerSkeleton';
+import { mostrarExito } from '../functions/mostrarExito';
+import { mostrarError } from '../functions/MostrarError';
+import { confirmAction } from '../functions/ConfirmDelete';
 
 const PaymentMethodSurchargeManager = () => {
     const theme = useTheme();
@@ -40,6 +45,7 @@ const PaymentMethodSurchargeManager = () => {
 
     const mutation = Update();
     const { mutateAsync: createMethod, isLoading: isCreating } = useSubmit();
+    const { mutateAsync: deleteMethod, isLoading: isDeleting } = useDelete();
 
     const isSystemMethod = (methodName) => {
         if (!methodName) return false;
@@ -89,15 +95,28 @@ const PaymentMethodSurchargeManager = () => {
         const isEditing = !!values.id;
         if (isEditing) {
             await mutation.mutateAsync({
-                url: `/payments/${values.id}`,
+                url: `/payment/${values.id}`,
                 datos: values
             }, { onSuccess: () => { refetch(); setNewMethodModalOpen(false); } });
         } else {
             await createMethod({
-                url: '/payments',
+                url: `/payment`,
                 values
             }, { onSuccess: () => { refetch(); setNewMethodModalOpen(false); } });
         }
+    };
+
+    const handleDeleteMethod = (method) => {
+        confirmAction(async () => {
+            try {
+                await deleteMethod({ url: '/payment', id: parseInt(method.id, 10) });
+                refetch();
+                mostrarExito('El método de pago ha sido eliminado.', theme);
+            } catch (error) {
+                console.error('Error al eliminar método de pago:', error);
+                mostrarError('No se pudo eliminar el método de pago.', theme);
+            }
+        }, () => {}, `¿Estás seguro de eliminar el método de pago "${method.method}"?`, theme);
     };
 
     if (isLoading) return <PaymentMethodSurchargeManagerSkeleton />;
@@ -145,52 +164,66 @@ const PaymentMethodSurchargeManager = () => {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {paymentMethods?.map((method) => (
-                                <TableRow key={method.id}>
-                                    <TableCell component="th" scope="row">
-                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                            {method.method}
-                                            {isSystemMethod(method.method) &&
-                                                <Tooltip title="Método del sistema (no se puede editar)">
-                                                    <LockIcon sx={{ fontSize: '1rem', ml: 1, color: 'text.secondary' }} />
+                            {paymentMethods?.map((method) => {
+                                const methodId = parseInt(method.id, 10);
+                                if (isNaN(methodId)) {
+                                    console.error("Corrupted payment method ID found:", method.id);
+                                    return null; // Skip rendering this corrupted row
+                                }
+                                return (
+                                    <TableRow key={methodId}>
+                                        <TableCell component="th" scope="row">
+                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                {method.method}
+                                                {isSystemMethod(method.method) &&
+                                                    <Tooltip title="Método del sistema (no se puede editar)">
+                                                        <LockIcon sx={{ fontSize: '1rem', ml: 1, color: 'text.secondary' }} />
+                                                    </Tooltip>
+                                                }
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell>{method.description}</TableCell>
+                                        <TableCell align="center">
+                                            <Chip label={method.active ? 'Sí' : 'No'} color={method.active ? 'success' : 'error'} size="small" />
+                                        </TableCell>
+                                        <TableCell align="center">
+                                            <Switch
+                                                checked={method.surcharge_active}
+                                                onChange={() => onToggle(method)}
+                                                disabled={mutation.isPending || isSystemMethod(method.method)}
+                                            />
+                                        </TableCell>
+                                        <TableCell align="center">
+                                            {parseFloat(method.surcharge_percentage).toFixed(2)}%
+                                        </TableCell>
+                                        <TableCell align="center">
+                                            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                                                <Tooltip title="Editar Método de Pago">
+                                                    <span>
+                                                        <IconButton onClick={() => handleOpenEditModal(method)} color="info" disabled={isSystemMethod(method.method)}>
+                                                            <EditIcon />
+                                                        </IconButton>
+                                                    </span>
                                                 </Tooltip>
-                                            }
-                                        </Box>
-                                    </TableCell>
-                                    <TableCell>{method.description}</TableCell>
-                                    <TableCell align="center">
-                                        <Chip label={method.active ? 'Sí' : 'No'} color={method.active ? 'success' : 'error'} size="small" />
-                                    </TableCell>
-                                    <TableCell align="center">
-                                        <Switch
-                                            checked={method.surcharge_active}
-                                            onChange={() => onToggle(method)}
-                                            disabled={mutation.isPending || isSystemMethod(method.method)}
-                                        />
-                                    </TableCell>
-                                    <TableCell align="center">
-                                        {parseFloat(method.surcharge_percentage).toFixed(2)}%
-                                    </TableCell>
-                                    <TableCell align="center">
-                                        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                                            <Tooltip title="Editar Método de Pago">
-                                                <span>
-                                                    <IconButton onClick={() => handleOpenEditModal(method)} color="info" disabled={isSystemMethod(method.method)}>
-                                                        <EditIcon />
-                                                    </IconButton>
-                                                </span>
-                                            </Tooltip>
-                                            <Tooltip title="Editar Recargo">
-                                                <span>
-                                                    <IconButton onClick={() => handleOpenSurchargeModal(method)} color="secondary" disabled={isSystemMethod(method.method)}>
-                                                        <MonetizationOnIcon />
-                                                    </IconButton>
-                                                </span>
-                                            </Tooltip>
-                                        </Box>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                                                <Tooltip title="Editar Recargo">
+                                                    <span>
+                                                        <IconButton onClick={() => handleOpenSurchargeModal(method)} color="secondary" disabled={isSystemMethod(method.method)}>
+                                                            <MonetizationOnIcon />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
+                                                <Tooltip title="Eliminar Método de Pago">
+                                                    <span>
+                                                        <IconButton onClick={() => handleDeleteMethod(method)} color="error" disabled={isSystemMethod(method.method)}>
+                                                            <DeleteForeverIcon />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
+                                            </Box>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 </TableContainer>

@@ -23,7 +23,7 @@ export const ThemeContextProvider = ({ children }) => {
   });
 
   // 1. Obtener el objeto de temas (que contiene light y dark) desde el backend
-  const { data: customPalette, isLoading: isLoadingPalette, refetch: refetchThemeSettings } = UseFetchQuery('themeSettings', '/api/theme');
+  const { data: customPalette, isLoading: isLoadingPalette, refetch: refetchThemeSettings } = UseFetchQuery('themeSettings', '/theme');
 
   // 2. Obtener la función de mutación para actualizar el tema
   const { mutate: updateThemeMutation } = Update(['themeSettings']);
@@ -41,7 +41,7 @@ export const ThemeContextProvider = ({ children }) => {
   const updatePalette = (newPaletteForMode, modeToUpdate) => {
     updateThemeMutation(
       {
-        url: '/api/theme',
+        url: '/theme',
         datos: { mode: modeToUpdate, palette: newPaletteForMode } // Enviar el modo y la paleta
       },
       {

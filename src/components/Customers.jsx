@@ -117,7 +117,7 @@ const Customers = () => {
 
 
 
-    const { purchaseHistory, paymentHistory, errorHistory, historyFilters, openPurchaseDetailDialog, setOpenPurchaseDetailDialog, openPaymentDetailDialog, setOpenPaymentDetailDialog, selectedPurchase, setSelectedPurchase, selectedPayment, setSelectedPayment, purchaseDetails, setPurchaseDetails, handleHistoryFilterChange, applyHistoryFilters, clearHistoryFilters, handleViewPurchaseDetail, handleViewPaymentDetail, handlePrintPurchase, handlePrintPayment, handlePrintDoublePaymentReceipt, setSaleIdForDetail } = useCustomerHistory(selectedCustomer?.id, selectedCustomer?.name);
+    const { purchaseHistory, paymentHistory, errorHistory, loadingHistory, historyFilters, openPurchaseDetailDialog, setOpenPurchaseDetailDialog, openPaymentDetailDialog, setOpenPaymentDetailDialog, selectedPurchase, setSelectedPurchase, selectedPayment, setSelectedPayment, purchaseDetails, setPurchaseDetails, handleHistoryFilterChange, applyHistoryFilters, clearHistoryFilters, handleViewPurchaseDetail, handleViewPaymentDetail, handlePrintPurchase, handlePrintPayment, handlePrintDoublePaymentReceipt, setSaleIdForDetail } = useCustomerHistory(selectedCustomer?.id, selectedCustomer?.name);
     const handleCloseErrorSnackbar = useCallback(() => setError(''), [setError]);
     const handleCloseSuccessSnackbar = useCallback(() => setSuccess(''), [setSuccess]);
 
@@ -377,7 +377,7 @@ const Customers = () => {
                                                     type="date"
                                                     name="startDate"
                                                     value={startDate}
-                                                    onChange={(e) => handleStartDateChange(e.target.value)}
+                                                    onChange={(e) => handleStartDateChange(e.target.value, e)}
                                                     fullWidth
                                                     size="small"
                                                     autoComplete='off'
@@ -385,7 +385,7 @@ const Customers = () => {
                                                     InputProps={{
                                                         startAdornment: (
                                                             <InputAdornment position="start">
-                                                                <IconButton size='small' onClick={() => handleStartDateChange('')}>
+                                                                <IconButton size='small' onClick={() => handleStartDateChange('', null)}>
                                                                     <ClearIcon fontSize='small' color='error' />
                                                                 </IconButton>
                                                             </InputAdornment>
@@ -399,7 +399,7 @@ const Customers = () => {
                                                     type="date"
                                                     name="endDate"
                                                     value={endDate}
-                                                    onChange={(e) => handleEndDateChange(e.target.value)}
+                                                    onChange={(e) => handleEndDateChange(e.target.value, e)}
                                                     fullWidth
                                                     size="small"
                                                     autoComplete='off'
@@ -407,7 +407,7 @@ const Customers = () => {
                                                     InputProps={{
                                                         startAdornment: (
                                                             <InputAdornment position="start">
-                                                                <IconButton size='small' onClick={() => handleEndDateChange('')}>
+                                                                <IconButton size='small' onClick={() => handleEndDateChange('', null)}>
                                                                     <ClearIcon fontSize='small' color='error' />
                                                                 </IconButton>
                                                             </InputAdornment>
@@ -749,7 +749,7 @@ const Customers = () => {
                                                         label="Fecha Desde"
                                                         type="date"
                                                         value={historyFilters.purchases.start_date}
-                                                        onChange={(e) => handleHistoryFilterChange('purchases', 'start_date', e.target.value)}
+                                                        onChange={(e) => { handleHistoryFilterChange('purchases', 'start_date', e.target.value); e.target.blur(); }}
                                                         InputLabelProps={{ shrink: true }}
                                                         InputProps={{
                                                             startAdornment: (
@@ -769,7 +769,7 @@ const Customers = () => {
                                                         label="Fecha Hasta"
                                                         type="date"
                                                         value={historyFilters.purchases.end_date}
-                                                        onChange={(e) => handleHistoryFilterChange('purchases', 'end_date', e.target.value)}
+                                                        onChange={(e) => { handleHistoryFilterChange('purchases', 'end_date', e.target.value); e.target.blur(); }}
                                                         InputLabelProps={{ shrink: true }}
                                                         InputProps={{
                                                             startAdornment: (
@@ -906,7 +906,7 @@ const Customers = () => {
                                                         label="Fecha Desde"
                                                         type="date"
                                                         value={historyFilters.payments.start_date}
-                                                        onChange={(e) => handleHistoryFilterChange('payments', 'start_date', e.target.value)}
+                                                        onChange={(e) => { handleHistoryFilterChange('payments', 'start_date', e.target.value); e.target.blur(); }}
                                                         InputLabelProps={{ shrink: true }}
                                                         InputProps={{
                                                             startAdornment: (
@@ -926,12 +926,12 @@ const Customers = () => {
                                                         label="Fecha Hasta"
                                                         type="date"
                                                         value={historyFilters.payments.end_date}
-                                                        onChange={(e) => handleHistoryFilterChange('payments', 'end_date', e.target.value)}
+                                                        onChange={(e) => { handleHistoryFilterChange('payments', 'end_date', e.target.value); e.target.blur(); }}
                                                         InputLabelProps={{ shrink: true }}
                                                         InputProps={{
                                                             startAdornment: (
                                                                 <InputAdornment position="start">
-                                                                    <IconButton size='small' onClick={() => handleHistoryFilterChange('payments', 'start_date', '')}>
+                                                                    <IconButton size='small' onClick={() => handleHistoryFilterChange('payments', 'end_date', '')}>
                                                                         <ClearIcon fontSize='small' color='error' />
                                                                     </IconButton>
                                                                 </InputAdornment>
@@ -1095,6 +1095,9 @@ const Customers = () => {
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
                                         <Typography><strong>Método de Pago:</strong> {selectedPurchase.sale_payments && selectedPurchase.sale_payments.length > 0 ? selectedPurchase.sale_payments.map(p => `${p.payment?.method}: ${p.amount}`).join(' / ') : 'No especificado'}</Typography>
+                                        {selectedPurchase.surcharge_amount > 0 && (
+                                            <Typography><strong>Recargo:</strong> ${selectedPurchase.surcharge_amount}</Typography>
+                                        )}
                                         <Typography><strong>Total:</strong> ${selectedPurchase.total_neto}</Typography>
                                     </Grid>
                                 </Grid>
@@ -1161,6 +1164,7 @@ const Customers = () => {
                         onClick={() => handlePrintPurchase(selectedPurchase, selectedCustomer?.name)}
                         variant="contained"
                         startIcon={<PrintIcon />}
+                        disabled={loadingHistory} // <-- AÑADIDO
                     >
                         Imprimir
                     </StyledButton>

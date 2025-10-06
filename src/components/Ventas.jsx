@@ -1876,8 +1876,8 @@ const Ventas = () => {
                 </Box>
               </Grid>
             )}
-            <Grid container spacing={2} sx={{ width: '100%', maxWidth: '800px', justifyContent: 'center' }}>
-              <Grid size={{ xs: 12, sm: 6 }}>
+            <Grid container spacing={2} sx={{ width: '100%', maxWidth: '900px', justifyContent: 'center' }}>
+              <Grid xs={12} sm={6}>
                 <StyledTextField
                   autoFocus size="small" sx={{ mb: 2, width: '100%' }}
                   disabled={isScanningBarcode}
@@ -1899,7 +1899,7 @@ const Ventas = () => {
                   inputRef={inputRefCodigoBarra}
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid xs={12} sm={6}>
                 <StyledAutocomplete
                   value={selectedProduct}
                   isOptionEqualToValue={(option, value) => option.id === value?.id}

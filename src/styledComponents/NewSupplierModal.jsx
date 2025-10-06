@@ -51,7 +51,7 @@ export const NewSupplierModal = ({ open, handleClose, initialName = '', onSuppli
         }
 
         createSupplier(
-            { url: '/suppliers', values: values, useApi: true },
+            { url: '/suppliers', values: values },
             {
                 onSuccess: (data) => {
                     mostrarExito('Proveedor creado correctamente.', theme);

@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    open: true, // Abre el navegador por defecto automáticamente
+    open: false, // No abrir el navegador automáticamente
     proxy: {
       '/api': 'http://localhost:8000', // Redirige todas las solicitudes /api al backend
     },

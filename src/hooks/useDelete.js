@@ -29,12 +29,6 @@ export const useDelete = (key = '') => {
 
 }
 
-const deletion = async ({ url, id, useApi = true }) => {
-    useApi ? await Api.delete(`${url}${id}`) : await axios.delete(`https://api.cloudinary.com/v1_1/dsxtxleqw/image/destroy/${id}`, {
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer 826268339186942`
-        }
-    });
-    //await Api.delete(`${url}${id}`)
+const deletion = async ({ url, id }) => {
+    await Api.delete(`${url}/${id}`);
 }

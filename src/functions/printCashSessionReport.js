@@ -29,7 +29,7 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
     ? `
     <div class="section">
         <h2>Desglose de Ventas por Método de Pago</h2>
-        <div class="info-grid">
+        <div>
         ${Object.entries(session.payment_methods).map(([method, amount]) => `
             <div class="info-row">
                 <span>${method}:</span>
@@ -40,6 +40,12 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
     </div>
     `
     : '';
+
+    const salesAmount = session.status === 'abierta' ? (session.total_sales || 0) : (session.total_sales_at_close || 0);
+    const openingAmount = parseFloat(session.opening_amount) || 0;
+    const expectedAmount = session.status === 'abierta' 
+        ? openingAmount + (parseFloat(salesAmount) || 0)
+        : (session.expected_cash || 0);
 
     const reportContent = `
         <html>
@@ -55,10 +61,10 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
                     font-family: 'Roboto', sans-serif;
                     margin: 0;
                     padding: 15px;
-                    background-color: #fff; /* Fondo blanco para impresión */
+                    background-color: #fff;
                     color: #333;
-                    -webkit-print-color-adjust: exact; /* Para que los colores se impriman en Chrome */
-                    color-adjust: exact; /* Estándar */
+                    -webkit-print-color-adjust: exact;
+                    color-adjust: exact;
                 }
                 .container {
                     max-width: 800px;
@@ -66,7 +72,7 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
                     padding: 25px;
                     border: 1px solid #dee2e6;
                     background-color: #fff;
-                    box-shadow: none; /* Quitar sombra para impresión */
+                    box-shadow: none;
                 }
                 .header { 
                     text-align: center; 
@@ -74,20 +80,9 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
                     border-bottom: 2px solid #e9ecef;
                     padding-bottom: 20px;
                 }
-                .header h1 {
-                    margin: 0;
-                    color: #212529;
-                    font-size: 2em;
-                    font-weight: 700;
-                }
-                .header p {
-                    margin: 5px 0;
-                    color: #6c757d;
-                    font-size: 0.9em;
-                }
-                .section { 
-                    margin-bottom: 25px;
-                }
+                .header h1 { margin: 0; color: #212529; font-size: 2em; font-weight: 700; }
+                .header p { margin: 5px 0; color: #6c757d; font-size: 0.9em; }
+                .section { margin-bottom: 25px; }
                 .section h2 {
                     border-bottom: 1px solid #ced4da;
                     padding-bottom: 10px;
@@ -109,39 +104,14 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
                     border-bottom: 1px solid #f1f3f5;
                     font-size: 0.95em;
                 }
-                .info-row:last-child {
-                    border-bottom: none;
-                }
-                .info-row span:first-child {
-                    color: #495057;
-                }
-                .info-row span:last-child {
-                    font-weight: 500;
-                    color: #212529;
-                }
-                .total { 
-                    font-size: 1.05em;
-                }
-                .notes-section {
-                    background-color: #fffbe6;
-                    border-left: 5px solid #fcc419;
-                    padding: 15px 20px;
-                    margin-top: 25px;
-                    border-radius: 4px;
-                }
-                .notes-section h3 {
-                    margin-top: 0;
-                    color: #fab005;
-                    font-size: 1.2em;
-                }
-                .notes-section p {
-                    margin: 8px 0;
-                }
-                hr.solid {
-                    border: none;
-                    border-top: 1px solid #dee2e6;
-                    margin: 15px 0;
-                }
+                .info-row:last-child { border-bottom: none; }
+                .info-row span:first-child { color: #495057; }
+                .info-row span:last-child { font-weight: 500; color: #212529; }
+                .total { font-size: 1.05em; }
+                .notes-section { background-color: #fffbe6; border-left: 5px solid #fcc419; padding: 15px 20px; margin-top: 25px; border-radius: 4px; }
+                .notes-section h3 { margin-top: 0; color: #fab005; font-size: 1.2em; }
+                .notes-section p { margin: 8px 0; }
+                hr.solid { border: none; border-top: 1px solid #dee2e6; margin: 15px 0; }
             </style>
         </head>
         <body>
@@ -167,8 +137,8 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
                 <div class="section">
                     <h2>Resumen Financiero</h2>
                     <div class="info-row"><span>Monto de Apertura:</span> <span>${formatCurrency(session.opening_amount)}</span></div>
-                    <div class="info-row"><span>Ventas del Sistema (al cierre):</span> <span>${formatCurrency(session.total_sales_at_close)}</span></div>
-                    <div class="info-row total"><span>Monto Esperado (Sistema):</span> <span>${formatCurrency(session.expected_cash)}</span></div>
+                    <div class="info-row"><span>Ventas del Sistema:</span> <span>${formatCurrency(salesAmount)}</span></div>
+                    <div class="info-row total"><span>Monto Esperado (Sistema):</span> <span>${formatCurrency(expectedAmount)}</span></div>
                     <hr class="solid">
                     <div class="info-row"><span>Monto Declarado (Cajero):</span> <span>${formatCurrency(session.cashier_declared_amount)}</span></div>
                     ${getDiscrepancyRow('Diferencia Preliminar', session.preliminary_discrepancy)}
@@ -189,48 +159,32 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
         </html>
     `;
 
-    const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
-    
-    if (printWindow) {
-        printWindow.document.write(reportContent);
-        printWindow.document.close();
-        printWindow.focus();
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
 
-        // Usar onload para asegurar que el contenido se cargue antes de imprimir
-        printWindow.onload = () => {
-            // Pequeño retraso adicional para asegurar que el navegador esté listo
+    iframe.onload = () => {
+        try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+        } catch (error) {
+            console.error('Error al intentar imprimir:', error);
+            Swal.fire('Error', 'No se pudo completar la impresión.', 'error');
+        } finally {
             setTimeout(() => {
-                try {
-                    printWindow.focus(); // Asegurar que la ventana tenga el foco
-                    printWindow.print();
-                    printWindow.close();
-                } catch (e) {
-                    console.error("Error al imprimir:", e);
-                    Swal.fire('Error', 'No se pudo completar la impresión.', 'error');
-                    printWindow.close();
+                if (iframe.parentNode) {
+                    iframe.parentNode.removeChild(iframe);
                 }
-            }, 50); // 50ms de retraso
-        };
+            }, 1000);
+        }
+    };
 
-        // Fallback en caso de que onload no se dispare (ej. contenido vacío o bloqueado)
-        setTimeout(() => {
-            if (!printWindow.closed) { // Solo intentar imprimir si la ventana no se ha cerrado ya
-                try {
-                    printWindow.print();
-                    printWindow.close();
-                } catch (e) {
-                    console.error("Error al imprimir (fallback):", e);
-                    Swal.fire('Error', 'No se pudo completar la impresión (fallback).', 'error');
-                    printWindow.close();
-                }
-            }
-        }, 1000); // Un tiempo más largo para el fallback
-
-    } else {
-        Swal.fire(
-            'Error de Pop-up',
-            'El navegador bloqueó la ventana de impresión. Por favor, habilita los pop-ups para este sitio.',
-            'error'
-        );
-    }
+    const printDocument = iframe.contentDocument || iframe.contentWindow.document;
+    printDocument.open();
+    printDocument.write(reportContent);
+    printDocument.close();
 };

@@ -14,15 +14,17 @@ import { useForm } from '../hooks/useForm';
 import CloseIcon from '@mui/icons-material/Close';
 
 const PaymentMethodModal = ({ open, onClose, onSave, isLoading, method }) => {
-    const [values, handleInputChange, resetForm, setValues] = useForm(method || {});
+    const [values, handleInputChange, resetForm, , setValues] = useForm(method || {});
 
     useEffect(() => {
-        if (method) {
-            setValues(method);
-        } else {
-            resetForm();
+        if (open) { // Only run when modal opens or method changes
+            if (method) {
+                setValues(method);
+            } else {
+                setValues({}); // Explicitly set to empty object for new method
+            }
         }
-    }, [method, open, setValues, resetForm]);
+    }, [method, open, setValues]);
 
     const handleSubmit = () => {
         // Aquí puedes agregar validación antes de guardar
@@ -31,11 +33,11 @@ const PaymentMethodModal = ({ open, onClose, onSave, isLoading, method }) => {
 
     return (
         <StyledDialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
                 {method ? 'Editar Método de Pago' : 'Nuevo Método de Pago'}
                 <IconButton onClick={onClose}><CloseIcon color="error" /></IconButton>
             </DialogTitle>
-            <DialogContent dividers>
+            <DialogContent dividers sx={{ backgroundColor: 'background.dialog' }}>
                 <Grid container spacing={2} sx={{ mt: 1 }}>
                     <Grid item xs={12}>
                         <StyledTextField
@@ -57,7 +59,7 @@ const PaymentMethodModal = ({ open, onClose, onSave, isLoading, method }) => {
                     </Grid>
                 </Grid>
             </DialogContent>
-            <DialogActions>
+            <DialogActions sx={{ backgroundColor: 'background.dialog' }}>
                 <StyledButton onClick={onClose} variant="outlined" color="secondary">Cancelar</StyledButton>
                 <StyledButton onClick={handleSubmit} variant="contained" disabled={isLoading}>
                     {isLoading ? <CircularProgress size={24} /> : 'Guardar'}

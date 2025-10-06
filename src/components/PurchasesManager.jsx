@@ -74,6 +74,37 @@ const PurchasesManager = () => {
         stock_id: ''
     });
 
+    const [facturaInput, setFacturaInput] = useState('');
+    const [supplierInput, setSupplierInput] = useState('');
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            if (facturaInput !== filters.factura) {
+                handleFilterChange({ target: { name: 'factura', value: facturaInput } });
+                setPage(0);
+            }
+        }, 500);
+        return () => clearTimeout(handler);
+    }, [facturaInput, filters.factura, handleFilterChange]);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            if (supplierInput !== filters.supplier) {
+                handleFilterChange({ target: { name: 'supplier', value: supplierInput } });
+                setPage(0);
+            }
+        }, 500);
+        return () => clearTimeout(handler);
+    }, [supplierInput, filters.supplier, handleFilterChange]);
+
+    useEffect(() => {
+        if (filters.factura === '' && facturaInput !== '') setFacturaInput('');
+    }, [filters.factura]);
+
+    useEffect(() => {
+        if (filters.supplier === '' && supplierInput !== '') setSupplierInput('');
+    }, [filters.supplier]);
+
     const [barcodeInput, setBarcodeInput] = useState('');
     const [productSearchTerm, setProductSearchTerm] = useState('');
 
@@ -164,375 +195,96 @@ const PurchasesManager = () => {
         try {
             const currentDate = moment().format('DD/MM/YYYY HH:mm');
             const purchaseDate = moment.utc(selectedPurchase.createdAt).format('DD/MM/YYYY');
-            const printWindow = window.open('', '_blank');
+            
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.width = '0px';
+            iframe.style.height = '0px';
+            iframe.style.border = 'none';
+            iframe.style.visibility = 'hidden';
+            document.body.appendChild(iframe);
 
             let htmlContent = `
-        <html>
-        <head>
-            <title>Detalle de Compra #${selectedPurchase.id}</title>
-            <meta charset="UTF-8">
-            <style>
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
-                
-                body { 
-                    font-family: 'Segoe UI', Arial, sans-serif; 
-                    margin: 0;
-                    padding: 20px;
-                    color: #333;
-                    background: #fff;
-                    line-height: 1.4;
-                }
-                
-                .purchase-container {
-                    max-width: 800px;
-                    margin: 0 auto;
-                    background: #fff;
-                    border: 2px solid #ddd;
-                    border-radius: 8px;
-                    overflow: hidden;
-                }
-                
-                .purchase-header {
-                    background: #f8f9fa;
-                    color: #333;
-                    padding: 30px;
-                    text-align: center;
-                    border-bottom: 2px solid #6c757d;
-                }
-                
-                .company-info {
-                    margin-bottom: 20px;
-                }
-                
-                .company-name {
-                    font-size: 28px;
-                    font-weight: bold;
-                    margin-bottom: 8px;
-                    color: #6c757d;
-                }
-                
-                .company-details {
-                    font-size: 14px;
-                    color: #666;
-                    margin-bottom: 20px;
-                }
-                
-                .purchase-title {
-                    font-size: 24px;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                    color: #333;
-                }
-                
-                .purchase-number {
-                    font-size: 16px;
-                    color: #666;
-                    margin-bottom: 5px;
-                }
-                
-                .generated-date {
-                    font-size: 12px;
-                    color: #999;
-                }
-                
-                .purchase-body {
-                    padding: 25px;
-                }
-                
-                .info-section {
-                    background: #f8f9fa;
-                    border-radius: 6px;
-                    padding: 20px;
-                    margin-bottom: 25px;
-                    border-left: 4px solid #6c757d;
-                }
-                
-                .info-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 15px;
-                }
-                
-                .info-item {
-                    margin-bottom: 10px;
-                }
-                
-                .info-label {
-                    font-weight: 600;
-                    color: #555;
-                    margin-bottom: 5px;
-                }
-                
-                .info-value {
-                    color: #333;
-                    font-size: 15px;
-                }
-                
-                .total-highlight {
-                    background: #f8f9fa;
-                    color: #333;
-                    padding: 20px;
-                    border-radius: 8px;
-                    text-align: center;
-                    margin: 20px 0;
-                    border: 2px solid #6c757d;
-                }
-                
-                .total-amount {
-                    font-size: 28px;
-                    font-weight: bold;
-                    color: #6c757d;
-                }
-                
-                .table-container {
-                    background: white;
-                    border-radius: 8px;
-                    overflow: hidden;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    margin-bottom: 30px;
-                }
-                
-                table { 
-                    width: 100%; 
-                    border-collapse: collapse;
-                    font-size: 12px;
-                }
-                
-                thead {
-                    background: #f8f9fa;
-                    border-bottom: 2px solid #6c757d;
-                }
-                
-                th { 
-                    color: #333;
-                    padding: 12px 8px;
-                    text-align: left;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    border-bottom: 1px solid #ddd;
-                }
-                
-                td { 
-                    padding: 10px 8px;
-                    border-bottom: 1px solid #eee;
-                    vertical-align: middle;
-                }
-                
-                tbody tr:nth-child(even) {
-                    background-color: #f8f9fa;
-                }
-                
-                tbody tr:hover {
-                    background-color: #e9ecef;
-                }
-                
-                .text-center { text-align: center; }
-                .text-right { text-align: right; }
-                .text-left { text-align: left; }
-                
-                .total-row {
-                    background: #e9ecef !important;
-                    color: #333;
-                    font-weight: bold;
-                    font-size: 13px;
-                    border-top: 2px solid #6c757d;
-                }
-                
-                .total-row td {
-                    border-bottom: none;
-                    padding: 15px 8px;
-                }
-                
-                .purchase-footer {
-                    background: #f8f9fa;
-                    padding: 20px;
-                    text-align: center;
-                    border-top: 2px dashed #ddd;
-                    margin-top: 30px;
-                }
-                
-                .footer-info {
-                    font-size: 11px;
-                    color: #666;
-                    line-height: 1.4;
-                }
-                
-                @media print {
-                    body { 
-                        margin: 0; 
-                        padding: 15px; 
-                        font-size: 11px;
-                    }
-                    
-                    .purchase-container { 
-                        border: 1px solid #000;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    
-                    .purchase-header { 
-                        background: #f8f9fa !important;
-                        border-bottom: 1px solid #000 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    
-                    .info-section {
-                        background: #f8f9fa !important;
-                        border-left: 2px solid #000 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    
-                    .total-highlight {
-                        background: #f8f9fa !important;
-                        border: 1px solid #000 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    
-                    thead {
-                        background: #f8f9fa !important;
-                        border-bottom: 1px solid #000 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    
-                    .total-row {
-                        background: #f0f0f0 !important;
-                        border-top: 1px solid #000 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    
-                    table { font-size: 10px; }
-                    th { padding: 6px 4px; }
-                    td { padding: 5px 4px; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="purchase-container">
-                <div class="purchase-header">
-                    <div class="company-info">
-                        <div class="company-name">Mi Empresa</div>
-                        <div class="company-details">
-                            Dirección: Calle Principal 123<br>
-                            Tel: (123) 456-7890 | Email: info@miempresa.com
-                        </div>
+            <html>
+            <head>
+                <title>Detalle de Compra #${selectedPurchase.id}</title>
+                <meta charset="UTF-8">
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; color: #333; background: #fff; line-height: 1.4; }
+                    .purchase-container { max-width: 800px; margin: 0 auto; background: #fff; border: 2px solid #ddd; border-radius: 8px; overflow: hidden; }
+                    .purchase-header { background: #f8f9fa; color: #333; padding: 30px; text-align: center; border-bottom: 2px solid #6c757d; }
+                    .company-name { font-size: 28px; font-weight: bold; margin-bottom: 8px; color: #6c757d; }
+                    .company-details { font-size: 14px; color: #666; margin-bottom: 20px; }
+                    .purchase-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; color: #333; }
+                    .purchase-number { font-size: 16px; color: #666; margin-bottom: 5px; }
+                    .generated-date { font-size: 12px; color: #999; }
+                    .purchase-body { padding: 25px; }
+                    .info-section { background: #f8f9fa; border-radius: 6px; padding: 20px; margin-bottom: 25px; border-left: 4px solid #6c757d; }
+                    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+                    .info-item { margin-bottom: 10px; }
+                    .info-label { font-weight: 600; color: #555; margin-bottom: 5px; }
+                    .info-value { color: #333; font-size: 15px; }
+                    .total-highlight { background: #f8f9fa; color: #333; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; border: 2px solid #6c757d; }
+                    .total-amount { font-size: 28px; font-weight: bold; color: #6c757d; }
+                    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                    thead { background: #f8f9fa; border-bottom: 2px solid #6c757d; }
+                    th { color: #333; padding: 12px 8px; text-align: left; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #ddd; }
+                    td { padding: 10px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+                    tbody tr:nth-child(even) { background-color: #f8f9fa; }
+                    .text-right { text-align: right; }
+                    .total-row { background: #e9ecef !important; color: #333; font-weight: bold; font-size: 13px; border-top: 2px solid #6c757d; }
+                    .total-row td { border-bottom: none; padding: 15px 8px; }
+                    .purchase-footer { background: #f8f9fa; padding: 20px; text-align: center; border-top: 2px dashed #ddd; margin-top: 30px; }
+                    .footer-info { font-size: 11px; color: #666; line-height: 1.4; }
+                    @media print { body { margin: 0; padding: 15px; font-size: 11px; } .purchase-container, .purchase-header, .info-section, .total-highlight, thead, .total-row { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .purchase-container { border: 1px solid #000; } .purchase-header { background: #f8f9fa !important; border-bottom: 1px solid #000 !important; } .info-section { background: #f8f9fa !important; border-left: 2px solid #000 !important; } .total-highlight { background: #f8f9fa !important; border: 1px solid #000 !important; } thead { background: #f8f9fa !important; border-bottom: 1px solid #000 !important; } .total-row { background: #f0f0f0 !important; border-top: 1px solid #000 !important; } table { font-size: 10px; } th { padding: 6px 4px; } td { padding: 5px 4px; } }
+                </style>
+            </head>
+            <body>
+                <div class="purchase-container">
+                    <div class="purchase-header">
+                        <div class="company-info"><div class="company-name">Mi Empresa</div><div class="company-details">Dirección: Calle Principal 123<br>Tel: (123) 456-7890 | Email: info@miempresa.com</div></div>
+                        <div class="purchase-title">Detalle de Compra</div>
+                        <div class="purchase-number">#${selectedPurchase.id}</div>
+                        <div class="generated-date">Impreso el ${currentDate}</div>
                     </div>
-                    <div class="purchase-title">Detalle de Compra</div>
-                    <div class="purchase-number">#${selectedPurchase.id}</div>
-                    <div class="generated-date">Impreso el ${currentDate}</div>
-                </div>
-                
-                <div class="purchase-body">
-                    <div class="info-section">
-                        <div class="info-grid">
-                            <div>
-                                <div class="info-item">
-                                    <div class="info-label">Proveedor:</div>
-                                    <div class="info-value">${selectedPurchase.supplier}</div>
-                                </div>
-                                <div class="info-item">
-                                    <div class="info-label">Número de Factura:</div>
-                                    <div class="info-value">${selectedPurchase.factura}</div>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="info-item">
-                                    <div class="info-label">Fecha de Compra:</div>
-                                    <div class="info-value">${purchaseDate}</div>
-                                </div>
-                                <div class="info-item">
-                                    <div class="info-label">Total de Productos:</div>
-                                    <div class="info-value">${selectedPurchaseDetails.length} items</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="total-highlight">
-                        <div style="margin-bottom: 10px; font-size: 16px;">Total de la Compra</div>
-                        <div class="total-amount">${formatCurrency(selectedPurchase.cost)}</div>
-                    </div>
-                    
-                    <h3 style="color: #6c757d; border-bottom: 2px solid #6c757d; padding-bottom: 10px; margin-bottom: 20px;">
-                        Detalle de Productos
-                    </h3>
-                    
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th class="text-left">Producto</th>
-                                    <th class="text-left">Descripción</th>
-                                    <th class="text-center">Cantidad</th>
-                                    <th class="text-right">Costo Unitario</th>
-                                    <th class="text-right">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-        `;
-
-            // Agregar productos
-            selectedPurchaseDetails.forEach((detail, index) => {
-                htmlContent += `
-                <tr>
-                    <td class="text-left">${detail.producto}</td>
-                    <td class="text-left">${detail.description}</td>
-                    <td class="text-center">${formatQuantity(detail.cantidad)}</td>
-                    <td class="text-right">${detail.precio}</td>
-                    <td class="text-right">${detail.total}</td>
-                </tr>
+                    <div class="purchase-body">
+                        <div class="info-section"><div class="info-grid"><div><div class="info-item"><div class="info-label">Proveedor:</div><div class="info-value">${selectedPurchase.supplier}</div></div><div class="info-item"><div class="info-label">Número de Factura:</div><div class="info-value">${selectedPurchase.factura}</div></div></div><div><div class="info-item"><div class="info-label">Fecha de Compra:</div><div class="info-value">${purchaseDate}</div></div><div class="info-item"><div class="info-label">Total de Productos:</div><div class="info-value">${selectedPurchaseDetails.length} items</div></div></div></div></div>
+                        <div class="total-highlight"><div style="margin-bottom: 10px; font-size: 16px;">Total de la Compra</div><div class="total-amount">${formatCurrency(selectedPurchase.cost)}</div></div>
+                        <h3 style="color: #6c757d; border-bottom: 2px solid #6c757d; padding-bottom: 10px; margin-bottom: 20px;">Detalle de Productos</h3>
+                        <div class="table-container"><table><thead><tr><th class="text-left">Producto</th><th class="text-left">Descripción</th><th class="text-center">Cantidad</th><th class="text-right">Costo Unitario</th><th class="text-right">Total</th></tr></thead><tbody>
             `;
+
+            selectedPurchaseDetails.forEach((detail) => {
+                htmlContent += `<tr><td class="text-left">${detail.producto}</td><td class="text-left">${detail.description}</td><td class="text-center">${formatQuantity(detail.cantidad)}</td><td class="text-right">${detail.precio}</td><td class="text-right">${detail.total}</td></tr>`;
             });
 
-            // Fila de total
-            htmlContent += `
-                                <tr class="total-row">
-                                    <td colspan="4" class="text-right"><strong>TOTAL GENERAL:</strong></td>
-                                    <td class="text-right"><strong>${formatCurrency(selectedPurchase.cost)}</strong></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <div class="purchase-footer">
-                    <div class="footer-info">
-                        Este documento es un comprobante de compra generado el ${currentDate}<br>
-                        Para consultas o reclamos sobre esta compra, conserve este documento<br>
-                        Factura N° ${selectedPurchase.factura} | Proveedor: ${selectedPurchase.supplier}
-                    </div>
-                </div>
+            htmlContent += `<tr class="total-row"><td colspan="4" class="text-right"><strong>TOTAL GENERAL:</strong></td><td class="text-right"><strong>${formatCurrency(selectedPurchase.cost)}</strong></td></tr></tbody></table></div></div>
+                <div class="purchase-footer"><div class="footer-info">Este documento es un comprobante de compra generado el ${currentDate}<br>Para consultas o reclamos sobre esta compra, conserve este documento<br>Factura N° ${selectedPurchase.factura} | Proveedor: ${selectedPurchase.supplier}</div></div>
             </div>
-        </body>
-        </html>
-        `;
+            </body>
+            </html>`;
 
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
-            printWindow.focus();
-            printWindow.print();
-
-            printWindow.onafterprint = function () {
-                printWindow.close();
+            iframe.onload = () => {
+                try {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                } catch (error) {
+                    console.error('Error al intentar imprimir:', error);
+                    mostrarError('No se pudo abrir el diálogo de impresión.', theme);
+                } finally {
+                    setTimeout(() => {
+                        if (iframe.parentNode) {
+                            iframe.parentNode.removeChild(iframe);
+                        }
+                    }, 1000);
+                }
             };
 
-            // Fallback para cerrar la ventana
-            setTimeout(() => {
-                if (!printWindow.closed) {
-                    printWindow.close();
-                }
-            }, 1000);
+            const printDocument = iframe.contentDocument || iframe.contentWindow.document;
+            printDocument.open();
+            printDocument.write(htmlContent);
+            printDocument.close();
 
         } catch (error) {
             console.error("Error al generar el reporte de compra para imprimir:", error);
@@ -615,7 +367,7 @@ const PurchasesManager = () => {
             }) || []);
         } else {
             setIsEditingPurchase(false);
-            resetPurchaseForm();
+            setPurchaseValues({ createdAt: moment().format('YYYY-MM-DD') });
             resetItemForm();
             setTempItems([]);
             setEditingItemIndex(null);
@@ -945,10 +697,10 @@ const PurchasesManager = () => {
                             <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, height: '100%' }}>
                                 <Typography variant="subtitle1" gutterBottom>Filtrar Tabla</Typography>
                                 <Grid container spacing={2}>
-                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Nº de Factura" name="factura" value={filters.factura || ''} onChange={(e) => { handleFilterChange(e); setPage(0); }} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleFilterChange({ target: { name: 'factura', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
-                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Proveedor" name="supplier" value={filters.supplier || ''} onChange={(e) => { handleFilterChange(e); setPage(0); }} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleFilterChange({ target: { name: 'supplier', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
-                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Fecha Inicio" type="date" name="startDate" value={filters.startDate || ''} onChange={(e) => { handleFilterChange(e); setPage(0); }} InputLabelProps={{ shrink: true }} /></Grid>
-                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Fecha Fin" type="date" name="endDate" value={filters.endDate || ''} onChange={(e) => { handleFilterChange(e); setPage(0); }} InputLabelProps={{ shrink: true }} /></Grid>
+                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Nº de Factura" name="factura" value={facturaInput} onChange={(e) => setFacturaInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setFacturaInput('')}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
+                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Proveedor" name="supplier" value={supplierInput} onChange={(e) => setSupplierInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setSupplierInput('')}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
+                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Fecha Inicio" type="date" name="startDate" value={filters.startDate || ''} onChange={(e) => { handleFilterChange(e); setPage(0); e.target.blur(); }} InputLabelProps={{ shrink: true }} /></Grid>
+                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Fecha Fin" type="date" name="endDate" value={filters.endDate || ''} onChange={(e) => { handleFilterChange(e); setPage(0); e.target.blur(); }} InputLabelProps={{ shrink: true }} /></Grid>
                                     <Grid xs={12} sm={6} md={4}><StyledAutocomplete
                                         options={products || []}
                                         getOptionLabel={(option) => (typeof option === 'string' ? option : option?.name || '')}
@@ -987,7 +739,7 @@ const PurchasesManager = () => {
                     <Box sx={{ backgroundColor: 'background.dialog', p: 3 }}>
                         {modalError && <Alert severity="error" sx={{ mb: 2 }}>{modalError}</Alert>}
                         <Grid container spacing={2} sx={{ mt: 0 }} justifyContent="center">
-                            <Grid xs={12} md={4}><StyledTextField fullWidth label="Fecha" type="date" name="createdAt" value={purchaseValues.createdAt || ''} onChange={handlePurchaseInputChange} InputLabelProps={{ shrink: true }} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handlePurchaseInputChange({ target: { name: 'createdAt', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
+                            <Grid xs={12} md={4}><StyledTextField fullWidth label="Fecha" type="date" name="createdAt" value={purchaseValues.createdAt || ''} onChange={(e) => { handlePurchaseInputChange(e); e.target.blur(); }} InputLabelProps={{ shrink: true }} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handlePurchaseInputChange({ target: { name: 'createdAt', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
                             <Grid xs={12} md={4}><StyledTextField fullWidth label="Nº de Factura" name="factura" value={purchaseValues.factura || ''} onChange={handlePurchaseInputChange} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handlePurchaseInputChange({ target: { name: 'factura', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
                             <Grid xs={12} md={4}>
                                 <StyledAutocomplete

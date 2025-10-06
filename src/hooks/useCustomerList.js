@@ -282,13 +282,19 @@ export const useCustomerList = (tienePermiso) => { // Receive tienePermiso as an
         setSortOrder(value);
         setPage(1);
     }, []);
-    const handleStartDateChange = useCallback((value) => {
+    const handleStartDateChange = useCallback((value, event) => {
         setStartDate(value);
         setPage(1);
+        if (event && event.target) {
+            event.target.blur();
+        }
     }, []);
-    const handleEndDateChange = useCallback((value) => {
+    const handleEndDateChange = useCallback((value, event) => {
         setEndDate(value);
         setPage(1);
+        if (event && event.target) {
+            event.target.blur();
+        }
     }, []);
     const handleDebtStatusChange = useCallback((value) => {
         setDebtStatus(value);

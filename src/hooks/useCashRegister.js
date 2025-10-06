@@ -23,7 +23,7 @@ import Swal from 'sweetalert2';
  * Proporciona la sesión activa, estado de carga y funciones para crear movimientos.
  */
 export const useCashRegister = () => {
-    const { usuario: user } = useContext(AuthContext); // Obtener el usuario autenticado
+    const { usuario: user, isLoading: authLoading } = useContext(AuthContext); // Obtener el usuario autenticado y el estado de carga de AuthContext
     const userId = user?.id; // ID del usuario
     const userName = user?.username; // Nombre del usuario
 
@@ -31,7 +31,7 @@ export const useCashRegister = () => {
     const { data: activeSessionData, isLoading: isLoadingActiveSession, refetch: refetchActiveSession } = UseFetchQuery(
         ['activeCashSession', userId], // Clave de caché única por usuario
         `/cash-sessions/active/${userId}`, // Endpoint para obtener la sesión activa
-        !!userId // Habilitar la query solo si hay un userId
+        !authLoading && !!userId // Habilitar la query solo si AuthContext ha terminado de cargar Y hay un userId
     );
 
     /** @type {CashSession | null} */

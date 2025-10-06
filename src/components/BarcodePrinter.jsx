@@ -147,7 +147,7 @@ const BarcodePrinter = () => {
         );
     };
 
-    const handlePrint = async () => {
+    const handlePrint = () => {
         if (selectedItems.length === 0) {
             showSnackbar('Selecciona al menos un código de barras para imprimir.', 'warning');
             return;
@@ -160,15 +160,14 @@ const BarcodePrinter = () => {
                 return;
             }
 
-            // Crear la ventana de impresión
-            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.width = '0px';
+            iframe.style.height = '0px';
+            iframe.style.border = 'none';
+            iframe.style.visibility = 'hidden';
+            document.body.appendChild(iframe);
 
-            if (!printWindow) {
-                showSnackbar('Error: No se pudo abrir la ventana de impresión. Verifica que no esté bloqueada por el navegador.', 'error');
-                return;
-            }
-
-            // Escribir el HTML completo de una vez
             const htmlContent = `
                 <!DOCTYPE html>
                 <html>
@@ -254,7 +253,6 @@ const BarcodePrinter = () => {
                             margin-top: auto;
                         }
                         
-                        /* Estilos específicos para impresión */
                         @media print {
                             body { 
                                 -webkit-print-color-adjust: exact; 
@@ -262,47 +260,24 @@ const BarcodePrinter = () => {
                                 margin: 10px !important;
                                 font-size: 12px;
                             }
-                            
-                            .barcode-group { 
-                                page-break-inside: avoid; 
-                                margin-bottom: 20px;
-                            }
-                            
+                            .barcode-group { page-break-inside: avoid; margin-bottom: 20px; }
                             .barcode-item {
                                 border: 1px solid #000 !important;
                                 background: white !important;
                                 margin: 0;
                                 break-inside: avoid;
                             }
-                            
-                            .description {
-                                color: #000 !important;
-                                font-size: 0.7rem !important;
-                            }
-                            
-                            .group-title {
-                                color: #000 !important;
-                                border-bottom: 2px solid #000 !important;
-                            }
-                            
-                            img {
-                                filter: none !important;
-                            }
+                            .description { color: #000 !important; font-size: 0.7rem !important; }
+                            .group-title { color: #000 !important; border-bottom: 2px solid #000 !important; }
+                            img { filter: none !important; }
                         }
                         
-                        /* Responsive para pantallas pequeñas */
                         @media screen and (max-width: 768px) {
-                            .barcode-grid {
-                                grid-template-columns: repeat(2, 1fr);
-                                gap: 10px;
-                            }
+                            .barcode-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
                         }
                         
                         @media screen and (max-width: 480px) {
-                            .barcode-grid {
-                                grid-template-columns: 1fr;
-                                gap: 8px;
-                            }
+                            .barcode-grid { grid-template-columns: 1fr; gap: 8px; }
                         }
                     </style>
                 </head>
@@ -312,79 +287,60 @@ const BarcodePrinter = () => {
                 </html>
             `;
 
-            // Escribir todo el contenido de una vez
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
+            const printDocument = iframe.contentDocument || iframe.contentWindow.document;
 
-            // Esperar a que las imágenes se carguen antes de imprimir
-            const waitForImages = () => {
-                return new Promise((resolve) => {
-                    const images = printWindow.document.querySelectorAll('img');
+            iframe.onload = () => {
+                const waitForImages = new Promise((resolve) => {
+                    const images = printDocument.querySelectorAll('img');
                     if (images.length === 0) {
                         resolve();
                         return;
                     }
-
                     let loadedImages = 0;
                     const imageCount = images.length;
-
                     images.forEach((img) => {
                         if (img.complete) {
                             loadedImages++;
                         } else {
                             img.onload = () => {
                                 loadedImages++;
-                                if (loadedImages === imageCount) {
-                                    resolve();
-                                }
+                                if (loadedImages === imageCount) resolve();
                             };
                             img.onerror = () => {
                                 loadedImages++;
-                                if (loadedImages === imageCount) {
-                                    resolve();
-                                }
+                                if (loadedImages === imageCount) resolve();
                             };
                         }
                     });
-
                     if (loadedImages === imageCount) {
                         resolve();
+                    } else {
+                        setTimeout(resolve, 3000); // Safety timeout
                     }
+                });
 
-                    // Timeout de seguridad
-                    setTimeout(resolve, 3000);
+                waitForImages.then(() => {
+                    setTimeout(() => {
+                        try {
+                            iframe.contentWindow.focus();
+                            iframe.contentWindow.print();
+                        } catch (error) {
+                            console.error('Error during print:', error);
+                            showSnackbar('Error durante el proceso de impresión.', 'error');
+                        } finally {
+                            setTimeout(() => {
+                                if (iframe.parentNode) {
+                                    iframe.parentNode.removeChild(iframe);
+                                }
+                            }, 1000);
+                        }
+                    }, 200);
                 });
             };
 
-            // Esperar a que todo esté listo
-            await waitForImages();
-
-            // Pequeño delay adicional para asegurar que todo esté renderizado
-            setTimeout(() => {
-                try {
-                    printWindow.focus();
-                    printWindow.print();
-
-                    // Solución simple y efectiva: cerrar después del print
-                    // La mayoría de navegadores modernos manejan print() de forma síncrona
-                    setTimeout(() => {
-                        try {
-                            if (printWindow && !printWindow.closed) {
-                                printWindow.close();
-                            }
-                        } catch (e) {
-                            console.log('Ventana ya cerrada o error al cerrar:', e);
-                        }
-                    }, 1000); // 1 segundo después de llamar a print()
-
-                } catch (error) {
-                    console.error('Error durante la impresión:', error);
-                    showSnackbar('Error durante el proceso de impresión.', 'error');
-                    if (printWindow && !printWindow.closed) {
-                        printWindow.close();
-                    }
-                }
-            }, 500);
+            printDocument.open();
+            printDocument.write(htmlContent);
+            printDocument.close();
 
         } catch (error) {
             console.error('Error al configurar la impresión:', error);

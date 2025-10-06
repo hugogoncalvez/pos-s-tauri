@@ -6,6 +6,12 @@ class SyncService {
     this.isSyncing = false;
     this.syncListeners = [];
     this.MAX_RETRIES = 3; // Máximo número de reintentos para una venta fallida
+    this.queryClient = null; // Para invalidar queries de React Query
+  }
+
+  // Método para inyectar el queryClient desde la app
+  setQueryClient(client) {
+    this.queryClient = client;
   }
 
   // Suscribirse a eventos de sincronización (para la UI)
@@ -57,7 +63,7 @@ class SyncService {
         Api.get('/payment'),
         Api.get(`/cash-sessions/active/${userId}`),
         Api.get('/elements'), // <--- Nuevo
-        Api.get('/api/theme') // <--- Corregido
+        Api.get('/theme') // <--- Corregido
       ]);
 
       // 2. Limpiar tablas antiguas y guardar los nuevos datos en una transacción atómica
@@ -75,6 +81,7 @@ class SyncService {
           db.promotions.clear(),
           db.combos.clear(),
           db.payment_methods.clear(),
+          db.active_cash_session.clear(), // <--- AÑADIDO: Limpiar sesión activa vieja
           db.elements.clear(), // <--- Nuevo
           db.theme_settings.clear() // <--- Nuevo
         ]);
@@ -177,9 +184,6 @@ class SyncService {
     const localId = await db.pending_sales.add(saleToQueue);
     console.log(`[SyncService] 🛍️ Venta guardada localmente con ID: ${localId}. Estado online: ${isOnline}`);
 
-    // Notificar a los listeners que el estado ha cambiado
-    this.triggerSyncStatusUpdate();
-
     // 2. Actualizar el stock local inmediatamente
     await this.updateLocalStock(saleData.tempValues);
 
@@ -193,18 +197,30 @@ class SyncService {
           synced: 1,
           server_id: response.data.id
         });
+
+        // Invalidar queries para refrescar la UI
+        if (this.queryClient) {
+          console.log(`[SyncService] Invalidando caché para la sesión: ${sessionId}`);
+          await this.queryClient.invalidateQueries(['activeCashSession', saleData.user_id]);
+          await this.queryClient.invalidateQueries(['sessionDetails', sessionId]);
+        }
         
         console.log(`[SyncService] ✅ Venta ${localId} sincronizada inmediatamente (ID Servidor: ${response.data.id})`);
         
+        this.triggerSyncStatusUpdate();
         return { success: true, id: response.data.id, localId, synced: true };
       } catch (error) {
         console.error(`[SyncService] ⚠️ Error en la sincronización inmediata de la venta ${localId}. Queda pendiente.`, error);
+        
+        this.triggerSyncStatusUpdate();
         return { success: true, localId, synced: false, error: 'Error en la sincronización inmediata' };
       }
     }
     
     // Si estamos offline, la operación ya es un éxito a nivel local
     console.log(`[SyncService] 💾 Venta ${localId} guardada localmente, pendiente de sincronización.`);
+    
+    this.triggerSyncStatusUpdate();
     return { success: true, localId, synced: false };
   }
 
@@ -335,6 +351,8 @@ class SyncService {
         // Excluir campos locales antes de enviar al backend
         const { local_id, synced, server_id, retryCount, lastError, ...saleData } = sale;
         saleData.cash_session_id = realCashSessionId; // Asegurar que el ID de sesión real se use
+
+        console.log('[SyncService - DEBUG] Enviando venta al backend:', JSON.stringify(saleData, null, 2));
 
         const response = await Api.post('/sales', saleData);
         
