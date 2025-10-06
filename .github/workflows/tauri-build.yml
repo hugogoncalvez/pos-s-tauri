@@ -1,0 +1,40 @@
+name: 🪄 Build Tauri App for Windows
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Permite ejecutar el build manualmente desde GitHub
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: 🦀 Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 📥 Install pnpm
+        run: npm install -g pnpm
+
+      - name: 📚 Install dependencies
+        run: pnpm install
+        working-directory: ./front # cambia si tu proyecto Tauri está en otra carpeta
+
+      - name: 🏗️ Build Tauri app
+        run: pnpm tauri build
+        working-directory: ./front
+
+      - name: 📤 Upload built artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tauri-Windows-Build
+          path: front/src-tauri/target/release/bundle/
