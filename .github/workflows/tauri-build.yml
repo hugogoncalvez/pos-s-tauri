@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'URL de la API para la compilación (ej. http://192.168.100.108:8000/api)'
+        required: false
+        default: 'http://localhost:8000/api'
 
 jobs:
   build:
@@ -22,6 +27,13 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Create .env file
+        run: |
+          $apiUrl = "${{ github.event.inputs.api_url || 'http://localhost:8000/api' }}"
+          "VITE_API_URL=${apiUrl}" | Out-File -FilePath front/.env
+          echo "Archivo .env creado con la URL: ${apiUrl}"
+        shell: pwsh
 
       - name: Install dependencies
         run: |
