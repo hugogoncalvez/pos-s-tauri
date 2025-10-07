@@ -174,9 +174,9 @@ export const AuthProvider = ({ children }) => {
       (response) => response,
       (error) => {
         // Temporalmente comentado para depuración.
-        // if (isOnline && error.response && error.response.status === 401) {
-        //   logout();
-        // }
+        if (isOnline && error.response && error.response.status === 401) {
+          logout();
+        }
         return Promise.reject(error);
       }
     );
