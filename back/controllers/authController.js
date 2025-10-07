@@ -94,20 +94,14 @@ const authController = {
                 permisos: permisosEfectivos
             };
 
-            req.session.save((err) => {
-                if (err) {
-                    console.error("Error al guardar la sesión:", err);
-                    return res.status(500).json({ error: 'Error interno al guardar la sesión.' });
-                }
+            // Dejar que express-session guarde la sesión automáticamente al final de la respuesta.
+            const { password: _, ...usuarioSinPassword } = usuario;
+            usuarioSinPassword.permisos = permisosEfectivos;
+            usuarioSinPassword.theme_preference = usuario.theme_preference;
 
-                const { password: _, ...usuarioSinPassword } = usuario;
-                usuarioSinPassword.permisos = permisosEfectivos;
-                usuarioSinPassword.theme_preference = usuario.theme_preference;
-
-                res.json({
-                    message: 'Login exitoso',
-                    usuario: usuarioSinPassword
-                });
+            res.json({
+                message: 'Login exitoso',
+                usuario: usuarioSinPassword
             });
 
         } catch (error) {
@@ -148,13 +142,8 @@ const authController = {
                         permisos: permisosEfectivos
                     };
 
-                    req.session.save((err) => {
-                        if (err) {
-                            console.error("Error al guardar sesión en verificarEstado:", err);
-                            return res.status(500).json({ estaLogueado: false, usuario: null, error: 'Error al guardar sesión' });
-                        }
-                        res.json({ estaLogueado: true, usuario: req.session.usuario });
-                    });
+                    // Dejar que express-session guarde la sesión automáticamente.
+                    res.json({ estaLogueado: true, usuario: req.session.usuario });
                 } else {
                     req.session.destroy((err) => {
                         if (err) console.error("Error destroying session:", err);

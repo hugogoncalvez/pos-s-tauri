@@ -47,15 +47,31 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json()); // Middleware para parsear JSON
 
-// Usar las rutas de la API
 // Configuración de express-session
-// const MySQLStoreSession = MySQLStore(session);
-// const sessionStore = new MySQLStoreSession({}, db);
+const MySQLStoreSession = MySQLStore(session);
+const sessionStoreOptions = {
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    createDatabaseTable: true,
+    charset: 'utf8mb4_bin',
+    schema: {
+        tableName: 'sessions',
+        columnNames: {
+            session_id: 'session_id',
+            expires: 'expires',
+            data: 'data'
+        }
+    }
+};
+const sessionStore = new MySQLStoreSession(sessionStoreOptions);
 
 app.use(session({
     key: process.env.SESSION_KEY || 'pos_session_key',
     secret: process.env.SESSION_SECRET || 'a_very_secret_key_for_pos',
-    // store: sessionStore, // Al comentar el store, se usa el MemoryStore por defecto
+    store: sessionStore, // Se activa el store de MySQL
     resave: false,
     saveUninitialized: false,
     cookie: {
