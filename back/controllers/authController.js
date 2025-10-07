@@ -99,10 +99,12 @@ const authController = {
             usuarioSinPassword.permisos = permisosEfectivos;
             usuarioSinPassword.theme_preference = usuario.theme_preference;
 
-            res.json({
-                message: 'Login exitoso',
-                usuario: usuarioSinPassword
-            });
+                auditLog(req, 'Inicio de sesión exitoso', `Usuario: ${username}`);
+                res.status(200).json({
+                    message: 'Inicio de sesión exitoso',
+                    usuario: req.session.usuario,
+                    sessionID: req.sessionID // Añadir el sessionID a la respuesta
+                });
 
         } catch (error) {
             console.error("Error en el login:", error.stack);

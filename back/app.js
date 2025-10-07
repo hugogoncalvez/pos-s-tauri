@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import session from 'express-session';
 import MySQLStore from 'express-mysql-session';
 import dotenv from 'dotenv';
+import sessionHeaderMiddleware from './middleware/sessionHeaderMiddleware.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -26,8 +27,58 @@ const app = express();
 
 // Opciones de CORS para permitir la app de Tauri y el frontend de desarrollo
 const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'tauri://localhost',
+      'http://localhost:5173',
+      'http://tauri.localhost' // Origen de la app Tauri en producción
+    ];
+    // Permite requests sin origen (como mobile apps o Postman) y los orígenes en la lista
+    if (!origin || allowedOrigins.indexOf(origin) !== -1 || /^http:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+app.use(express.json()); // Middleware para parsear JSON
+
+app.use(sessionHeaderMiddleware); // ADD THIS LINE HERE
+
+// Configuración de express-session
+const MySQLStoreSession = MySQLStore(session);
+const sessionStoreOptions = {
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    createDatabaseTable: true,
+    charset: 'utf8mb4_bin',
+    schema: {
+        tableName: 'sessions',
+        columnNames: {
+            session_id: 'session_id',
+            expires: 'expires',
+            data: 'data'
+        }
+    }
+};
+const sessionStore = new MySQLStoreSession(sessionStoreOptions);
+
+app.use(session({
+    key: process.env.SESSION_KEY || 'pos_session_key',
+    secret: process.env.SESSION_SECRET || 'a_very_secret_key_for_pos',
+    store: sessionStore, // Se activa el store de MySQL
+    resave: false,
+    saveUninitialized: false,
     cookie: {
-        secure: true, // Cambiado a true para compatibilidad con SameSite=None en navegadores modernos
+        secure: false, // Debe ser false si no se usa HTTPS en la red local
         httpOnly: true,
         maxAge: 1000 * 60 * 60 * 24, // 24 horas
         sameSite: 'none' // Necesario para peticiones cross-origin

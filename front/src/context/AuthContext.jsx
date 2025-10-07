@@ -89,6 +89,7 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     setUsuario(null);
     setPermisos([]);
+    localStorage.removeItem('sessionID'); // Clear sessionID from localStorage
     if (isOnline) {
       try {
         Api.post('/auth/logout');
@@ -105,6 +106,10 @@ export const AuthProvider = ({ children }) => {
         setUsuario(data.usuario);
         setIsAuthenticated(true);
         setPermisos(data.usuario.permisos || []);
+        // Store sessionID manually
+        if (data.sessionID) {
+            localStorage.setItem('sessionID', data.sessionID);
+        }
         return { success: true, usuario: data.usuario };
       } catch (error) {
         console.error("Error detallado de login:", error);
