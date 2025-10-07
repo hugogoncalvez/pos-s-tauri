@@ -36,6 +36,7 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
 
   // Permitir cerrar la app desde login
   useEffect(() => {
@@ -79,7 +80,9 @@ const Auth = () => {
     setIsLoading(false);
 
     if (result.success) {
-      navigate('/');
+      console.log('[DEBUG] Login exitoso en Auth.jsx. Navegando a /.');
+      setLoginSuccess(true);
+      // navigate('/'); // Comentado temporalmente para depuración
     } else {
       mostrarError(result.error || 'Credenciales inválidas o error en el servidor.', theme);
     }
@@ -172,103 +175,109 @@ const Auth = () => {
             </Alert>
           )}
 
-          <Box component="form" noValidate onSubmit={handleSubmit} sx={{ width: '100%' }}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="username"
-              label="Usuario"
-              name="username"
-              autoComplete="username"
-              autoFocus
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <PersonIcon color="action" />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                }
-              }}
-            />
-
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label='Contraseña'
-              type={showPassword ? 'text' : 'password'}
-              id="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockIcon color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                }
-              }}
-            />
-
-            <Box sx={{ position: 'relative', mt: 4 }}>
-              <Button
-                type="submit"
+          {loginSuccess ? (
+            <Alert severity="success" sx={{ width: '100%', mb: 3, borderRadius: 2 }}>
+              ¡Login Exitoso!
+            </Alert>
+          ) : (
+            <Box component="form" noValidate onSubmit={handleSubmit} sx={{ width: '100%' }}>
+              <TextField
+                margin="normal"
+                required
                 fullWidth
-                variant="contained"
-                disabled={isLoading}
+                id="username"
+                label="Usuario"
+                name="username"
+                autoComplete="username"
+                autoFocus
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
                 sx={{
-                  py: 1.5,
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  boxShadow: 3,
-                  '&:hover': {
-                    boxShadow: 6,
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                   }
                 }}
-              >
-                {isLoading ? 'Ingresando...' : 'Entrar'}
-              </Button>
-              {isLoading && (
-                <LinearProgress
-                  sx={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    borderBottomLeftRadius: 8,
-                    borderBottomRightRadius: 8,
-                  }}
-                />
-              )}
-            </Box>
+              />
 
-            <Copyright />
-          </Box>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                name="password"
+                label='Contraseña'
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  }
+                }}
+              />
+
+              <Box sx={{ position: 'relative', mt: 4 }}>
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  disabled={isLoading}
+                  sx={{
+                    py: 1.5,
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    boxShadow: 3,
+                    '&:hover': {
+                      boxShadow: 6,
+                    }
+                  }}
+                >
+                  {isLoading ? 'Ingresando...' : 'Entrar'}
+                </Button>
+                {isLoading && (
+                  <LinearProgress
+                    sx={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      borderBottomLeftRadius: 8,
+                      borderBottomRightRadius: 8,
+                    }}
+                  />
+                )}
+              </Box>
+            </Box>
+          )}
+
+          <Copyright />
         </Paper>
       </motion.div>
     </Grid>

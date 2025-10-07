@@ -106,10 +106,10 @@ export const AuthProvider = ({ children }) => {
         setUsuario(data.usuario);
         setIsAuthenticated(true);
         setPermisos(data.usuario.permisos || []);
-        // Store sessionID manually
         if (data.sessionID) {
             localStorage.setItem('sessionID', data.sessionID);
         }
+        console.log('[DEBUG] Login exitoso en AuthContext. isAuthenticated:', true, 'Usuario:', data.usuario);
         return { success: true, usuario: data.usuario };
       } catch (error) {
         console.error("Error detallado de login:", error);
