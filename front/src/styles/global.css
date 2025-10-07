@@ -2,3 +2,15 @@
 .swal-higher-zindex {
   z-index: 99999 !important; /* Un valor extremadamente alto para asegurar que esté por encima de cualquier modal */
 }
+
+/* Ocultar el ícono de revelación de contraseña por defecto del navegador */
+/* Para Chrome, Edge, Safari */
+input[type="password"]::-webkit-reveal,
+input[type="password"]::-webkit-clear-button {
+  display: none;
+}
+
+/* Para Internet Explorer / Edge (versiones antiguas) */
+input[type="password"]::-ms-reveal {
+  display: none;
+}

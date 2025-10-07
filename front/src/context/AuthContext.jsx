@@ -173,9 +173,10 @@ export const AuthProvider = ({ children }) => {
     const interceptor = Api.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (isOnline && error.response && error.response.status === 401) {
-          logout();
-        }
+        // Temporalmente comentado para depuración.
+        // if (isOnline && error.response && error.response.status === 401) {
+        //   logout();
+        // }
         return Promise.reject(error);
       }
     );
