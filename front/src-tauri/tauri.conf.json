@@ -20,7 +20,15 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "allowlist": {
+        "http": {
+          "scope": [
+            "http://localhost:8000/api/*",
+            "http://192.168.*.*:8000/api/*"
+          ]
+        }
+      }
     }
   },
   "bundle": {

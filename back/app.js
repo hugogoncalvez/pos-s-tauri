@@ -29,7 +29,7 @@ const corsOptions = {
   origin: [
     'tauri://localhost',
     'http://localhost:5173', // Origen del dev server de Vite
-    /^http:\/\/192\.168\.1\.\d+:\d+$/ // Regex para IPs en la red local
+    /^http:\/\/192\.168\.\d+\.\d+:\d+$/ // Regex para IPs en la red local
   ],
   credentials: true
 };

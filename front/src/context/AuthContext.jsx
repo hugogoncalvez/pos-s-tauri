@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback, useContext } fr
 import { Api } from '../api/api';
 import { db } from '../db/offlineDB';
 import { syncService } from '../services/syncService';
+import { mostrarHTML } from '../functions/mostrarHTML'; // <--- IMPORTAR
 
 // 1. Crear el contexto
 export const AuthContext = createContext();
@@ -83,10 +84,42 @@ export const AuthProvider = ({ children }) => {
         setPermisos(data.usuario.permisos || []);
         return { success: true, usuario: data.usuario };
       } catch (error) {
+        console.error("Error detallado de login:", error);
+
+        const errorDetails = `
+          <div style="text-align: left; max-height: 400px; overflow-y: auto; font-size: 0.85rem;">
+            <p>Ocurrió un error de red al intentar iniciar sesión.</p>
+            <p>Esto generalmente se debe a que el cliente no puede contactar al servidor.</p>
+            <hr>
+            <strong>Detalles Técnicos:</strong>
+            <ul>
+              <li><strong>Mensaje:</strong> ${error.message}</li>
+              <li><strong>URL de la Petición:</strong> ${error.config?.url}</li>
+              <li><strong>Método:</strong> ${error.config?.method?.toUpperCase()}</li>
+              <li><strong>Código de Error:</strong> ${error.code || 'N/A'}</li>
+              <li><strong>Estado de la Respuesta:</strong> ${error.response?.status || 'N/A'}</li>
+            </ul>
+            <hr>
+            <p><strong>Posibles Soluciones:</strong></p>
+            <ol>
+              <li>Verifique que el servidor backend esté en ejecución.</li>
+              <li>Asegúrese de que la IP en la URL de la petición sea correcta y accesible.</li>
+              <li>Revise que no haya otro firewall o un antivirus bloqueando la conexión.</li>
+              <li>Consulte la configuración del router por una opción llamada "AP Isolation" y desactívela.</li>
+            </ol>
+          </div>
+        `;
+
+        mostrarHTML({
+          title: 'Error de Conexión',
+          html: errorDetails,
+          icon: 'error'
+        });
+
         setIsAuthenticated(false);
         setUsuario(null);
         setPermisos([]);
-        return { success: false, error: error.response?.data?.error || 'Error al iniciar sesión.' };
+        return { success: false, error: 'Error de red. Revisa los detalles en la alerta.' };
       }
     } else {
       // --- Lógica de Login Offline ---
