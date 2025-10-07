@@ -1,0 +1,30 @@
+{
+  "name": "node",
+  "version": "1.0.0",
+  "description": "Accion Social backend",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon --env-file .env app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "express": "^4.18.2",
+    "express-mysql-session": "^3.0.3",
+    "express-session": "^1.18.1",
+    "multer": "^2.0.2",
+    "mysql2": "^3.1.2",
+    "node-cron": "^4.1.1",
+    "nodemon": "^2.0.20",
+    "pnpm": "^7.27.1",
+    "sequelize": "^6.29.0",
+    "uuid": "^10.0.0",
+    "xlsx": "^0.18.5"
+  }
+}

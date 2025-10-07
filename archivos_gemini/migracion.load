@@ -1,0 +1,6 @@
+LOAD DATABASE
+     FROM mysql://pguser:Yanette1972@localhost:3306/PosSystem
+     INTO postgres://postgres:r5xC2M7oSXLMKbXk@db.onalidkvrwuxlwypzrak.supabase.co:5432/postgres
+
+WITH
+     reset sequences;
