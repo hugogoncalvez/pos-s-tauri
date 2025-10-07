@@ -10,6 +10,7 @@
     "core:window:allow-close",
     "core:window:allow-start-dragging",
     "core:window:allow-set-fullscreen",
-    "process:allow-exit"
+    "process:allow-exit",
+    "http:default"
   ]
 }
