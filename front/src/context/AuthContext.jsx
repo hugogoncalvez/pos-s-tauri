@@ -54,6 +54,29 @@ export const AuthProvider = ({ children }) => {
         setPermisos([]);
       }
     } catch (error) {
+      console.error("Error detallado de verificarSesion:", error);
+
+      const errorDetails = `
+        <div style="text-align: left; max-height: 400px; overflow-y: auto; font-size: 0.85rem;">
+          <p>Ocurrió un error de red al verificar la sesión.</p>
+          <hr>
+          <strong>Detalles Técnicos:</strong>
+          <ul>
+            <li><strong>Mensaje:</strong> ${error.message}</li>
+            <li><strong>URL de la Petición:</strong> ${error.config?.url}</li>
+            <li><strong>Método:</strong> ${error.config?.method?.toUpperCase()}</li>
+            <li><strong>Código de Error:</strong> ${error.code || 'N/A'}</li>
+            <li><strong>Estado de la Respuesta:</strong> ${error.response?.status || 'N/A'}</li>
+          </ul>
+        </div>
+      `;
+
+      mostrarHTML({
+        title: 'Error de Verificación de Sesión',
+        html: errorDetails,
+        icon: 'error'
+      });
+
       setUsuario(null);
       setIsAuthenticated(false);
       setPermisos([]);
