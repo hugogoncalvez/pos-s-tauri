@@ -6,4 +6,4 @@ export const Api = axios.create({
     withCredentials: true // Importante para enviar cookies de sesión
 });
 
-export const getLowStockAlerts = () => Api.get('/audit/low-stock-alerts');
+//export const getLowStockAlerts = () => Api.get('/audit/low-stock-alerts');
