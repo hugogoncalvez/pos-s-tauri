@@ -1,3 +1,6 @@
+#archivos Gemini
+archivos_gemini/
+GEMINI.MD
 # Dependencias
 node_modules/
 npm-debug.log*
