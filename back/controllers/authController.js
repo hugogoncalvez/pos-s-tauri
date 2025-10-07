@@ -99,7 +99,7 @@ const authController = {
             usuarioSinPassword.permisos = permisosEfectivos;
             usuarioSinPassword.theme_preference = usuario.theme_preference;
 
-                auditLog(req, 'Inicio de sesión exitoso', `Usuario: ${username}`);
+                logAudit(req, 'Inicio de sesión exitoso', `Usuario: ${username}`);
                 res.status(200).json({
                     message: 'Inicio de sesión exitoso',
                     usuario: req.session.usuario,
