@@ -22,12 +22,12 @@ import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
 import { mostrarError } from '../functions/MostrarError';
 import { mostrarHTML } from '../functions/mostrarHTML';
-import { useTheme } from '@mui/material/styles';
 import { useIsTauri } from '../hooks/useIsTauri';
+import { ColorModeContext } from '../context/ThemeContextProvider';
 
 const Auth = () => {
   const isTauri = useIsTauri();
-  const theme = useTheme();
+  const { Theme: theme } = useContext(ColorModeContext);
   const { isOnline } = useOnlineStatus();
   const navigate = useNavigate();
   const { login } = useContext(AuthContext);
