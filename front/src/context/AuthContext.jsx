@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useCallback, useContext } fr
 import { Api } from '../api/api';
 import { db } from '../db/offlineDB';
 import { syncService } from '../services/syncService';
-import { mostrarHTML } from '../functions/mostrarHTML'; // <--- IMPORTAR
+import { mostrarHTML } from '../functions/mostrarHTML';
 
 // 1. Crear el contexto
 export const AuthContext = createContext();
@@ -37,45 +37,58 @@ export const AuthProvider = ({ children }) => {
   };
 
   const verificarSesion = useCallback(async () => {
+    console.log('[AuthContext] 🔍 Verificando sesión...');
+    console.log('[AuthContext] 📦 sessionID actual:', localStorage.getItem('sessionID'));
+
     if (!isOnline) {
+      console.log('[AuthContext] ⚠️ Sin conexión, saltando verificación');
       setIsLoading(false);
       return;
     }
+
     setIsLoading(true);
     try {
-      const { data } = await Api.get('/auth/estado');
+      // CORRECCIÓN: Endpoint correcto es /auth/verificar
+      const { data } = await Api.get('/auth/verificar');
+      console.log('[AuthContext] ✅ Respuesta verificar:', data);
+
       if (data.estaLogueado) {
         setUsuario(data.usuario);
         setIsAuthenticated(true);
         setPermisos(data.usuario.permisos || []);
+        console.log('[AuthContext] ✅ Usuario autenticado:', data.usuario.username);
       } else {
         setUsuario(null);
         setIsAuthenticated(false);
         setPermisos([]);
+        console.log('[AuthContext] ℹ️ No hay sesión activa');
       }
     } catch (error) {
-      console.error("Error detallado de verificarSesion:", error);
+      console.error('[AuthContext] ❌ Error verificarSesion:', error);
 
-      const errorDetails = `
-        <div style="text-align: left; max-height: 400px; overflow-y: auto; font-size: 0.85rem;">
-          <p>Ocurrió un error de red al verificar la sesión.</p>
-          <hr>
-          <strong>Detalles Técnicos:</strong>
-          <ul>
-            <li><strong>Mensaje:</strong> ${error.message}</li>
-            <li><strong>URL de la Petición:</strong> ${error.config?.url}</li>
-            <li><strong>Método:</strong> ${error.config?.method?.toUpperCase()}</li>
-            <li><strong>Código de Error:</strong> ${error.code || 'N/A'}</li>
-            <li><strong>Estado de la Respuesta:</strong> ${error.response?.status || 'N/A'}</li>
-          </ul>
-        </div>
-      `;
+      // CORRECCIÓN: NO mostrar alerta si es error 401 (es esperado cuando no hay sesión)
+      if (error.response?.status !== 401) {
+        const errorDetails = `
+          <div style="text-align: left; max-height: 400px; overflow-y: auto; font-size: 0.85rem;">
+            <p>Ocurrió un error de red al verificar la sesión.</p>
+            <hr>
+            <strong>Detalles Técnicos:</strong>
+            <ul>
+              <li><strong>Mensaje:</strong> ${error.message}</li>
+              <li><strong>URL de la Petición:</strong> ${error.config?.url}</li>
+              <li><strong>Método:</strong> ${error.config?.method?.toUpperCase()}</li>
+              <li><strong>Código de Error:</strong> ${error.code || 'N/A'}</li>
+              <li><strong>Estado de la Respuesta:</strong> ${error.response?.status || 'N/A'}</li>
+            </ul>
+          </div>
+        `;
 
-      mostrarHTML({
-        title: 'Error de Verificación de Sesión',
-        html: errorDetails,
-        icon: 'error'
-      });
+        mostrarHTML({
+          title: 'Error de Verificación de Sesión',
+          html: errorDetails,
+          icon: 'error'
+        });
+      }
 
       setUsuario(null);
       setIsAuthenticated(false);
@@ -86,33 +99,46 @@ export const AuthProvider = ({ children }) => {
   }, [isOnline]);
 
   const logout = useCallback(() => {
+    console.log('[AuthContext] 🚪 Ejecutando logout...');
     setIsAuthenticated(false);
     setUsuario(null);
     setPermisos([]);
-    localStorage.removeItem('sessionID'); // Clear sessionID from localStorage
+    localStorage.removeItem('sessionID');
+
     if (isOnline) {
       try {
         Api.post('/auth/logout');
       } catch (error) {
-        console.error('Error al cerrar sesión en el backend:', error);
+        console.error('[AuthContext] Error al cerrar sesión en el backend:', error);
       }
     }
   }, [isOnline]);
 
   const login = async (username, password) => {
     if (isOnline) {
+      console.log('[AuthContext] 🔐 Intentando login...');
+      console.log('[AuthContext] 📦 sessionID ANTES:', localStorage.getItem('sessionID'));
+
       try {
         const { data } = await Api.post('/auth/login', { username, password });
+        console.log('[AuthContext] ✅ Login exitoso:', data);
+        console.log('[AuthContext] 🎫 sessionID en data:', data.sessionID);
+
         setUsuario(data.usuario);
         setIsAuthenticated(true);
         setPermisos(data.usuario.permisos || []);
+
+        // El interceptor de api.js ya debería haberlo guardado, pero por seguridad...
         if (data.sessionID) {
-            localStorage.setItem('sessionID', data.sessionID);
+          localStorage.setItem('sessionID', data.sessionID);
+          console.log('[AuthContext] 💾 sessionID guardado');
         }
-        console.log('[DEBUG] Login exitoso en AuthContext. isAuthenticated:', true, 'Usuario:', data.usuario);
+
+        console.log('[AuthContext] 📦 sessionID DESPUÉS:', localStorage.getItem('sessionID'));
         return { success: true, usuario: data.usuario };
+
       } catch (error) {
-        console.error("Error detallado de login:", error);
+        console.error('[AuthContext] ❌ Error en login:', error);
 
         const errorDetails = `
           <div style="text-align: left; max-height: 400px; overflow-y: auto; font-size: 0.85rem;">
@@ -151,6 +177,7 @@ export const AuthProvider = ({ children }) => {
       }
     } else {
       // --- Lógica de Login Offline ---
+      console.log('[AuthContext] 🔐 Intentando login offline...');
       try {
         const offlineUserConfig = await db.offline_config.get('OFFLINE_USER');
         if (!offlineUserConfig) {
@@ -175,12 +202,14 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     verificarSesion();
 
+    // CORRECCIÓN: Este interceptor YA NO llama automáticamente a logout()
+    // El manejo de 401 se hace en api.js
     const interceptor = Api.interceptors.response.use(
       (response) => response,
       (error) => {
-        // Temporalmente comentado para depuración.
-        if (isOnline && error.response && error.response.status === 401) {
-          logout();
+        // Solo loguear, NO llamar logout aquí
+        if (error.response?.status === 401) {
+          console.log('[AuthContext] ⚠️ Interceptor detectó 401 (manejado en api.js)');
         }
         return Promise.reject(error);
       }
@@ -189,9 +218,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       Api.interceptors.response.eject(interceptor);
     };
-  }, [verificarSesion, logout, isOnline]);
-
-
+  }, [verificarSesion, isOnline]); // CORRECCIÓN: Quité 'logout' de las dependencias
 
   const value = {
     usuario,
@@ -212,4 +239,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
