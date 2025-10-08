@@ -48,8 +48,7 @@ export const AuthProvider = ({ children }) => {
 
     setIsLoading(true);
     try {
-      // CORRECCIÓN: Endpoint correcto es /auth/verificar
-      const { data } = await Api.get('/auth/verificar');
+      const { data } = await Api.get('/auth/estado');
       console.log('[AuthContext] ✅ Respuesta verificar:', data);
 
       if (data.estaLogueado) {
