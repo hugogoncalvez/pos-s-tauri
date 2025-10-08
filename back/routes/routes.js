@@ -63,11 +63,23 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Public health check route
 router.get('/health', async (req, res) => {
     try {
+        // Intentar una query simple a la BD para una verificación más robusta
         await db.authenticate();
-        res.status(200).json({ status: "ok", db: true });
+        await db.query('SELECT 1', { type: db.QueryTypes.SELECT });
+        
+        res.status(200).json({ 
+            status: "ok", 
+            db: true,
+            timestamp: new Date().toISOString()
+        });
     } catch (error) {
-        console.error("Database connection failed during health check:", error);
-        res.status(500).json({ status: "error", db: false, error: error.message });
+        console.error("Database connection failed during health check:", error.message);
+        res.status(503).json({ 
+            status: "error", 
+            db: false, 
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
     }
 });
 
