@@ -1,22 +1,33 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  clearScreen: false,
   server: {
-    open: false, // No abrir el navegador automáticamente
-    proxy: {
-      '/api': 'http://localhost:8000', // Redirige todas las solicitudes /api al backend
+    port: 5173,
+    strictPort: true,
+    host: '127.0.0.1',
+    hmr: {
+      protocol: 'ws',
+      host: '127.0.0.1',
+      port: 5173
     },
+    watch: {
+      ignored: ['**/src-tauri/**']
+    }
   },
-  // Añadido para solucionar los errores de resolución de @tauri-apps/api
-  optimizeDeps: {
-    exclude: ['@tauri-apps/plugin-http']
-  },
+  envPrefix: ['VITE_', 'TAURI_'],
   build: {
-    rollupOptions: {
-      external: ['@tauri-apps/plugin-http']
+    target: process.env.TAURI_PLATFORM === 'windows' ? 'chrome105' : 'safari15',
+    outDir: 'dist',
+    minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
+    sourcemap: !!process.env.TAURI_DEBUG
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src')
     }
   }
-})
+});

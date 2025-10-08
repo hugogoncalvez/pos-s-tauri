@@ -1,19 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 
 /**
- * Hook personalizado para detectar de forma fiable si la aplicación se está ejecutando en un entorno Tauri.
- * @returns {boolean} - Devuelve `true` si está en Tauri, de lo contrario `false`.
+ * Hook para detectar si la app se está ejecutando en Tauri o Web.
  */
-export const useIsTauri = () => {
-  const [isTauri, setIsTauri] = useState(false);
+export function useIsTauri() {
+  const isTauri = useMemo(() => {
+    // --- PASO DE DEPURACIÓN --- 
+    // Imprimir todo el objeto import.meta.env para ver qué contiene.
+    console.log('[useIsTauri - DEBUG] Contenido de import.meta.env:', import.meta.env);
 
-  useEffect(() => {
-    // Verificar si window.__TAURI__ existe
-    // Este objeto global es inyectado automáticamente por Tauri
-    const tauriGlobal = typeof window !== 'undefined' ? window.__TAURI__ : undefined;
-    console.log('DEBUG: window.__TAURI__ is', tauriGlobal); // ADD THIS LINE
-    setIsTauri(!!tauriGlobal);
+    const tauriDetected = !!import.meta.env.TAURI_PLATFORM;
+
+    if (import.meta.env.MODE === 'development') {
+      console.log(`[useIsTauri] Verificación por variable de entorno -> TAURI_PLATFORM: '${import.meta.env.TAURI_PLATFORM}' | isTauri: ${tauriDetected}`);
+    }
+
+    return tauriDetected;
   }, []);
 
-  return isTauri;
-};
+  return { isTauri };
+}

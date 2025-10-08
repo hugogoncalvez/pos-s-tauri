@@ -114,7 +114,18 @@ export const AuthProvider = ({ children }) => {
         return; // Salir de la función, ya tenemos una respuesta.
 
       } catch (error) {
-        // Este bloque se ejecuta solo en errores de RED (el servidor no es alcanzable)
+        // Si el error es 401, es una respuesta válida del servidor (sesión no activa).
+        // No debemos reintentar en este caso.
+        if (error.response?.status === 401) {
+          console.log('[AuthContext] ℹ️ Servidor responde 401. No hay sesión activa.');
+          setUsuario(null);
+          setIsAuthenticated(false);
+          setPermisos([]);
+          setIsLoading(false);
+          return; // Salir de la función, no reintentar.
+        }
+
+        // Para cualquier otro error (de red, etc.), sí aplicamos la lógica de reintentos.
         console.warn(`[AuthContext] Intento ${attempt}/${maxRetries} de verificar sesión falló (error de red).`);
         
         if (attempt >= maxRetries) {
