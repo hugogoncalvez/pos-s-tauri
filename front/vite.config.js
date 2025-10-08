@@ -10,4 +10,13 @@ export default defineConfig({
       '/api': 'http://localhost:8000', // Redirige todas las solicitudes /api al backend
     },
   },
+  // Añadido para solucionar los errores de resolución de @tauri-apps/api
+  optimizeDeps: {
+    exclude: ['@tauri-apps/plugin-http']
+  },
+  build: {
+    rollupOptions: {
+      external: ['@tauri-apps/plugin-http']
+    }
+  }
 })

@@ -10,6 +10,14 @@
     "core:window:allow-close",
     "core:window:allow-start-dragging",
     "core:window:allow-set-fullscreen",
-    "process:allow-exit"
+    "process:allow-exit",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "http://localhost:8000/api/*" },
+        { "url": "http://192.168.*.*:8000/api/*" },
+        { "url": "http://detectportal.firefox.com/success.txt" }
+      ]
+    }
   ]
 }

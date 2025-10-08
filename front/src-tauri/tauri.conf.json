@@ -36,12 +36,5 @@
       "icons/icon.ico"
     ]
   },
-  "plugins": {
-    "http": {
-      "scope": [
-        "http://localhost:8000/api/*",
-        "http://192.168.*.*:8000/api/*"
-      ]
-    }
-  }
+  "plugins": {}
 }
