@@ -1,8 +1,27 @@
 import db from '../database/db.js';
+import { sessionStore } from '../app.js';
 
-export const verificarSesion = (req, res, next) => {
+export const verificarSesion = async (req, res, next) => {
     if (req.session && req.session.usuario) {
-        req.usuario = req.session.usuario; next();
+        req.usuario = req.session.usuario;
+        next();
+    } else if (req.sessionID) {
+        // Si la sesión existe pero req.session.usuario no está poblado, intentar rehidratar
+        sessionStore.get(req.sessionID, (error, sessionData) => {
+            if (error) {
+                console.error('[AuthMiddleware] ❌ Error al rehidratar sesión de la tienda:', error);
+                return res.status(401).json({ message: 'No autenticado. Por favor, inicia sesión.' });
+            }
+            if (sessionData && sessionData.usuario) {
+                req.session.usuario = sessionData.usuario;
+                req.usuario = req.session.usuario;
+                console.log('[AuthMiddleware] 📦 Sesión rehidratada manualmente para ID:', req.sessionID);
+                next();
+            } else {
+                console.log('[AuthMiddleware] ⚠️ Sesión no encontrada o sin usuario en la tienda para ID:', req.sessionID);
+                res.status(401).json({ message: 'No autenticado. Por favor, inicia sesión.' });
+            }
+        });
     } else {
         res.status(401).json({ message: 'No autenticado. Por favor, inicia sesión.' });
     }
@@ -56,7 +75,7 @@ export const verificarPermisoFlexible = (permisoRequerido, customCondition) => {
 
             if (result[0].tiene_permiso > 0) {
                 return next(); // Tiene el permiso, continuar
-            }
+            } 
 
             // 2. Si no tiene el permiso, verificar la condición personalizada
             if (customCondition && typeof customCondition === 'function') {

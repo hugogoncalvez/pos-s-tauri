@@ -4,7 +4,8 @@ import UsuarioModel from '../Models/UsuarioModel.js';
 import RoleModel from '../Models/RoleModel.js';
 import UserPermissionModel from '../Models/UserPermissionModel.js';
 import PermissionModel from '../Models/PermissionModel.js';
-import modulePermissions from '../config/modulePermissions.js'; // Importar la nueva configuración
+import modulePermissions from '../config/modulePermissions.js';
+import { logAudit } from '../middleware/auditMiddleware.js';
 
 // --- Función Helper para calcular permisos efectivos ---
 async function getEffectivePermissions(rol_id, user_id) {
@@ -17,7 +18,7 @@ async function getEffectivePermissions(rol_id, user_id) {
     const basePermissionsRaw = await db.query(rolePermissionsQuery, { replacements: [rol_id], type: db.QueryTypes.SELECT });
     const basePermissions = basePermissionsRaw.map(p => p.nombre);
 
-    const effectivePermissions = new Set(); // Inicializar como un Set vacío
+    const effectivePermissions = new Set();
 
     // 1. Añadir todos los permisos base del rol (incluyendo los de vista)
     basePermissions.forEach(permiso => {
@@ -94,20 +95,37 @@ const authController = {
                 permisos: permisosEfectivos
             };
 
-            // Dejar que express-session guarde la sesión automáticamente al final de la respuesta.
-            const { password: _, ...usuarioSinPassword } = usuario;
-            usuarioSinPassword.permisos = permisosEfectivos;
-            usuarioSinPassword.theme_preference = usuario.theme_preference;
+            // GUARDAR LA SESIÓN EXPLÍCITAMENTE
+            req.session.save((err) => {
+                if (err) {
+                    console.error('❌ Error al guardar la sesión:', err);
+                    return res.status(500).json({ error: 'Error al guardar la sesión.' });
+                }
 
-                logAudit(req, 'Inicio de sesión exitoso', `Usuario: ${username}`);
+                const { password: _, ...usuarioSinPassword } = usuario;
+                usuarioSinPassword.permisos = permisosEfectivos;
+                usuarioSinPassword.theme_preference = usuario.theme_preference;
+
+                logAudit({
+                    action: 'Inicio de sesión exitoso',
+                    description: `Usuario: ${username}`,
+                    user_id: usuario.id,
+                    entity_type: 'user'
+                }, req);
+
+                // ESTABLECER EL HEADER CON EL SESSION ID
+                res.setHeader('X-Session-ID', req.sessionID);
+                console.log('[AUTH] ✅ Login exitoso. SessionID:', req.sessionID);
+
                 res.status(200).json({
                     message: 'Inicio de sesión exitoso',
                     usuario: req.session.usuario,
-                    sessionID: req.sessionID // Añadir el sessionID a la respuesta
+                    sessionID: req.sessionID
                 });
+            });
 
         } catch (error) {
-            console.error("Error en el login:", error.stack);
+            console.error("❌ Error en el login:", error.stack);
             res.status(500).json({ error: 'Error interno en el servidor durante el login.' });
         }
     },
@@ -115,15 +133,18 @@ const authController = {
     async logout(req, res) {
         req.session.destroy((err) => {
             if (err) {
-                console.error('Error al destruir la sesión:', err); // Log the detailed error
+                console.error('❌ Error al destruir la sesión:', err);
                 return res.status(500).json({ error: 'Error al cerrar sesión.' });
             }
-            res.clearCookie('pos_session_cookie', { path: '/' });
+            console.log('[AUTH] ✅ Sesión cerrada exitosamente');
             res.json({ message: 'Sesión cerrada exitosamente.' });
         });
     },
 
     async verificarEstado(req, res) {
+        console.log('[AUTH] 🔍 Verificando estado. SessionID:', req.sessionID);
+        console.log('[AUTH] 📦 Datos de sesión:', req.session?.usuario ? 'Usuario presente' : 'Sin usuario');
+
         if (req.session && req.session.usuario) {
             try {
                 const userFromDb = await UsuarioModel.findByPk(req.session.usuario.id, {
@@ -144,19 +165,29 @@ const authController = {
                         permisos: permisosEfectivos
                     };
 
-                    // Dejar que express-session guarde la sesión automáticamente.
-                    res.json({ estaLogueado: true, usuario: req.session.usuario });
+                    req.session.save((err) => {
+                        if (err) {
+                            console.error("❌ Error saving session:", err);
+                        }
+
+                        // Devolver el sessionID en el header
+                        res.setHeader('X-Session-ID', req.sessionID);
+                        console.log('[AUTH] ✅ Usuario autenticado:', userFromDb.username);
+                        res.json({ estaLogueado: true, usuario: req.session.usuario });
+                    });
                 } else {
                     req.session.destroy((err) => {
-                        if (err) console.error("Error destroying session:", err);
+                        if (err) console.error("❌ Error destroying session:", err);
+                        console.log('[AUTH] ⚠️ Usuario no encontrado en DB');
                         res.json({ estaLogueado: false, usuario: null });
                     });
                 }
             } catch (error) {
-                console.error("Error en verificarEstado:", error);
+                console.error("❌ Error en verificarEstado:", error);
                 res.status(500).json({ estaLogueado: false, usuario: null, error: 'Error interno del servidor' });
             }
         } else {
+            console.log('[AUTH] ⚠️ Sin sesión activa');
             res.json({ estaLogueado: false, usuario: null });
         }
     },
@@ -168,7 +199,7 @@ const authController = {
             }
             res.json({ permisos: req.session.usuario.permisos });
         } catch (error) {
-            console.error("Error al obtener permisos:", error);
+            console.error("❌ Error al obtener permisos:", error);
             res.status(500).json({ error: 'Error interno al obtener permisos.' });
         }
     }
