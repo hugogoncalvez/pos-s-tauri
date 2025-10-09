@@ -25,10 +25,6 @@ db.version(2).stores({
   // --- Configuración y Metadatos Offline ---
   sync_metadata: 'key, value, updated_at', // 'key' será 'last_sync'
   offline_config: 'key, value' // Para guardar configuraciones como el usuario offline
-}).upgrade(tx => {
-  // Código de migración si es necesario. Por ahora, solo actualiza la versión.
-  // Esto asegura que si la tabla ya existía, se pueda usar sin problemas.
-  return tx.table('offline_config').clear().catch(() => {});
 });
 
 // --- Definición del Usuario Offline ---
