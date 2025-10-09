@@ -32,10 +32,11 @@ const corsOptions = {
     const allowedOrigins = [
       'tauri://localhost',
       'http://localhost:5173',
-      'http://tauri.localhost'
+      'http://tauri.localhost',
+      'null' // <-- AÑADIR ESTA LÍNEA
     ];
-    // Permite requests sin origen y orígenes permitidos y rangos de IP local
-    if (!origin || allowedOrigins.indexOf(origin) !== -1 || /^http:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin)) {
+    // Permite requests sin origen (como desde la app compilada) y orígenes permitidos
+    if (origin === null || allowedOrigins.indexOf(origin) !== -1 || /^http:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error('No permitido por CORS'));
