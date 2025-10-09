@@ -5,6 +5,7 @@ import { syncService } from '../services/syncService';
 import { mostrarHTML } from '../functions/mostrarHTML';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { useIsTauri } from '../hooks/useIsTauri';
+import Swal from 'sweetalert2'; // <-- IMPORTAR Swal
 
 export const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -23,29 +24,57 @@ export const AuthProvider = ({ children }) => {
   const checkRealConnectivity = useCallback(async () => {
     try {
       const fetcher = isTauri ? tauriFetch : fetch;
-      const response = await fetcher(`${Api.defaults.baseURL}/health`, {
+      const healthCheckUrl = `${Api.defaults.baseURL}/health`;
+      // console.log('[AuthContext] Enviando health check a:', healthCheckUrl); // No visible en build
+      const response = await fetcher(healthCheckUrl, {
         method: 'GET',
         timeout: 5000,
         cache: 'no-store'
       });
 
+      // console.log('[AuthContext] Respuesta health check:', response); // No visible en build
+
       if (!response.ok) {
-        throw new Error(`Health check failed with status: ${response.status}`);
+        const errorMsg = `Health check falló con estado: ${response.status}. URL: ${healthCheckUrl}`;
+        Swal.fire({
+          title: 'Error de Conectividad',
+          text: errorMsg,
+          icon: 'error',
+          didOpen: () => { document.querySelector('.swal2-container').style.zIndex = '99999'; }
+        });
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
       const reallyOnline = data.db === true;
 
+      if (!reallyOnline) {
+        Swal.fire({
+          title: 'Base de Datos Desconectada',
+          text: `El backend está accesible, pero no puede conectar con la base de datos. URL: ${healthCheckUrl}`,
+          icon: 'warning',
+          didOpen: () => { document.querySelector('.swal2-container').style.zIndex = '99999'; }
+        });
+      }
+
       setIsOnline(prev => {
         if (prev !== reallyOnline) {
-          console.log(`[AuthContext] 🔄 Estado de conexión (Activo) cambiado a: ${reallyOnline ? 'ONLINE' : 'OFFLINE'}`);
+          // console.log(`[AuthContext] 🔄 Estado de conexión (Activo) cambiado a: ${reallyOnline ? 'ONLINE' : 'OFFLINE'}`); // No visible en build
         }
         return reallyOnline;
       });
     } catch (error) {
+      const errorMsg = `Error en health check: ${error.message}. URL: ${Api.defaults.baseURL}/health`;
+      Swal.fire({
+        title: 'Error de Conectividad',
+        text: errorMsg,
+        icon: 'error',
+        didOpen: () => { document.querySelector('.swal2-container').style.zIndex = '99999'; }
+      });
+      // console.error('[AuthContext] Error en health check:', error); // No visible en build
       setIsOnline(prev => {
         if (prev !== false) {
-          console.log('[AuthContext] 🔄 Cambiando a OFFLINE por error en chequeo activo:', error.message);
+          // console.log('[AuthContext] 🔄 Cambiando a OFFLINE por error en chequeo activo:', error.message); // No visible en build
         }
         return false;
       });

@@ -26,14 +26,21 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Middleware para loguear todas las peticiones entrantes
+app.use((req, res, next) => {
+  console.log(`[Request Logger] Method: ${req.method}, URL: ${req.originalUrl}, Origin: ${req.headers.origin}`);
+  next();
+});
+
 // Opciones de CORS para permitir la app de Tauri y el frontend de desarrollo
 const corsOptions = {
   origin: function (origin, callback) {
+    console.log('CORS Origin Recibido:', origin);
     const allowedOrigins = [
       'tauri://localhost',
       'http://localhost:5173',
       'http://tauri.localhost',
-      'null' // <-- AÑADIR ESTA LÍNEA
+      'null'
     ];
     // Permite requests sin origen (como desde la app compilada) y orígenes permitidos
     if (origin === null || allowedOrigins.indexOf(origin) !== -1 || /^http:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin)) {
