@@ -7,7 +7,7 @@ import { isTauri } from '@tauri-apps/api/core';
  * tanto en modo de desarrollo como en producción.
  */
 export function useIsTauri() {
-  const [isTauriEnv, setIsTauriEnv] = useState(false);
+  const [isTauriEnv, setIsTauriEnv] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -32,5 +32,5 @@ export function useIsTauri() {
     };
   }, []);
 
-  return { isTauri: isTauriEnv };
+  return { isTauri: isTauriEnv, isLoading: isTauriEnv === null };
 }

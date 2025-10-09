@@ -10,13 +10,14 @@ export const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
+  const { isTauri, isLoading: isTauriLoading } = useIsTauri();
+
   console.log('[DEBUG] AuthProvider render START');
   const [usuario, setUsuario] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [permisos, setPermisos] = useState([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const { isTauri } = useIsTauri();
   const checkIntervalRef = useRef(null);
 
   const checkRealConnectivity = useCallback(async () => {
@@ -28,11 +29,11 @@ export const AuthProvider = ({ children }) => {
         cache: 'no-store'
       });
 
-      if (!response.ok) { // Chequeo universal para status no-2xx
+      if (!response.ok) {
         throw new Error(`Health check failed with status: ${response.status}`);
       }
 
-      const data = await response.json(); // Método universal para obtener el cuerpo JSON
+      const data = await response.json();
       const reallyOnline = data.db === true;
 
       setIsOnline(prev => {
@@ -52,10 +53,12 @@ export const AuthProvider = ({ children }) => {
   }, [isTauri]);
 
   useEffect(() => {
+    if (isTauriLoading) return;
+
     if (isTauri) {
       console.log('[AuthContext]  Tauri detectado. Configurando verificación activa de conectividad.');
-      checkRealConnectivity(); // Chequeo inicial
-      checkIntervalRef.current = setInterval(checkRealConnectivity, 20000); // Chequeo cada 20 segundos
+      checkRealConnectivity();
+      checkIntervalRef.current = setInterval(checkRealConnectivity, 20000);
       return () => {
         if (checkIntervalRef.current) {
           clearInterval(checkIntervalRef.current);
@@ -72,8 +75,7 @@ export const AuthProvider = ({ children }) => {
         window.removeEventListener('offline', handleOffline);
       };
     }
-  }, [isTauri, checkRealConnectivity]);
-
+  }, [isTauri, isTauriLoading, checkRealConnectivity]);
 
   const updateUserTheme = (newTheme) => {
     setUsuario(prev => (prev && prev.theme_preference !== newTheme) ? { ...prev, theme_preference: newTheme } : prev);
@@ -82,72 +84,55 @@ export const AuthProvider = ({ children }) => {
   const delay = ms => new Promise(res => setTimeout(res, ms));
 
   const verificarSesion = useCallback(async () => {
-    console.log('[AuthContext] 🔍 Verificando sesión...');
-
-    if (!isOnline) {
-      console.log('[AuthContext] ⚠️ Sin conexión, saltando verificación de sesión.');
+    if (isTauriLoading || !isOnline) {
+      console.log('[AuthContext] ⚠️ Sin conexión o cargando entorno, saltando verificación de sesión.');
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
     const maxRetries = 3;
-    const retryDelay = 2000; // 2 segundos
+    const retryDelay = 2000;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const { data } = await Api.get('/auth/estado');
-        
-        // Respuesta definitiva del servidor, no se necesita reintentar.
         if (data.estaLogueado) {
-          console.log('[AuthContext] ✅ Sesión re-verificada exitosamente.');
           setUsuario(data.usuario);
           setIsAuthenticated(true);
           setPermisos(data.usuario.permisos || []);
         } else {
-          console.log('[AuthContext] ℹ️ Servidor confirma que no hay sesión activa. Cerrando sesión.');
           setUsuario(null);
           setIsAuthenticated(false);
           setPermisos([]);
         }
         setIsLoading(false);
-        return; // Salir de la función, ya tenemos una respuesta.
-
+        return;
       } catch (error) {
-        // Si el error es 401, es una respuesta válida del servidor (sesión no activa).
-        // No debemos reintentar en este caso.
         if (error.response?.status === 401) {
-          console.log('[AuthContext] ℹ️ Servidor responde 401. No hay sesión activa.');
           setUsuario(null);
           setIsAuthenticated(false);
           setPermisos([]);
           setIsLoading(false);
-          return; // Salir de la función, no reintentar.
+          return;
         }
-
-        // Para cualquier otro error (de red, etc.), sí aplicamos la lógica de reintentos.
-        console.warn(`[AuthContext] Intento ${attempt}/${maxRetries} de verificar sesión falló (error de red).`);
-        
         if (attempt >= maxRetries) {
-          console.error('[AuthContext] ❌ Todos los intentos de verificar sesión fallaron. Cerrando sesión.');
           setUsuario(null);
           setIsAuthenticated(false);
           setPermisos([]);
         } else {
-          await delay(retryDelay); // Esperar antes del siguiente intento
+          await delay(retryDelay);
         }
       }
     }
     setIsLoading(false);
-  }, [isOnline]);
+  }, [isOnline, isTauriLoading]);
 
   const logout = useCallback(() => {
-    console.log('[AuthContext] 🚪 Ejecutando logout...');
     setIsAuthenticated(false);
     setUsuario(null);
     setPermisos([]);
     localStorage.removeItem('sessionID');
-
     if (isOnline) {
       try {
         Api.post('/auth/logout');
@@ -159,68 +144,33 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     if (isOnline) {
-      console.log('[AuthContext] 🔐 Intentando login online...');
       try {
         const { data } = await Api.post('/auth/login', { username, password });
-        console.log('[AuthContext] ✅ Login exitoso:', data);
-
         setUsuario(data.usuario);
         setIsAuthenticated(true);
         setPermisos(data.usuario.permisos || []);
-
         if (data.sessionID) {
           localStorage.setItem('sessionID', data.sessionID);
         }
-
         return { success: true, usuario: data.usuario };
-
       } catch (error) {
-        console.error('[AuthContext] ❌ Error en login:', error);
-
-        const errorDetails = `
-          <div style="text-align: left; max-height: 400px; overflow-y: auto; font-size: 0.85rem;">
-            <p>Ocurrió un error de red al intentar iniciar sesión.</p>
-            <p>Esto generalmente se debe a que el cliente no puede contactar al servidor.</p>
-            <hr>
-            <strong>Detalles Técnicos:</strong>
-            <ul>
-              <li><strong>Mensaje:</strong> ${error.message}</li>
-              <li><strong>URL de la Petición:</strong> ${error.config?.url}</li>
-              <li><strong>Método:</strong> ${error.config?.method?.toUpperCase()}</li>
-              <li><strong>Código de Error:</strong> ${error.code || 'N/A'}</li>
-              <li><strong>Estado de la Respuesta:</strong> ${error.response?.status || 'N/A'}</li>
-            </ul>
-            <hr>
-            <p><strong>Posibles Soluciones:</strong></p>
-            <ol>
-              <li>Verifique que el servidor backend esté en ejecución.</li>
-              <li>Asegúrese de que la IP en la URL de la petición sea correcta y accesible.</li>
-              <li>Revise que no haya otro firewall o un antivirus bloqueando la conexión.</li>
-            </ol>
-          </div>
-        `;
-
         mostrarHTML({
           title: 'Error de Conexión',
-          html: errorDetails,
+          html: `Ocurrió un error de red al intentar iniciar sesión.`,
           icon: 'error'
         });
-
         setIsAuthenticated(false);
         setUsuario(null);
         setPermisos([]);
-        return { success: false, error: 'Error de red. Revisa los detalles en la alerta.' };
+        return { success: false, error: 'Error de red.' };
       }
     } else {
-      // --- Lógica de Login Offline ---
-      console.log('[AuthContext] 🔐 Intentando login offline...');
       try {
         const offlineUserConfig = await db.offline_config.get('OFFLINE_USER');
         if (!offlineUserConfig) {
           return { success: false, error: 'Configuración offline no encontrada.' };
         }
         const offlineUser = offlineUserConfig.value;
-
         if (username === offlineUser.username && password === offlineUser.password) {
           setUsuario(offlineUser);
           setIsAuthenticated(true);
@@ -236,8 +186,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    if (isTauriLoading) return;
     verificarSesion();
-
     const interceptor = Api.interceptors.response.use(
       (response) => response,
       (error) => {
@@ -247,11 +197,10 @@ export const AuthProvider = ({ children }) => {
         return Promise.reject(error);
       }
     );
-
     return () => {
       Api.interceptors.response.eject(interceptor);
     };
-  }, [verificarSesion, isOnline]);
+  }, [verificarSesion, isOnline, isTauriLoading]);
 
   const value = {
     usuario,
@@ -265,7 +214,10 @@ export const AuthProvider = ({ children }) => {
     isOnline,
   };
 
-  console.log('[DEBUG] AuthProvider render END');
+  if (isTauriLoading) {
+    return null;
+  }
+
   return (
     <AuthContext.Provider value={value}>
       {children}
