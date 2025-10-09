@@ -64,10 +64,10 @@ export const AuthProvider = ({ children }) => {
         return reallyOnline;
       });
     } catch (error) {
-      const errorMsg = `Error en health check: ${error.message}. URL: ${Api.defaults.baseURL}/health`;
+      const errorDetails = error.message || error.toString() || JSON.stringify(error);
       Swal.fire({
         title: 'Error de Conectividad',
-        text: errorMsg,
+        text: `Error en health check: ${errorDetails}. URL: ${Api.defaults.baseURL}/health`,
         icon: 'error',
         didOpen: () => { document.querySelector('.swal2-container').style.zIndex = '99999'; }
       });
