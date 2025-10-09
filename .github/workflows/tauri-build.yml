@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install -g pnpm
-          pnpm install
+          pnpm install -r
 
       - name: Build Tauri app
         run: pnpm tauri build
