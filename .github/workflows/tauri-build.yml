@@ -36,17 +36,15 @@ jobs:
         run: |
           npm install -g pnpm
           pnpm install
-        working-directory: ./front
 
       - name: Build Tauri app
         run: pnpm tauri build
-        working-directory: ./front
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: tauri-windows-build
-          path: front/src-tauri/target/release/bundle/
+          path: src-tauri/target/release/bundle/
 
   release:
     name: Create GitHub Release
