@@ -25,14 +25,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Create config.json
+      - name: Create .env file
         run: |
-          $rawApiUrl = "${{ github.event.inputs.api_url || 'http://localhost:8000' }}"
-          # Remove /api or /api/ from the end of the URL if it exists
-          $backendUrl = $rawApiUrl -replace "/api/?$" , ""
-          $jsonContent = ConvertTo-Json -InputObject @{ backend_url = $backendUrl } -Compress
-          $jsonContent | Out-File -FilePath src-tauri/config.json
-          echo "Archivo config.json creado con la URL por defecto: $backendUrl"
+          $apiUrl = "${{ github.event.inputs.api_url || 'http://localhost:8000' }}"
+          "VITE_API_URL=${apiUrl}" | Out-File -FilePath front/.env
+          echo "Archivo .env creado con la URL: ${apiUrl}"
         shell: pwsh
 
       - name: Install dependencies
