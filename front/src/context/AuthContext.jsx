@@ -25,14 +25,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const fetcher = isTauri ? tauriFetch : fetch;
       const healthCheckUrl = `${Api.defaults.baseURL}/health`;
-      // console.log('[AuthContext] Enviando health check a:', healthCheckUrl); // No visible en build
       const response = await fetcher(healthCheckUrl, {
         method: 'GET',
         timeout: 5000,
-        cache: 'no-store'
+        // La opción 'cache' no es soportada por tauri-plugin-http, se elimina.
       });
-
-      // console.log('[AuthContext] Respuesta health check:', response); // No visible en build
 
       if (!response.ok) {
         const errorMsg = `Health check falló con estado: ${response.status}. URL: ${healthCheckUrl}`;
@@ -64,7 +61,9 @@ export const AuthProvider = ({ children }) => {
         return reallyOnline;
       });
     } catch (error) {
-      const errorDetails = error.message || error.toString() || JSON.stringify(error);
+      const errorDetails = error?.message || error?.toString() || 'Error desconocido';
+      console.error('[AuthContext] Error completo:', error);
+      
       Swal.fire({
         title: 'Error de Conectividad',
         text: `Error en health check: ${errorDetails}. URL: ${Api.defaults.baseURL}/health`,
