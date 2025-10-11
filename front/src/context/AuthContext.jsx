@@ -22,17 +22,17 @@ export const AuthProvider = ({ children }) => {
   const checkIntervalRef = useRef(null);
 
   const checkRealConnectivity = useCallback(async () => {
+    const healthCheckUrl = `${import.meta.env.VITE_API_URL || 'http://192.168.100.10:8000'}/api/health`;
+
     try {
       const fetcher = isTauri ? tauriFetch : fetch;
-      const healthCheckUrl = `${Api.defaults.baseURL}/health`;
       const response = await fetcher(healthCheckUrl, {
         method: 'GET',
         timeout: 5000,
-        // La opción 'cache' no es soportada por tauri-plugin-http, se elimina.
       });
 
       if (!response.ok) {
-        const errorMsg = `Health check falló con estado: ${response.status}. URL: ${healthCheckUrl}`;
+        const errorMsg = `Health check falló con estado: ${response.status}`;
         Swal.fire({
           title: 'Error de Conectividad',
           text: errorMsg,
@@ -48,35 +48,25 @@ export const AuthProvider = ({ children }) => {
       if (!reallyOnline) {
         Swal.fire({
           title: 'Base de Datos Desconectada',
-          text: `El backend está accesible, pero no puede conectar con la base de datos. URL: ${healthCheckUrl}`,
+          text: 'El backend está accesible, pero no puede conectar con la base de datos.',
           icon: 'warning',
           didOpen: () => { document.querySelector('.swal2-container').style.zIndex = '99999'; }
         });
       }
 
-      setIsOnline(prev => {
-        if (prev !== reallyOnline) {
-          // console.log(`[AuthContext] 🔄 Estado de conexión (Activo) cambiado a: ${reallyOnline ? 'ONLINE' : 'OFFLINE'}`); // No visible en build
-        }
-        return reallyOnline;
-      });
+      setIsOnline(reallyOnline);
     } catch (error) {
       const errorDetails = error?.message || error?.toString() || 'Error desconocido';
       console.error('[AuthContext] Error completo:', error);
       
       Swal.fire({
         title: 'Error de Conectividad',
-        text: `Error en health check: ${errorDetails}. URL: ${Api.defaults.baseURL}/health`,
+        html: `Error: ${errorDetails}<br/>URL intentada: ${healthCheckUrl}`,
         icon: 'error',
         didOpen: () => { document.querySelector('.swal2-container').style.zIndex = '99999'; }
       });
-      // console.error('[AuthContext] Error en health check:', error); // No visible en build
-      setIsOnline(prev => {
-        if (prev !== false) {
-          // console.log('[AuthContext] 🔄 Cambiando a OFFLINE por error en chequeo activo:', error.message); // No visible en build
-        }
-        return false;
-      });
+      
+      setIsOnline(false);
     }
   }, [isTauri]);
 
