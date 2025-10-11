@@ -18,12 +18,11 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [permisos, setPermisos] = useState([]);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState(false);
   const checkIntervalRef = useRef(null);
 
   const checkRealConnectivity = useCallback(async () => {
     const healthCheckUrl = `${import.meta.env.VITE_API_URL || 'http://192.168.100.10:8000'}/api/health`;
-
     try {
       const fetcher = isTauri ? tauriFetch : fetch;
       const response = await fetcher(healthCheckUrl, {
@@ -32,40 +31,27 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!response.ok) {
-        const errorMsg = `Health check falló con estado: ${response.status}`;
-        Swal.fire({
-          title: 'Error de Conectividad',
-          text: errorMsg,
-          icon: 'error',
-          didOpen: () => { document.querySelector('.swal2-container').style.zIndex = '99999'; }
-        });
-        throw new Error(errorMsg);
+        throw new Error(`Health check falló con estado: ${response.status}`);
       }
 
-      const data = await response.json();
-      const reallyOnline = data.db === true;
-
-      if (!reallyOnline) {
-        Swal.fire({
-          title: 'Base de Datos Desconectada',
-          text: 'El backend está accesible, pero no puede conectar con la base de datos.',
-          icon: 'warning',
-          didOpen: () => { document.querySelector('.swal2-container').style.zIndex = '99999'; }
-        });
+      let data;
+      if (isTauri) {
+        data = response.data || await response.json();
+      } else {
+        data = await response.json();
       }
 
+      const reallyOnline = data && data.db === true;
       setIsOnline(reallyOnline);
+
     } catch (error) {
       const errorDetails = error?.message || error?.toString() || 'Error desconocido';
-      console.error('[AuthContext] Error completo:', error);
-      
       Swal.fire({
         title: 'Error de Conectividad',
         html: `Error: ${errorDetails}<br/>URL intentada: ${healthCheckUrl}`,
         icon: 'error',
         didOpen: () => { document.querySelector('.swal2-container').style.zIndex = '99999'; }
       });
-      
       setIsOnline(false);
     }
   }, [isTauri]);

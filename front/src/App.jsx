@@ -16,12 +16,11 @@ import { initializeOfflineUser } from './db/offlineDB';
 function App() {
   const theme = useTheme();
   const isDesktopUp = useMediaQuery(theme.breakpoints.up('sm'));
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, isOnline } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const {
-    isOnline,
     pendingSync,
     showSyncModal,
     handleSyncClick,
