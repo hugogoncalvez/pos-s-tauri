@@ -14,8 +14,11 @@
     {
       "identifier": "http:default",
       "allow": [
-        { "url": "http://localhost:8000/api/*" },
-        { "url": "http://192.168.*.*:8000/api/*" },
+        { "url": "http://localhost:8000/*" },
+        { "url": "http://127.0.0.1:8000/*" },
+        { "url": "http://192.168.*.*:8000/*" },
+        { "url": "http://10.*.*.*:8000/*" },
+        { "url": "http://172.16.*.*:8000/*" },
         { "url": "http://detectportal.firefox.com/success.txt" }
       ]
     }

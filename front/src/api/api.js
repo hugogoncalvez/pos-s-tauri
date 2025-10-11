@@ -1,53 +1,51 @@
 import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import { getBackendUrl } from '../config/appConfig';
 
-export const Api = axios.create({
-    baseURL: API_BASE_URL,
-});
+// Función asíncrona para crear y configurar la instancia de la API
+async function createApiInstance() {
+    const baseURL = await getBackendUrl();
 
-// Request interceptor - adjunta el session ID a cada petición
-Api.interceptors.request.use(
-    (config) => {
-        const sessionID = localStorage.getItem('sessionID');
-        if (sessionID) {
-            config.headers['X-Session-ID'] = sessionID;
-            console.log('[API] 📤 Request con sessionID:', sessionID.substring(0, 8) + '...', 'a', config.url);
-        } else {
-            console.warn('[API] ⚠️ Request SIN sessionID a', config.url);
-        }
-        return config;
-    },
-    (error) => {
-        console.error('[API] ❌ Error en request interceptor:', error);
-        return Promise.reject(error);
-    }
-);
+    const api = axios.create({
+        baseURL: baseURL + '/api', // Añadimos /api a la URL base
+        withCredentials: true,
+        timeout: 10000
+    });
 
-// Response interceptor - guarda el session ID SOLO si viene en el response
-Api.interceptors.response.use(
-    (response) => {
-        const sessionID = response.headers['x-session-id'];
-
-        // CRÍTICO: Solo actualizar si viene el header
-        if (sessionID) {
-            const currentSessionID = localStorage.getItem('sessionID');
-
-            if (currentSessionID !== sessionID) {
-                console.log('[API] 💾 Guardando nuevo sessionID:', sessionID.substring(0, 8) + '...');
-                localStorage.setItem('sessionID', sessionID);
-            } else {
-                console.log('[API] ✅ SessionID confirmado en response');
+    // Request interceptor - adjunta el session ID a cada petición
+    api.interceptors.request.use(
+        (config) => {
+            const sessionID = localStorage.getItem('sessionID');
+            if (sessionID) {
+                config.headers['X-Session-ID'] = sessionID;
             }
+            return config;
+        },
+        (error) => {
+            return Promise.reject(error);
         }
+    );
 
-        return response;
-    },
-    (error) => {
-        console.error('[API] ❌ Error response:', error.response?.status, 'URL:', error.config?.url);
+    // Response interceptor - guarda el session ID SOLO si viene en el response
+    api.interceptors.response.use(
+        (response) => {
+            const sessionID = response.headers['x-session-id'];
+            if (sessionID) {
+                const currentSessionID = localStorage.getItem('sessionID');
+                if (currentSessionID !== sessionID) {
+                    localStorage.setItem('sessionID', sessionID);
+                }
+            }
+            return response;
+        },
+        (error) => {
+            console.error('[API] ❌ Error response:', error.response?.status, 'URL:', error.config?.url);
+            return Promise.reject(error);
+        }
+    );
 
-        // NO limpiar sessionID automáticamente
-        // Solo se limpia en logout() explícito
+    return api;
+}
 
-        return Promise.reject(error);
-    }
-);
+// Usamos top-level await para esperar la configuración asíncrona.
+// El módulo no se resolverá hasta que la instancia de la API esté lista.
+export const Api = await createApiInstance();
