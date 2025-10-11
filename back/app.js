@@ -34,25 +34,46 @@ app.use((req, res, next) => {
 
 // Opciones de CORS para permitir la app de Tauri y el frontend de desarrollo
 const corsOptions = {
-  origin: function (origin, callback) {
-    console.log('CORS Origin Recibido:', origin);
+  origin: (origin, callback) => {
+    console.log('🔍 Origin recibido:', origin || 'SIN ORIGIN');
+    
     const allowedOrigins = [
       'tauri://localhost',
-      'http://localhost:5173',
       'http://tauri.localhost',
-      'null'
+      'https://tauri.localhost',
+      /^http:\/\/localhost(:\d+)?$/,
+      /^http:\/\/127\.0\.0\.1(:\d+)?$/,
     ];
-    // Permite requests sin origen (como desde la app compilada) y orígenes permitidos
-    if (origin === null || allowedOrigins.indexOf(origin) !== -1 || /^http:\/\/192\.168\.\d+\.\d+:\d+$/.test(origin)) {
+
+    // Solo en desarrollo, permitir red local (192.168.x.x)
+    if (process.env.NODE_ENV === 'development') {
+      allowedOrigins.push(/^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/);
+    }
+
+    // CRÍTICO: Si no hay origin (curl, Postman, requests internos), PERMITIR
+    if (!origin) {
+      console.log('✅ Petición sin Origin - Permitida');
+      return callback(null, true);
+    }
+    
+    // Verificar contra la lista
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (allowed instanceof RegExp) return allowed.test(origin);
+      return allowed === origin;
+    });
+    
+    if (isAllowed) {
+      console.log('✅ Origin permitido:', origin);
       callback(null, true);
     } else {
-      callback(new Error('No permitido por CORS'));
+      console.warn('🚫 Origin rechazado:', origin);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-ID'],
-  credentials: false,
-  exposedHeaders: ['X-Session-ID'] // IMPORTANTE: Exponer el header para que el cliente lo pueda leer
+  credentials: true,
+  exposedHeaders: ['X-Session-ID']
 };
 
 app.use(cors(corsOptions));
