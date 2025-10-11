@@ -126,8 +126,12 @@ const Ventas = () => {
   );
 
   // Derivar el estado de la sesión a partir de los datos del hook
-  const isSessionActive = sessionData?.hasActiveSession || false;
-  const activeSessionData = sessionData?.session || null;
+  const isSessionActive = !!sessionData; // <--- Check if sessionData is truthy
+  const activeSessionData = sessionData || null; // <--- sessionData is already the session object or null
+
+  console.log('[Ventas] sessionData:', sessionData);
+  console.log('[Ventas] isSessionActive:', isSessionActive);
+  console.log('[Ventas] activeSessionData:', activeSessionData);
 
   const [isCajaModalOpen, setIsCajaModalOpen] = useState(false);
 

@@ -25,10 +25,12 @@ function App() {
     showSyncModal,
     handleSyncClick,
     handleSyncComplete,
-    pendingSalesCount
   } = useSyncManager();
 
-  const { data: activeSession, isLoading: isLoadingActiveSession } = useCashRegister();
+  const pendingSalesCount = pendingSync.pendingSales;
+
+  const { activeSession, isLoadingActiveSession } = useCashRegister();
+  console.log(`[App.jsx] After useCashRegister: activeSession (${activeSession ? 'present' : 'undefined'}), isLoadingActiveSession (${isLoadingActiveSession})`);
 
   usePreventClose(isOnline, pendingSalesCount > 0);
 
@@ -36,6 +38,7 @@ function App() {
     const initUser = async () => {
       if (isAuthenticated && user) {
         await initializeOfflineUser(user.id.toString());
+        await syncService.loadReferenceData(user.id);
       }
     };
     initUser();
@@ -58,13 +61,16 @@ function App() {
       </Box>
 
       {showSyncModal && (
-        <SyncModal
-          open={showSyncModal}
-          pendingSync={pendingSync || { pendingSales: 0 }}
-          onSyncComplete={handleSyncComplete}
-          activeSessionData={activeSession}
-          isCheckingSession={isLoadingActiveSession}
-        />
+        <>
+          {console.log(`[App.jsx] Passing to SyncModal: activeSession (${activeSession ? 'present' : 'undefined'}), isLoadingActiveSession (${isLoadingActiveSession})`)}
+          <SyncModal
+            open={showSyncModal}
+            pendingSync={pendingSync || { pendingSales: 0 }}
+            onSyncComplete={handleSyncComplete}
+            activeSessionData={activeSession}
+            isCheckingSession={isLoadingActiveSession}
+          />
+        </>
       )}
     </div>
   );

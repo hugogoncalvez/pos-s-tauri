@@ -24,6 +24,9 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
   const theme = useTheme();
   const { login, isAuthenticated, usuario } = useContext(AuthContext);
 
+  console.log('[SyncModal] activeSessionData prop:', activeSessionData);
+  console.log('[SyncModal] isCheckingSession prop:', isCheckingSession);
+
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
@@ -46,12 +49,17 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
 
   // Derive activeCashSessionId from props
   useEffect(() => {
-    if (activeSessionData && activeSessionData.id) {
-      setActiveCashSessionId(activeSessionData.id);
+    console.log('[SyncModal] useEffect - activeSessionData:', activeSessionData);
+    if (activeSessionData && activeSessionData.session && activeSessionData.session.id) {
+      setActiveCashSessionId(activeSessionData.session.id);
+      console.log('[SyncModal] activeCashSessionId set to:', activeSessionData.session.id);
     } else {
       setActiveCashSessionId(null);
+      console.log('[SyncModal] activeCashSessionId set to null.');
     }
   }, [activeSessionData]);
+
+  console.log('[SyncModal] Render - activeCashSessionId state:', activeCashSessionId);
 
   const handleLogin = async () => {
     setError('');
@@ -80,7 +88,7 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
         mostrarError(`${result.failed} venta(s) no pudieron ser sincronizadas. Revise la consola.`, theme);
       }
       mostrarExito(`¡Sincronización completada! ${result.synced} venta(s) procesada(s).`, theme);
-      
+
       await syncService.triggerSyncStatusUpdate();
       onSyncComplete(result);
 
@@ -92,6 +100,13 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
   };
 
   const renderContent = () => {
+    console.log('[SyncModal - renderContent] isAuthenticated:', isAuthenticated);
+    console.log('[SyncModal - renderContent] usuario (isOfflineUser):', usuario?.isOfflineUser);
+    console.log('[SyncModal - renderContent] activeCashSessionId:', activeCashSessionId);
+    console.log('[SyncModal - renderContent] isCheckingSession:', isCheckingSession);
+    console.log('[SyncModal - renderContent] isSyncing:', isSyncing);
+    console.log('[SyncModal - renderContent] pendingSalesCount:', pendingSalesCount);
+
     if (isCheckingSession) {
       return (
         <Box sx={{ textAlign: 'center', py: 5 }}>
@@ -146,21 +161,21 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
     if (isAuthenticated && activeCashSessionId) {
       return (
         <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="h6" gutterBottom>Listo para sincronizar.</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Se sincronizarán <strong>{pendingSalesCount}</strong> venta(s) a la sesión de caja actual.
-            </Typography>
+          <Typography variant="h6" gutterBottom>Listo para sincronizar.</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Se sincronizarán <strong>{pendingSalesCount}</strong> venta(s) a la sesión de caja actual.
+          </Typography>
         </Box>
       );
     }
 
     // This case should not be reached if App.jsx logic is correct, but it's a good fallback.
     if (isAuthenticated && !activeCashSessionId) {
-        return (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Alert severity="error">No se ha encontrado una sesión de caja activa. Por favor, cierre este diálogo y abra una sesión de caja primero.</Alert>
-            </Box>
-        );
+      return (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Alert severity="error">No se ha encontrado una sesión de caja activa. Por favor, cierre este diálogo y abra una sesión de caja primero.</Alert>
+        </Box>
+      );
     }
 
     return null;

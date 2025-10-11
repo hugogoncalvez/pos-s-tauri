@@ -27,15 +27,18 @@ export const useCashRegister = () => {
     const userId = user?.id; // ID del usuario
     const userName = user?.username; // Nombre del usuario
 
+    console.log(`[useCashRegister] Query enabled condition: !authLoading (${!authLoading}) && !!userId (${!!userId}) = ${!authLoading && !!userId}`);
+
     // Query para obtener la sesión de caja activa
     const { data: activeSessionData, isLoading: isLoadingActiveSession, refetch: refetchActiveSession } = UseFetchQuery(
         ['activeCashSession', userId], // Clave de caché única por usuario
         `/cash-sessions/active/${userId}`, // Endpoint para obtener la sesión activa
-        !authLoading && !!userId // Habilitar la query solo si AuthContext ha terminado de cargar Y hay un userId
+        !authLoading && !!userId, // Habilitar la query solo si AuthContext ha terminado de cargar Y hay un userId
+        0 // staleTime: 0 para que siempre se considere stale y se intente refetch al backend cuando isOnline es true
     );
 
     /** @type {CashSession | null} */
-    const activeSession = activeSessionData?.session || null;
+    const activeSession = activeSessionData || null;
 
     // Hook para enviar datos al backend (para crear movimientos)
     const { mutateAsync: submitMovement, isLoading: isSavingMovement } = useSubmit();

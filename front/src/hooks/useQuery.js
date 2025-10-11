@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Api } from "../api/api";
 import { db } from "../db/offlineDB";
 import { useOnlineStatus } from "./useOnlineStatus";
@@ -58,15 +59,14 @@ const handleOfflineQuery = async (url) => {
 
     // Lógica para la sesión de caja activa
     if (tableName === 'active_cash_session') {
-      // Esta tabla solo debería tener un registro
       const sessions = await db.active_cash_session.toArray();
       console.log('[Offline Query - DEBUG] Contenido de la tabla active_cash_session:', sessions);
       if (sessions.length > 0) {
         console.log('[Offline Query] Sesión de caja activa encontrada localmente.');
-        return { hasActiveSession: true, session: sessions[0] };
+        return sessions[0]; // <--- Return the session object directly
       } else {
         console.log('[Offline Query] No se encontró sesión de caja activa local.');
-        return { hasActiveSession: false, session: null };
+        return null; // <--- Return null if no session
       }
     }
 
@@ -99,6 +99,8 @@ export const UseFetchQuery = (key, queryFnOrUrl, enable = true, stale = 0, optio
   // Añadir isOnline a la queryKey para que React Query diferencie entre la caché online y la offline.
   const queryKey = Array.isArray(key) ? [...key, isOnline] : [key, isOnline];
 
+  const queryClient = useQueryClient();
+
   const result = useQuery({
     queryKey,
     queryFn: async () => {
@@ -106,12 +108,15 @@ export const UseFetchQuery = (key, queryFnOrUrl, enable = true, stale = 0, optio
         return queryFnOrUrl(); // Ejecutar función personalizada si se provee
       }
 
+      console.log(`[UseFetchQuery - queryFn] isOnline: ${isOnline}, URL: ${queryFnOrUrl}`);
+
       if (!isOnline) {
         return handleOfflineQuery(queryFnOrUrl);
       }
 
       // Comportamiento online normal
       const res = await Api.get(queryFnOrUrl);
+      console.log(`[UseFetchQuery - API Response] URL: ${queryFnOrUrl}, Data:`, res.data);
       return res.data;
     },
     enabled: enable,
@@ -126,6 +131,8 @@ export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale
   const { isOnline } = useOnlineStatus();
   // Añadir isOnline a la queryKey
   const queryKey = Array.isArray(key) ? [...key, isOnline] : [key, isOnline];
+
+  const queryClient = useQueryClient();
 
   const result = useQuery({
     queryKey,

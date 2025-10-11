@@ -53,7 +53,8 @@ class SyncService {
         paymentMethodsRes,
         activeCashSessionRes,
         elementsRes, // <--- Nuevo
-        themeSettingsRes // <--- Nuevo
+        themeSettingsRes,
+        unitsRes // <--- ADD unitsRes
       ] = await Promise.all([
         Api.get('/stock?limit=10000'),
         Api.get('/category'),
@@ -63,14 +64,15 @@ class SyncService {
         Api.get('/payment'),
         Api.get(`/cash-sessions/active/${userId}`),
         Api.get('/elements'), // <--- Nuevo
-        Api.get('/theme') // <--- Corregido
+        Api.get('/theme'),
+        Api.get('/units') // <--- ADD Api.get('/units')
       ]);
 
       // 2. Limpiar tablas antiguas y guardar los nuevos datos en una transacción atómica
       await db.transaction('rw', [
         db.stock, db.presentations, db.categories, db.customers,
         db.promotions, db.combos, db.payment_methods, db.active_cash_session,
-        db.elements, db.theme_settings // <--- Nuevo
+        db.elements, db.theme_settings, db.units // <--- ADD db.units
       ], async () => {
         // Limpiar datos viejos
         await Promise.all([
@@ -83,7 +85,8 @@ class SyncService {
           db.payment_methods.clear(),
           db.active_cash_session.clear(), // <--- AÑADIDO: Limpiar sesión activa vieja
           db.elements.clear(), // <--- Nuevo
-          db.theme_settings.clear() // <--- Nuevo
+          db.theme_settings.clear(),
+          db.units.clear() // <--- ADD db.units.clear()
         ]);
 
         // Extraer datos de la respuesta de la API
@@ -94,7 +97,8 @@ class SyncService {
         const combosData = Array.isArray(combosRes.data) ? combosRes.data : [];
         const paymentMethodsData = Array.isArray(paymentMethodsRes.data) ? paymentMethodsRes.data : [];
         const elementsData = Array.isArray(elementsRes.data) ? elementsRes.data : []; // <--- Nuevo
-        const themeSettingsData = themeSettingsRes.data; // <--- Nuevo
+        const themeSettingsData = themeSettingsRes.data;
+        const unitsData = Array.isArray(unitsRes.data) ? unitsRes.data : []; // <--- ADD unitsData
 
         // Extraer y guardar stock y presentaciones
         const allPresentations = [];
@@ -118,6 +122,7 @@ class SyncService {
         await db.combos.bulkPut(combosData);
         await db.payment_methods.bulkPut(paymentMethodsData);
         await db.elements.bulkPut(elementsData); // <--- Nuevo
+        await db.units.bulkPut(unitsData); // <--- ADD db.units.bulkPut(unitsData)
 
         // Guardar la sesión de caja activa
         if (activeCashSessionRes.data && activeCashSessionRes.data.session) {
@@ -133,6 +138,9 @@ class SyncService {
 
       // 3. Actualizar la marca de tiempo de la sincronización
       await setLastSyncTime(Date.now());
+
+      // Limpiar cualquier venta pendiente ya sincronizada después de una carga exitosa de datos de referencia
+      await this.clearPendingSales();
 
       console.log('✅ Datos de referencia cargados exitosamente.');
       this.notifyListeners({ status: 'success', message: 'Datos actualizados.' });
@@ -160,14 +168,20 @@ class SyncService {
     const timestamp = Date.now();
     let sessionId = -1; // ID provisional para ventas offline
 
-    if (isOnline) {
-      const activeCashSession = await db.active_cash_session.toCollection().first();
-      if (activeCashSession) {
-        sessionId = activeCashSession.id;
-      } else {
-        console.error('No hay una sesión de caja activa para registrar la venta en modo online.');
-        throw new Error('No hay una sesión de caja activa online.');
+    try {
+      const activeCashSessionLocal = await db.active_cash_session.toCollection().first();
+      if (activeCashSessionLocal && activeCashSessionLocal.id) {
+        sessionId = activeCashSessionLocal.id;
       }
+    } catch (e) {
+      console.warn('[SyncService] No se pudo leer active_cash_session local:', e);
+    }
+
+    // Si estamos online y no hemos podido obtener un sessionId válido de la DB local,
+    // significa que no hay una sesión activa para esta venta online.
+    if (isOnline && sessionId === -1) {
+      console.error('No hay una sesión de caja activa para registrar la venta en modo online.');
+      throw new Error('No hay una sesión de caja activa online.');
     }
 
     const saleToQueue = {
@@ -423,9 +437,10 @@ class SyncService {
    */
   async clearPendingSales() {
     try {
-      const count = await db.pending_sales.where('synced').equals(0).delete();
-      console.log(`🗑️ ${count} ventas pendientes eliminadas de la cola local.`);
-      this.notifyListeners({ status: 'cleaned', message: `${count} ventas pendientes eliminadas.` });
+      // Eliminar ventas que están sincronizadas (1) o fallaron permanentemente (-1)
+      const count = await db.pending_sales.where('synced').anyOf(1, -1).delete();
+      console.log(`🗑️ ${count} ventas sincronizadas o fallidas permanentemente eliminadas de la cola local.`);
+      this.notifyListeners({ status: 'cleaned', message: `${count} ventas limpiadas.` });
       return { success: true, count };
     } catch (error) {
       console.error('❌ Error al limpiar ventas pendientes:', error);

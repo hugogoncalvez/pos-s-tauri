@@ -61,7 +61,7 @@ export const CajaManager = ({ open, onClose, userId, activeSession = null }) => 
         mostrarCarga('Abriendo caja...', theme);
 
         try {
-            await openSession({
+            const response = await openSession({
                 url: '/cash-sessions/open',
                 values: {
                     user_id: userId,
@@ -70,6 +70,17 @@ export const CajaManager = ({ open, onClose, userId, activeSession = null }) => 
             });
             Swal.close();
             mostrarExito('La sesión de caja se ha abierto correctamente', theme);
+
+            if (response && response.session) {
+                try {
+                    await db.active_cash_session.clear();
+                    await db.active_cash_session.put(response.session);
+                    console.log('[CashSession] Sesión guardada en Dexie:', response.session);
+                } catch (e) {
+                    console.error('[CashSession] Error guardando session en Dexie:', e);
+                }
+            }
+
             onClose(true); // Indicar que la sesión se abrió con éxito
         } catch (err) {
             Swal.close();
