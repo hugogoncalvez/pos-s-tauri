@@ -1,4 +1,4 @@
-use tauri_plugin_log::Builder as LogBuilder;
+use tauri_plugin_log::{Builder as LogBuilder, LogTarget};
 use log::LevelFilter;
 
 pub fn run() {
@@ -8,8 +8,15 @@ pub fn run() {
             app.handle().plugin(
                 LogBuilder::default()
                     // Nivel de log mínimo a registrar
-                    .level(LevelFilter::Info)
-                    // Guarda los logs en el directorio por defecto de la app
+                    .level(LevelFilter::Debug) // más verboso
+                    // Establecemos explícitamente los destinos de los logs
+                    .targets([
+                        LogTarget::Stdout,          // consola del terminal
+                        LogTarget::Webview,         // consola del webview
+                        LogTarget::LogDir {         // archivo de log
+                            file_name: Some("app.log".into()),
+                        },
+                    ])
                     .build(),
             )?;
 
