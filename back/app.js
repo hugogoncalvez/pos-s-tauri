@@ -138,22 +138,40 @@ const PORT = process.env.PORT || 8000;
 
 // Función asíncrona para iniciar el servidor y la conexión a la DB
 async function startServer() {
-  try {
-    await db.authenticate();
-    console.log('✅ Conexión a la base de datos establecida correctamente.');
+  const MAX_RETRIES = 5;
+  let currentRetry = 0;
 
-    initScheduledTasks();
-    console.log('✅ Tareas programadas inicializadas');
+  const connectWithRetry = async () => {
+    while (currentRetry < MAX_RETRIES) {
+      try {
+        await db.authenticate();
+        console.log('✅ Conexión a la base de datos establecida correctamente.');
+        return; // Salir del bucle si la conexión es exitosa
+      } catch (error) {
+        currentRetry++;
+        const delay = Math.min(5000 * Math.pow(2, currentRetry - 1), 30000); // Backoff exponencial
+        console.error(`❌ Error al conectar a la DB. Intento ${currentRetry}/${MAX_RETRIES}. Reintentando en ${delay / 1000}s...`);
+        
+        if (currentRetry >= MAX_RETRIES) {
+          console.error('❌ Se alcanzó el máximo de reintentos. El servidor no pudo iniciarse.');
+          process.exit(1);
+        }
+        
+        await new Promise(res => setTimeout(res, delay));
+      }
+    }
+  };
 
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Servidor en ejecución en http://localhost:${PORT}/`);
-      console.log(`🌐 Accesible desde la red en http://<TU_IP>:${PORT}/`);
-    });
+  await connectWithRetry();
 
-  } catch (error) {
-    console.error('❌ Error al conectar a la base de datos o iniciar el servidor:', error);
-    process.exit(1);
-  }
+  // Si llegamos aquí, la conexión a la DB fue exitosa.
+  initScheduledTasks();
+  console.log('✅ Tareas programadas inicializadas');
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Servidor en ejecución en http://localhost:${PORT}/`);
+    console.log(`🌐 Accesible desde la red en http://<TU_IP>:${PORT}/`);
+  });
 }
 
 // Llamar a la función para iniciar el servidor

@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
     if (isTauri) {
       console.log('[AuthContext] 🌐 Modo Tauri: verificación activa de conectividad habilitada.');
       checkRealConnectivity(); // chequeo inicial
-      checkIntervalRef.current = setInterval(checkRealConnectivity, 20000);
+      checkIntervalRef.current = setInterval(checkRealConnectivity, 15000);
       return () => {
         if (checkIntervalRef.current) {
           clearInterval(checkIntervalRef.current);

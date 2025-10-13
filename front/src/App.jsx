@@ -6,11 +6,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './context/AuthContext';
 import { syncService } from './services/syncService';
 import { useSyncManager } from './hooks/useSyncManager';
+import { usePreventClose } from './hooks/usePreventClose';
 import { useCashRegister } from './hooks/useCashRegister';
 import Swal from 'sweetalert2';
+import { mostrarConfirmacion } from './functions/mostrarConfirmacion';
 import { SyncModal } from './components/SyncModal';
 import DenseAppBar from './components/AppBar';
-import { usePreventClose } from './hooks/usePreventClose';
+
 import { initializeOfflineUser } from './db/offlineDB';
 
 function App() {
@@ -32,8 +34,30 @@ function App() {
   const { activeSession, isLoadingActiveSession } = useCashRegister();
   console.log(`[App.jsx] After useCashRegister: activeSession (${activeSession ? 'present' : 'undefined'}), isLoadingActiveSession (${isLoadingActiveSession})`);
 
-  usePreventClose(isOnline, pendingSalesCount > 0);
+  const checkSessionBeforeClose = useCallback(() => {
+    return new Promise((resolve) => {
+      if (activeSession) {
+        mostrarConfirmacion(
+          {
+            title: '¡Sesión de Caja Activa!',
+            text: 'Hay una sesión de caja abierta. ¿Estás seguro de que quieres cerrar la aplicación?',
+            icon: 'warning',
+            confirmButtonText: 'Sí, cerrar',
+            cancelButtonText: 'No, cancelar',
+          },
+          theme,
+          () => resolve(true),  // onConfirm
+          () => resolve(false) // onCancel
+        );
+      } else {
+        resolve(true); // Permitir cierre si no hay sesión activa
+      }
+    });
+  }, [activeSession, theme]);
 
+  usePreventClose(checkSessionBeforeClose);
+
+  
   useEffect(() => {
     const initUser = async () => {
       if (isAuthenticated && user) {
@@ -53,7 +77,7 @@ function App() {
         <Box sx={{ height: appBarHeight }} />
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
           <AnimatePresence mode='wait'>
-            <Suspense fallback={<div>Loading...</div>}>
+            <Suspense >
               <Outlet />
             </Suspense>
           </AnimatePresence>

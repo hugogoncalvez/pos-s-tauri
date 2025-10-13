@@ -1,7 +1,10 @@
 import axios from 'axios';
 
-// La URL se toma directamente de las variables de entorno de Vite.
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://192.168.100.10:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
+if (!API_BASE_URL) {
+  throw new Error('Error Crítico: La variable de entorno VITE_API_URL no está definida. La aplicación no puede conectarse al backend.');
+}
 
 export const Api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
