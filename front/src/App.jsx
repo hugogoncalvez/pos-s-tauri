@@ -57,7 +57,7 @@ function App() {
 
   usePreventClose(checkSessionBeforeClose);
 
-  
+
   useEffect(() => {
     const initUser = async () => {
       if (isAuthenticated && user) {
