@@ -14,7 +14,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const { isTauri, isLoading: isTauriLoading } = useIsTauri();
 
-  console.log('[DEBUG] AuthProvider render START');
+  info('[DEBUG] AuthProvider render START');
   const [usuario, setUsuario] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }) => {
     if (isTauriLoading) return;
 
     if (isTauri) {
-      console.log('[AuthContext] 🌐 Modo Tauri: verificación activa de conectividad habilitada.');
+      info('[AuthContext] 🌐 Modo Tauri: verificación activa de conectividad habilitada.');
       checkRealConnectivity(); // chequeo inicial
       checkIntervalRef.current = setInterval(checkRealConnectivity, 15000);
       return () => {
@@ -78,14 +78,14 @@ export const AuthProvider = ({ children }) => {
         }
       };
     } else {
-      console.log('[AuthContext] 💻 Modo Web/Dev: usando eventos navigator.onLine');
+      info('[AuthContext] 💻 Modo Web/Dev: usando eventos navigator.onLine');
       const handleOnline = debounce(() => {
-        console.log('[AuthContext] 🌐 Evento: ONLINE');
+        info('[AuthContext] 🌐 Evento: ONLINE');
         setIsOnline(true);
         checkRealConnectivity(); // También verificar la conectividad real al backend
       }, 300);
       const handleOffline = debounce(() => {
-        console.log('[AuthContext] 🔌 Evento: OFFLINE');
+        info('[AuthContext] 🔌 Evento: OFFLINE');
         setIsOnline(false);
       }, 300);
       window.addEventListener('online', handleOnline);
@@ -104,10 +104,10 @@ export const AuthProvider = ({ children }) => {
   const delay = ms => new Promise(res => setTimeout(res, ms));
 
   const verificarSesion = useCallback(async () => {
-    console.log('[AuthContext] 🔍 Verificando sesión...');
+    info('[AuthContext] 🔍 Verificando sesión...');
 
     if (!isOnline) {
-      console.log('[AuthContext] ⚠️ Sin conexión, saltando verificación de sesión.');
+      info('[AuthContext] ⚠️ Sin conexión, saltando verificación de sesión.');
       setIsLoading(false);
       return;
     }
@@ -120,14 +120,14 @@ export const AuthProvider = ({ children }) => {
       try {
         const { data } = await Api.get('/auth/estado');
         if (data.estaLogueado) {
-          console.log('[AuthContext] ✅ Sesión activa verificada.');
+          info('[AuthContext] ✅ Sesión activa verificada.');
           setUsuario(data.usuario);
           setIsAuthenticated(true);
           setPermisos(data.usuario.permisos || []);
           // ✅ Sincroniza datos locales tras verificar sesión
           await syncService.loadReferenceData(data.usuario.id);
         } else {
-          console.log('[AuthContext] ℹ️ No hay sesión activa.');
+          info('[AuthContext] ℹ️ No hay sesión activa.');
           setUsuario(null);
           setIsAuthenticated(false);
           setPermisos([]);
@@ -136,14 +136,14 @@ export const AuthProvider = ({ children }) => {
         return;
       } catch (error) {
         if (error.response?.status === 401) {
-          console.log('[AuthContext] ℹ️ Servidor responde 401. No hay sesión activa.');
+          info('[AuthContext] ℹ️ Servidor responde 401. No hay sesión activa.');
           setUsuario(null);
           setIsAuthenticated(false);
           setPermisos([]);
           setIsLoading(false);
           return;
         }
-        console.warn(`[AuthContext] Intento ${attempt}/${maxRetries} fallido.`, error.message);
+        error(`[AuthContext] Intento ${attempt}/${maxRetries} fallido. ${error.message}`);
         if (attempt < maxRetries) await delay(retryDelay);
       }
     }
@@ -151,7 +151,7 @@ export const AuthProvider = ({ children }) => {
   }, [isOnline, isTauriLoading]);
 
   const logout = useCallback(() => {
-    console.log('[AuthContext] 🚪 Ejecutando logout...');
+    info('[AuthContext] 🚪 Ejecutando logout...');
     setIsAuthenticated(false);
     setUsuario(null);
     setPermisos([]);
@@ -159,17 +159,17 @@ export const AuthProvider = ({ children }) => {
 
     if (isOnline) {
       Api.post('/auth/logout').catch(err =>
-        console.error('[AuthContext] Error al cerrar sesión en backend:', err)
+      error(`[AuthContext] Error al cerrar sesión en backend: ${err}`);
       );
     }
   }, [isOnline]);
 
   const login = async (username, password) => {
     if (isOnline) {
-      console.log('[AuthContext] 🔐 Login online...');
+      info('[AuthContext] 🔐 Login online...');
       try {
         const { data } = await Api.post('/auth/login', { username, password });
-        console.log('[AuthContext] ✅ Login exitoso:', data);
+        info(`[AuthContext] ✅ Login exitoso: ${JSON.stringify(data)}`);
 
         setUsuario(data.usuario);
         setIsAuthenticated(true);
@@ -182,18 +182,14 @@ export const AuthProvider = ({ children }) => {
         return { success: true, usuario: data.usuario };
       } catch (error) {
         console.error('[AuthContext] ❌ Error en login:', error);
-        mostrarHTML({
-          title: 'Error de Conexión',
-          html: `<p>Ocurrió un error de red: ${error.message}</p>`,
-          icon: 'error'
-        });
+        await error(`[AuthContext] ❌ Error en login: ${error.message}`);
         setIsAuthenticated(false);
         setUsuario(null);
         setPermisos([]);
         return { success: false, error: 'Error de red' };
       }
     } else {
-      console.log('[AuthContext] 🔐 Login offline...');
+      info('[AuthContext] 🔐 Login offline...');
       try {
         const offlineUserConfig = await db.offline_config.get('OFFLINE_USER');
         if (!offlineUserConfig) return { success: false, error: 'Configuración offline no encontrada.' };
@@ -221,7 +217,7 @@ export const AuthProvider = ({ children }) => {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          console.log('[AuthContext] ⚠️ Interceptor detectó 401.');
+          info('[AuthContext] ⚠️ Interceptor detectó 401.');
         }
         return Promise.reject(error);
       }
