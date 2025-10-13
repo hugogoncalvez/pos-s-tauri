@@ -158,9 +158,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('sessionID');
 
     if (isOnline) {
-                        Api.post('/auth/logout').catch(err =>
-              error(`[AuthContext] Error al cerrar sesión en backend: ${err}`);
-                        );    }  }, [isOnline]);
+                                    Api.post('/auth/logout').catch(err =>
+                                      error(`[AuthContext] Error al cerrar sesión en backend: ${err}`)
+                                    );    }  }, [isOnline]);
 
   const login = async (username, password) => {
     if (isOnline) {
