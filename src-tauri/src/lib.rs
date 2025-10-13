@@ -10,13 +10,11 @@ pub fn run() {
                     // Nivel de log mínimo a registrar
                     .level(LevelFilter::Debug) // más verboso
                     // Establecemos explícitamente los destinos de los logs
-                    .targets([
-                        Target::new(TargetKind::Stdout),          // consola del terminal
-                        Target::new(TargetKind::Webview),         // consola del webview
-                        Target::new(TargetKind::LogDir {         // archivo de log
-                            file_name: Some("app.log".into()),
-                        }),
-                    ])
+                    .target(Target::new(TargetKind::Stdout))      // consola del terminal
+                    .target(Target::new(TargetKind::Webview))     // consola del webview
+                    .target(Target::new(TargetKind::LogDir {      // archivo de log
+                        file_name: Some("app.log".into()),
+                    }))
                     .build(),
             )?;
 
