@@ -12,9 +12,7 @@ pub fn run() {
                     // Establecemos explícitamente los destinos de los logs
                     .target(Target::new(TargetKind::Stdout))      // consola del terminal
                     .target(Target::new(TargetKind::Webview))     // consola del webview
-                    .target(Target::new(TargetKind::LogDir {      // archivo de log
-                        file_name: Some("app.log".into()),
-                    }))
+                    .target(Target::new(TargetKind::LogDir))
                     .build(),
             )?;
 
