@@ -1,4 +1,4 @@
-use tauri_plugin_log::{Builder as LogBuilder, TargetKind};
+use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
 use log::LevelFilter;
 
 pub fn run() {
