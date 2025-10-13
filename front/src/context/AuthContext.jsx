@@ -5,6 +5,7 @@ import { syncService } from '../services/syncService';
 import { mostrarHTML } from '../functions/mostrarHTML';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { useIsTauri } from '../hooks/useIsTauri';
+import { info, error } from 'tauri-plugin-log-api';
 import { debounce } from '../functions/Debounce'; // Importar debounce
 
 export const AuthContext = createContext();
@@ -22,10 +23,9 @@ export const AuthProvider = ({ children }) => {
   const checkIntervalRef = useRef(null);
 
   const checkRealConnectivity = useCallback(async () => {
-    const healthCheckUrl = `${import.meta.env.VITE_API_URL || 'http://192.168.100.10:8000'}/api/health`;
+    const healthCheckUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/health`;
 
-                // Mostrar la URL en un alert nativo para depuración (mostrarHTML causaba crash por falta de theme context)
-                alert(`DEBUG: Intentando conectar a: ${healthCheckUrl}`);
+    await info(`[AuthContext] Verificando conexión a: ${healthCheckUrl}`);
     try {
       const fetcher = isTauri ? tauriFetch : fetch;
       const response = await fetcher(healthCheckUrl, {
@@ -35,6 +35,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!response.ok) {
+        await error(`[AuthContext] Health check falló con estado: ${response.status} para URL: ${healthCheckUrl}`);
         throw new Error(`Health check falló con estado: ${response.status}`);
       }
 
@@ -48,15 +49,16 @@ export const AuthProvider = ({ children }) => {
       const reallyOnline = data && data.db === true;
       setIsOnline(prev => {
         if (prev !== reallyOnline) {
-          console.log(`[AuthContext] 🔄 Estado de conexión cambiado a: ${reallyOnline ? 'ONLINE' : 'OFFLINE'}`);
+          info(`[AuthContext] 🔄 Estado de conexión cambiado a: ${reallyOnline ? 'ONLINE' : 'OFFLINE'}`);
         }
         return reallyOnline;
       });
 
-    } catch (error) {
+    } catch (err) {
+      await error(`[AuthContext] ⚠️ Error en health-check para URL ${healthCheckUrl}: ${err.message}`);
       setIsOnline(prev => {
         if (prev !== false) {
-          console.log('[AuthContext] ⚠️ Error en health-check, cambiando a OFFLINE:', error.message);
+          error(`[AuthContext] ⚠️ Error en health-check, cambiando a OFFLINE: ${err.message}`);
         }
         return false;
       });
