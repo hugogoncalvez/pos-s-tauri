@@ -11,11 +11,11 @@ pub fn run() {
                     .level(LevelFilter::Debug) // más verboso
                     // Establecemos explícitamente los destinos de los logs
                     .targets([
-                        LogTarget::Stdout,          // consola del terminal
-                        LogTarget::Webview,         // consola del webview
-                        LogTarget::LogDir {         // archivo de log
+                        Target::new(TargetKind::Stdout),          // consola del terminal
+                        Target::new(TargetKind::Webview),         // consola del webview
+                        Target::new(TargetKind::LogDir {         // archivo de log
                             file_name: Some("app.log".into()),
-                        },
+                        }),
                     ])
                     .build(),
             )?;

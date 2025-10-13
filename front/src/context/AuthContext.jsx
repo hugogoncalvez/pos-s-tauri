@@ -194,7 +194,7 @@ export const AuthProvider = ({ children }) => {
 
         return { success: true, usuario: data.usuario };
       } catch (error) {
-        console.error('[AuthContext] ❌ Error en login:', error);
+        log(`[AuthContext] ❌ Error en login: ${error}`, 'error');
         await log(`[AuthContext] ❌ Error en login: ${error.message}`, 'error');
         setIsAuthenticated(false);
         setUsuario(null);
