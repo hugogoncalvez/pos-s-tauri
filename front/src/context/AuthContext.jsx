@@ -23,6 +23,9 @@ export const AuthProvider = ({ children }) => {
 
   const checkRealConnectivity = useCallback(async () => {
     const healthCheckUrl = `${import.meta.env.VITE_API_URL || 'http://192.168.100.10:8000'}/api/health`;
+
+                // Mostrar la URL en un alert nativo para depuración (mostrarHTML causaba crash por falta de theme context)
+                alert(`DEBUG: Intentando conectar a: ${healthCheckUrl}`);
     try {
       const fetcher = isTauri ? tauriFetch : fetch;
       const response = await fetcher(healthCheckUrl, {
