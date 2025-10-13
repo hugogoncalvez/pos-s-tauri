@@ -1,16 +1,14 @@
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+use tauri_plugin_log::Builder as LogBuilder;
+use log::LevelFilter;
+
 pub fn run() {
-  tauri::Builder::default()
-    .setup(|app| {
-      app.handle().plugin(
-        tauri_plugin_log::Builder::default()
-          .level(log::LevelFilter::Info)
-          .build(),
-      )?;
-      Ok(())
-    })
-    .plugin(tauri_plugin_process::init())
-    .plugin(tauri_plugin_http::init())
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    tauri::Builder::default()
+        .plugin(
+            LogBuilder::default()
+                .level(LevelFilter::Info)
+                .build(),
+        )
+        .plugin(tauri_plugin_process::init())
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
