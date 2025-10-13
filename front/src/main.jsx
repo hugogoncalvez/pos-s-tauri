@@ -9,6 +9,7 @@ import { ThemeContextProvider } from './context/ThemeContextProvider'; // Import
 import './styles/global.css'; // Importar estilos globales
 import moment from 'moment';
 import 'moment/locale/es';
+import { attachConsole } from '@tauri-apps/plugin-log';
 
 // Desactivar el manejador de conexión de React-Query para controlar nosotros el modo offline
 onlineManager.setEventListener(setOnline => {
@@ -16,6 +17,9 @@ onlineManager.setEventListener(setOnline => {
 });
 
 moment.locale('es'); // Establecer el idioma español para moment.js
+
+// Adjuntar la consola del webview al sistema de logs de Rust
+attachConsole();
 
 const client = new QueryClient();
 
