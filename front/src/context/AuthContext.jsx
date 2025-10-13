@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
 
     await log(`[AuthContext] Verificando conexión a: ${healthCheckUrl}`);
     try {
-      const fetcher = isTauri ? tauriFetch : fetch;
+      const fetcher = (isTauri && process.env.NODE_ENV !== 'development') ? tauriFetch : fetch;
       const response = await fetcher(healthCheckUrl, {
         method: 'GET',
         timeout: 5000,
@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }) => {
       });
 
     } catch (err) {
-      await log(`[AuthContext] ⚠️ Error en health-check para URL ${healthCheckUrl}: ${err.message}`, 'error');
+      await log(`[AuthContext] ⚠️ Error en health-check para URL ${healthCheckUrl}: ${JSON.stringify(err)}`, 'error');
       setIsOnline(prev => {
         if (prev !== false) {
           log(`[AuthContext] ⚠️ Error en health-check, cambiando a OFFLINE: ${err.message}`, 'error');
@@ -173,10 +173,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('sessionID');
 
     if (isOnline) {
-            Api.post('/auth/logout').catch(err =>
-            log(`[AuthContext] Error al cerrar sesión en backend: ${err}`, 'error');
-            );    }
-  }, [isOnline]);
+                        Api.post('/auth/logout').catch(err =>
+                          log(`[AuthContext] Error al cerrar sesión en backend: ${err}`, 'error')
+                        );    }  }, [isOnline]);
 
   const login = async (username, password) => {
     if (isOnline) {
