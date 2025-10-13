@@ -1,4 +1,4 @@
-use tauri_plugin_log::{Builder as LogBuilder, LogTarget};
+use tauri_plugin_log::{Builder as LogBuilder, Target};
 use log::LevelFilter;
 
 pub fn run() {
@@ -6,11 +6,9 @@ pub fn run() {
         .plugin(
             LogBuilder::default()
                 .level(LevelFilter::Debug)
-                .targets([
-                    LogTarget::Stdout,
-                    LogTarget::Webview,
-                    LogTarget::LogDir { file_name: Some("app.log".into()) },
-                ])
+                .target(Target::Stdout)
+                .target(Target::Webview)
+                .target(Target::LogDir)
                 .build(),
         )
         .plugin(tauri_plugin_process::init())
