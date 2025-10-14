@@ -29,7 +29,7 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "http://192.168.100.*:8000/*"
+          "url": "http://192.168.100.10:8000/*"
         },
         {
           "url": "http://localhost:8000/*"
