@@ -40,20 +40,24 @@ function App() {
         mostrarConfirmacion(
           {
             title: '¡Sesión de Caja Activa!',
-            text: 'Hay una sesión de caja abierta. ¿Estás seguro de que quieres cerrar la aplicación?',
+            text: 'Hay una sesión de caja abierta. ¿Estás seguro de que quieres cerrar la aplicación? Se cerrará tu sesión actual.',
             icon: 'warning',
-            confirmButtonText: 'Sí, cerrar',
+            confirmButtonText: 'Sí, cerrar y salir',
             cancelButtonText: 'No, cancelar',
           },
           theme,
-          () => resolve(true),  // onConfirm
+          () => { // onConfirm
+            logout(); // Ejecutar logout antes de cerrar
+            resolve(true);
+          },
           () => resolve(false) // onCancel
         );
       } else {
-        resolve(true); // Permitir cierre si no hay sesión activa
+        logout(); // Ejecutar logout incluso si no hay sesión activa de caja
+        resolve(true); // Permitir cierre
       }
     });
-  }, [activeSession, theme]);
+  }, [activeSession, theme, logout]); // Añadir 'logout' a las dependencias
 
   usePreventClose(checkSessionBeforeClose);
 

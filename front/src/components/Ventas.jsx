@@ -21,6 +21,7 @@ import { UseFetchQuery, UseQueryWithCache } from '../hooks/useQuery';
 import { useSubmit } from '../hooks/useSubmit';
 import { useDelete } from '../hooks/useDelete';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useCashRegister } from '../hooks/useCashRegister'; // Importar useCashRegister
 import { confirmAction } from '../functions/ConfirmDelete';
 import { debounce } from '../functions/Debounce';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
@@ -115,21 +116,14 @@ const Ventas = () => {
 
   // Hook para verificar la sesión de caja activa
   const {
-    data: sessionData,
-    isLoading: isCheckingSession,
-    isError: isSessionError,
-    refetch: refetchSession
-  } = UseFetchQuery(
-    ['activeCashSession', usuario?.id],
-    `/cash-sessions/active/${usuario?.id}`,
-    !!usuario?.id // Solo se ejecuta si hay un usuario logueado
-  );
+    activeSessionData,
+    isSessionActive,
+    isCheckingSession,
+    refetchActiveSession: refetchSession, // Renombrar para mantener la compatibilidad
+    isSessionError // Mantener para el useEffect si es necesario, aunque useCashRegister debería manejarlo
+  } = useCashRegister(usuario?.id);
 
-  // Derivar el estado de la sesión a partir de los datos del hook
-  const isSessionActive = !!sessionData?.session; // Check for the nested session object
-  const activeSessionData = sessionData?.session || null; // Extract the nested session object
-
-  console.log('[Ventas] sessionData:', sessionData);
+  console.log('[Ventas] sessionData:', activeSessionData); // Ahora es activeSessionData
   console.log('[Ventas] isSessionActive:', isSessionActive);
   console.log('[Ventas] activeSessionData:', activeSessionData);
 
