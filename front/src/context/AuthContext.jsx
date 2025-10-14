@@ -3,7 +3,7 @@ import { Api } from '../api/api';
 import { db } from '../db/offlineDB';
 import { syncService } from '../services/syncService';
 import { mostrarHTML } from '../functions/mostrarHTML';
-import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+
 import { useIsTauri } from '../hooks/useIsTauri';
 import { debounce } from '../functions/Debounce'; // Importar debounce
 import { info, error } from '@tauri-apps/plugin-log';
@@ -27,24 +27,8 @@ export const AuthProvider = ({ children }) => {
 
     await info(`[AuthContext] Verificando conexión a: ${healthCheckUrl}`);
     try {
-      const fetcher = (isTauri && process.env.NODE_ENV !== 'development') ? tauriFetch : fetch;
-      const response = await fetcher(healthCheckUrl, {
-        method: 'GET',
-        timeout: 5000,
-        cache: 'no-store' // Evitar caché para el health check
-      });
-
-      if (!response.ok) {
-        await error(`[AuthContext] Health check falló con estado: ${response.status} para URL: ${healthCheckUrl}`);
-        throw new Error(`Health check falló con estado: ${response.status}`);
-      }
-
-      let data;
-      if (isTauri) {
-        data = response.data || await response.json();
-      } else {
-        data = await response.json();
-      }
+      const response = await Api.get('/health'); // Use Axios directly
+      const data = response.data; // Axios response has data directly
 
       const reallyOnline = data && data.db === true;
       setIsOnline(prev => {
