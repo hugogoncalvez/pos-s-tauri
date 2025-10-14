@@ -124,8 +124,8 @@ export const AuthProvider = ({ children }) => {
           setUsuario(data.usuario);
           setIsAuthenticated(true);
           setPermisos(data.usuario.permisos || []);
-          // ✅ Sincroniza datos locales tras verificar sesión
-          await syncService.loadReferenceData(data.usuario.id);
+          // ✅ Sincroniza datos locales tras verificar sesión (sin esperar)
+          syncService.loadReferenceData(data.usuario.id);
         } else {
           info('[AuthContext] ℹ️ No hay sesión activa.');
           setUsuario(null);
@@ -134,8 +134,8 @@ export const AuthProvider = ({ children }) => {
         }
         setIsLoading(false);
         return;
-      } catch (error) {
-        if (error.response?.status === 401) {
+      } catch (err) {
+        if (err.response?.status === 401) {
           info('[AuthContext] ℹ️ Servidor responde 401. No hay sesión activa.');
           setUsuario(null);
           setIsAuthenticated(false);
@@ -143,7 +143,7 @@ export const AuthProvider = ({ children }) => {
           setIsLoading(false);
           return;
         }
-        error(`[AuthContext] Intento ${attempt}/${maxRetries} fallido. ${error.message}`);
+        error(`[AuthContext] Intento ${attempt}/${maxRetries} fallido. ${err.message}`);
         if (attempt < maxRetries) await delay(retryDelay);
       }
     }
@@ -174,13 +174,12 @@ export const AuthProvider = ({ children }) => {
         setPermisos(data.usuario.permisos || []);
         if (data.sessionID) localStorage.setItem('sessionID', data.sessionID);
 
-        // ✅ Sincroniza BD local al loguear
-        await syncService.loadReferenceData(data.usuario.id);
+        // ✅ Sincroniza BD local al loguear (sin esperar)
+        syncService.loadReferenceData(data.usuario.id);
 
         return { success: true, usuario: data.usuario };
-      } catch (error) {
-        log(`[AuthContext] ❌ Error en login: ${error}`, 'error');
-        await error(`[AuthContext] ❌ Error en login: ${error.message}`);
+      } catch (err) {
+        error(`[AuthContext] ❌ Error en login: ${err.message}`);
         setIsAuthenticated(false);
         setUsuario(null);
         setPermisos([]);

@@ -126,8 +126,8 @@ const Ventas = () => {
   );
 
   // Derivar el estado de la sesión a partir de los datos del hook
-  const isSessionActive = !!sessionData; // <--- Check if sessionData is truthy
-  const activeSessionData = sessionData || null; // <--- sessionData is already the session object or null
+  const isSessionActive = !!sessionData?.session; // Check for the nested session object
+  const activeSessionData = sessionData?.session || null; // Extract the nested session object
 
   console.log('[Ventas] sessionData:', sessionData);
   console.log('[Ventas] isSessionActive:', isSessionActive);
@@ -354,6 +354,8 @@ const Ventas = () => {
   }, [mixedPayments, subtotal, descuento, paymentMethods, selectedCustomer]);
 
   const handleSaveSale = async () => {
+    const ticketIdToDelete = currentTicketId;
+
     if (tempTable.length === 0) {
       mostrarError('No hay productos en la venta');
       return;
@@ -425,9 +427,9 @@ const Ventas = () => {
       const response = await syncService.saveSale(saleData, isOnline);
 
       if (response.success) {
-        if (currentTicketId) {
+        if (ticketIdToDelete) {
           try {
-            await deleteItem({ url: '/pending-tickets/', id: currentTicketId });
+            await deleteItem({ url: '/pending-tickets', id: ticketIdToDelete });
             refetchPendingTickets();
           } catch (deleteError) {
             console.error("Error al eliminar el ticket pendiente después de la venta:", deleteError);
@@ -470,7 +472,7 @@ const Ventas = () => {
     }
 
     if (!activeSessionData || !activeSessionData.id) {
-      mostrarError('No se pudo identificar la sesión de caja activa. Por favor, recargue la página e intente de nuevo.', theme);
+      mostrarError('No se pudo identificar la sesión de caja activa. Asegúrese de haber iniciado una sesión de caja antes de guardar un ticket.', theme);
       return;
     }
 
