@@ -5,6 +5,7 @@ import { Api } from '../api/api'; // Asumo que tienes una instancia de Axios con
 import { UseFetchQuery } from './useQuery'; // Para obtener la sesión activa
 import { useSubmit } from './useSubmit'; // Para enviar el movimiento
 import Swal from 'sweetalert2';
+import { info } from '@tauri-apps/plugin-log';
 
 /**
  * @typedef {object} CashSession
@@ -32,13 +33,17 @@ export const useCashRegister = () => {
     // Query para obtener la sesión de caja activa
     const { data: rawActiveSessionData, isLoading: isLoadingActiveSession, refetch: refetchActiveSession } = UseFetchQuery(
         ['activeCashSession', userId], // Clave de caché única por usuario
-        `/cash-sessions/active/${userId}`, // Endpoint para obtener la sesión activa
+        `/cash-sessions/active/${userId}`,
         !authLoading && !!userId, // Habilitar la query solo si AuthContext ha terminado de cargar Y hay un userId
         0 // staleTime: 0 para que siempre se considere stale y se intente refetch al backend cuando isOnline es true
     );
 
+    info(`[useCashRegister DEBUG] rawActiveSessionData recibido: ${JSON.stringify(rawActiveSessionData)}`);
+
     /** @type {CashSession | null} */
     const activeSession = rawActiveSessionData?.session || rawActiveSessionData || null;
+
+    info(`[useCashRegister DEBUG] activeSession procesado: ${JSON.stringify(activeSession)}`);
 
     // Hook para enviar datos al backend (para crear movimientos)
     const { mutateAsync: submitMovement, isLoading: isSavingMovement } = useSubmit();

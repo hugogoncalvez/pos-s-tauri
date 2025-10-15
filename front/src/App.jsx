@@ -12,6 +12,7 @@ import Swal from 'sweetalert2';
 import { mostrarConfirmacion } from './functions/mostrarConfirmacion';
 import { SyncModal } from './components/SyncModal';
 import DenseAppBar from './components/AppBar';
+import { info } from '@tauri-apps/plugin-log';
 
 import { initializeOfflineUser } from './db/offlineDB';
 
@@ -36,7 +37,9 @@ function App() {
 
   const checkSessionBeforeClose = useCallback(() => {
     return new Promise((resolve) => {
+      info(`[App.jsx DEBUG] Intento de cierre. Valor de activeSession: ${JSON.stringify(activeSession)}`);
       if (activeSession) {
+        info("[App.jsx DEBUG] 'activeSession' existe. Mostrando confirmación.");
         mostrarConfirmacion(
           {
             title: '¡Sesión de Caja Activa!',
@@ -47,12 +50,17 @@ function App() {
           },
           theme,
           () => { // onConfirm
+            info("[App.jsx DEBUG] Usuario confirmó el cierre. Ejecutando logout.");
             logout(); // Ejecutar logout antes de cerrar
             resolve(true);
           },
-          () => resolve(false) // onCancel
+          () => {
+            info("[App.jsx DEBUG] Usuario canceló el cierre.");
+            resolve(false); // onCancel
+          }
         );
       } else {
+        info("[App.jsx DEBUG] 'activeSession' es null/undefined. Omitiendo confirmación y ejecutando logout.");
         logout(); // Ejecutar logout incluso si no hay sesión activa de caja
         resolve(true); // Permitir cierre
       }
