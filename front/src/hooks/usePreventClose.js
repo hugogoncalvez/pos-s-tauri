@@ -21,6 +21,7 @@ export const usePreventClose = (checkBeforeClose, onCloseAttempt) => {
         const appWindow = getCurrentWindow();
 
         unlisten = await appWindow.onCloseRequested(async (event) => {
+          info('🔴 [usePreventClose DEBUG] onCloseRequested FIRED!'); // <-- NUEVO LOG
           console.log('🔴 ¡INTENTO DE CERRAR DETECTADO!');
           event.preventDefault();
 
