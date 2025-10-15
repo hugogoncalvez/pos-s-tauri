@@ -37,6 +37,20 @@ function App() {
 
   const checkSessionBeforeClose = useCallback(() => {
     return new Promise((resolve) => {
+      // NUEVO: Manejar el estado de carga para evitar race conditions
+      if (isLoadingActiveSession) {
+        info("[App.jsx DEBUG] Se intentó cerrar mientras la sesión de caja estaba cargando. Cancelando temporalmente.");
+        Swal.fire({
+          title: 'Verificando sesión de caja...',
+          text: 'Por favor, espera un momento e intenta cerrar de nuevo.',
+          icon: 'info',
+          timer: 2000, // Mostrar por 2 segundos
+          showConfirmButton: false
+        });
+        resolve(false); // Prevenir el cierre
+        return;
+      }
+
       info(`[App.jsx DEBUG] Intento de cierre. Valor de activeSession: ${JSON.stringify(activeSession)}`);
       if (activeSession) {
         info("[App.jsx DEBUG] 'activeSession' existe. Mostrando confirmación.");
@@ -65,7 +79,7 @@ function App() {
         resolve(true); // Permitir cierre
       }
     });
-  }, [activeSession, theme, logout]); // Añadir 'logout' a las dependencias
+  }, [activeSession, isLoadingActiveSession, theme, logout]); // Añadir isLoadingActiveSession
 
   usePreventClose(checkSessionBeforeClose);
 
