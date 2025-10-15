@@ -7,8 +7,9 @@ import { useEffect } from 'react';
  */
 export const usePreventClose = (checkBeforeClose, onCloseAttempt) => {
   useEffect(() => {
+    info('[usePreventClose DEBUG] useEffect de usePreventClose ejecutado.');
     if (!checkBeforeClose) {
-      console.log('ℹ️ No hay checkBeforeClose, saltando configuración');
+      info('ℹ️ [usePreventClose DEBUG] No hay checkBeforeClose, saltando configuración');
       return;
     }
 
@@ -17,7 +18,7 @@ export const usePreventClose = (checkBeforeClose, onCloseAttempt) => {
     const setupListener = async () => {
       try {
         const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        console.log('✅ Módulo Tauri cargado correctamente');
+        info('✅ [usePreventClose DEBUG] Módulo Tauri cargado correctamente');
         const appWindow = getCurrentWindow();
 
         unlisten = await appWindow.onCloseRequested(async (event) => {

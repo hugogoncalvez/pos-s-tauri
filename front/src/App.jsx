@@ -84,6 +84,7 @@ function App() {
       });
     }, [activeSession, isLoadingActiveSession, theme, logoutOnClose]); // Usar logoutOnClose en dependencias
   usePreventClose(checkSessionBeforeClose);
+  info(`[App.jsx DEBUG] checkSessionBeforeClose function definida: ${!!checkSessionBeforeClose}`);
 
 
   useEffect(() => {
