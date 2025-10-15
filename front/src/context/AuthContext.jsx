@@ -111,21 +111,21 @@ export const AuthProvider = ({ children }) => {
           // ✅ Sincroniza datos locales tras verificar sesión (sin esperar)
           syncService.loadReferenceData(data.usuario.id);
         } else {
-          info('[AuthContext] ℹ️ No hay sesión activa. Limpiando sessionID de localStorage.');
+          info('[AuthContext] ℹ️ No hay sesión activa. Limpiando TODO el localStorage.');
           setUsuario(null);
           setIsAuthenticated(false);
           setPermisos([]);
-          localStorage.removeItem('sessionID'); // Limpiar sessionID si el backend dice que no hay sesión
+          localStorage.clear(); // Limpieza completa para evitar fuga de estado.
         }
         setIsLoading(false);
         return;
       } catch (err) {
         if (err.response?.status === 401) {
-          info('[AuthContext] ℹ️ Servidor responde 401. No hay sesión activa. Limpiando sessionID de localStorage.');
+          info('[AuthContext] ℹ️ Servidor responde 401. No hay sesión activa. Limpiando TODO el localStorage.');
           setUsuario(null);
           setIsAuthenticated(false);
           setPermisos([]);
-          localStorage.removeItem('sessionID'); // Limpiar sessionID en caso de 401
+          localStorage.clear(); // Limpieza completa para evitar fuga de estado en caso de 401.
           setIsLoading(false);
           return;
         }

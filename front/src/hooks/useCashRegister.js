@@ -38,7 +38,7 @@ export const useCashRegister = () => {
     );
 
     /** @type {CashSession | null} */
-    const activeSession = rawActiveSessionData?.session || null;
+    const activeSession = rawActiveSessionData?.session || rawActiveSessionData || null;
 
     // Hook para enviar datos al backend (para crear movimientos)
     const { mutateAsync: submitMovement, isLoading: isSavingMovement } = useSubmit();
