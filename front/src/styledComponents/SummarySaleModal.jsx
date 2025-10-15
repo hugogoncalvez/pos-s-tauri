@@ -106,6 +106,8 @@ const SummarySaleModal = ({
   setSelectedProduct,
   confirmButtonRef,
 }) => {
+  console.log('[SummarySaleModal] currentTicketId:', currentTicketId);
+  console.log('[SummarySaleModal] tempTable.length:', tempTable.length);
   const theme = useTheme();
   const { subtotal, impuesto, descuento: descuentoAplicado, surchargeAmount, surchargeDetails, totalFinal } = calcularTotal();
   const [surchargeDetailsOpen, setSurchargeDetailsOpen] = useState(false);
@@ -462,7 +464,7 @@ const SummarySaleModal = ({
               <StyledButton
                 variant="contained"
                 onClick={handleSavePendingTicket}
-                disabled={tempTable.length === 0 || currentTicketId !== null}
+                disabled={tempTable.length === 0 || !!currentTicketId} // Check if currentTicketId has a truthy value (an actual ID)
                 startIcon={<PlaylistAddIcon />}
               >
                 Guardar Pendiente

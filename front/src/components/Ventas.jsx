@@ -116,14 +116,16 @@ const Ventas = () => {
 
   // Hook para verificar la sesión de caja activa
   const {
-    activeSessionData,
-    isSessionActive,
-    isCheckingSession,
-    refetchActiveSession: refetchSession, // Renombrar para mantener la compatibilidad
-    isSessionError // Mantener para el useEffect si es necesario, aunque useCashRegister debería manejarlo
+    activeSession, // El objeto de sesión activa o null
+    isLoadingActiveSession, // Estado de carga
+    refreshActiveSession: refetchSession, // Función para refrescar la sesión
   } = useCashRegister(usuario?.id);
 
-  console.log('[Ventas] sessionData:', activeSessionData); // Ahora es activeSessionData
+  // Derivar el estado de la sesión a partir de los datos del hook
+  const isSessionActive = !!activeSession; // true si hay una sesión activa, false si es null
+  const activeSessionData = activeSession || null; // El objeto de sesión o null
+
+  console.log('[Ventas] activeSession:', activeSession);
   console.log('[Ventas] isSessionActive:', isSessionActive);
   console.log('[Ventas] activeSessionData:', activeSessionData);
 
@@ -137,12 +139,7 @@ const Ventas = () => {
     setIsCajaModalOpen(false);
     refetchSession(); // Refrescar el estado de la sesión con el hook
   };
-
-  useEffect(() => {
-    if (isSessionError) {
-      mostrarError('No se pudo verificar el estado de la caja. Intente recargar la página.', theme);
-    }
-  }, [isSessionError]);
+  // El useEffect para isSessionError se elimina porque useCashRegister maneja sus propios errores.
 
 
   // Estados
@@ -459,14 +456,22 @@ const Ventas = () => {
   };
 
   // Función para guardar ticket pendiente
-  const handleSavePendingTicket = async (fromSummaryModal = false) => {
-    if (tempTable.length === 0) {
-      mostrarError('No hay productos en la venta', theme);
+  const handleSavePendingTicket = useCallback(async (fromSummaryModal = false) => {
+    console.log('[Ventas - handleSavePendingTicket] isLoadingActiveSession:', isLoadingActiveSession);
+    console.log('[Ventas - handleSavePendingTicket] activeSessionData:', activeSessionData);
+
+    if (isLoadingActiveSession) {
+      mostrarInfo('Verificando estado de la sesión de caja. Por favor, espere.', theme);
       return;
     }
 
     if (!activeSessionData || !activeSessionData.id) {
       mostrarError('No se pudo identificar la sesión de caja activa. Asegúrese de haber iniciado una sesión de caja antes de guardar un ticket.', theme);
+      return;
+    }
+
+    if (tempTable.length === 0) {
+      mostrarError('No hay productos en la venta', theme);
       return;
     }
 
@@ -543,7 +548,10 @@ const Ventas = () => {
       console.error('Error al guardar ticket pendiente:', error);
       // The useSubmit hook will show the error alert, but we still need to handle UI state
     }
-  };
+  }, [
+    tempTable, usuario, activeSessionData, isLoadingActiveSession, theme,
+    createPendingTicket, clearSaleState, refetchPendingTickets, mostrarInfo, mostrarCarga, mostrarError
+  ]);
 
 
   // Guardar el array en localStorage cada vez que cambie
@@ -809,7 +817,7 @@ const Ventas = () => {
   }, [
     tempTable, isCajaModalOpen, showManualEntryModal, showPendingTickets,
     isPesableModalOpen, isSummaryModalOpen, isPresentationModalOpen, handleSaveSale, handleSavePendingTicket,
-    totalFinal, paymentMethods, selectedCustomer, isConfirmButtonDisabled
+    totalFinal, paymentMethods, selectedCustomer, isConfirmButtonDisabled, isLoadingActiveSession, activeSessionData
   ]);
 
   useEffect(() => {
@@ -1169,7 +1177,7 @@ const Ventas = () => {
 
         try {
           // The useDelete hook will show the success alert on its own.
-          await deleteItem({ url: `/pending-tickets/${ticketId}` });
+          await deleteItem({ url: `/pending-tickets`, id: ticketId });
 
           if (currentTicketId === ticketId) {
             // If we were editing this ticket, clear the sale state
@@ -1754,7 +1762,7 @@ const Ventas = () => {
     }
   }, [stock, theme, pendingQuantity, handleAddItemToCart]); // Dependencias del useCallback
 
-  if (isCheckingSession) {
+  if (isLoadingActiveSession) {
     return <VentasSkeleton />;
   }
 
