@@ -19,7 +19,7 @@ import { initializeOfflineUser } from './db/offlineDB';
 function App() {
   const theme = useTheme();
   const isDesktopUp = useMediaQuery(theme.breakpoints.up('sm'));
-  const { user, isAuthenticated, logout, isOnline } = useAuth();
+  const { user, isAuthenticated, logout, logoutOnClose, isOnline } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -35,52 +35,54 @@ function App() {
   const { activeSession, isLoadingActiveSession } = useCashRegister();
   console.log(`[App.jsx] After useCashRegister: activeSession (${activeSession ? 'present' : 'undefined'}), isLoadingActiveSession (${isLoadingActiveSession})`);
 
-  const checkSessionBeforeClose = useCallback(() => {
-    return new Promise((resolve) => {
-      // NUEVO: Manejar el estado de carga para evitar race conditions
-      if (isLoadingActiveSession) {
-        info("[App.jsx DEBUG] Se intentó cerrar mientras la sesión de caja estaba cargando. Cancelando temporalmente.");
-        Swal.fire({
-          title: 'Verificando sesión de caja...',
-          text: 'Por favor, espera un momento e intenta cerrar de nuevo.',
-          icon: 'info',
-          timer: 2000, // Mostrar por 2 segundos
-          showConfirmButton: false
-        });
-        resolve(false); // Prevenir el cierre
-        return;
-      }
-
-      info(`[App.jsx DEBUG] Intento de cierre. Valor de activeSession: ${JSON.stringify(activeSession)}`);
-      if (activeSession) {
-        info("[App.jsx DEBUG] 'activeSession' existe. Mostrando confirmación.");
-        mostrarConfirmacion(
-          {
-            title: '¡Sesión de Caja Activa!',
-            text: 'Hay una sesión de caja abierta. ¿Estás seguro de que quieres cerrar la aplicación? Se cerrará tu sesión actual.',
-            icon: 'warning',
-            confirmButtonText: 'Sí, cerrar y salir',
-            cancelButtonText: 'No, cancelar',
-          },
-          theme,
-          () => { // onConfirm
-            info("[App.jsx DEBUG] Usuario confirmó el cierre. Ejecutando logout.");
-            logout(); // Ejecutar logout antes de cerrar
+    const checkSessionBeforeClose = useCallback(() => {
+      return new Promise((resolve) => {
+        if (isLoadingActiveSession) {
+          info("[App.jsx DEBUG] Se intentó cerrar mientras la sesión de caja estaba cargando. Cancelando temporalmente.");
+          Swal.fire({
+            title: 'Verificando sesión de caja...', 
+            text: 'Por favor, espera un momento e intenta cerrar de nuevo.',
+            icon: 'info',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          resolve(false);
+          return;
+        }
+  
+        info(`[App.jsx DEBUG] Intento de cierre. Valor de activeSession: ${JSON.stringify(activeSession)}`);
+        if (activeSession) {
+          info("[App.jsx DEBUG] 'activeSession' existe. Mostrando confirmación.");
+          mostrarConfirmacion(
+            {
+              title: '¡Sesión de Caja Activa!',
+              text: 'Hay una sesión de caja abierta. ¿Estás seguro de que quieres cerrar la aplicación? Se cerrará tu sesión actual.',
+              icon: 'warning',
+              confirmButtonText: 'Sí, cerrar y salir',
+              cancelButtonText: 'No, cancelar',
+            },
+            theme,
+            async () => { // onConfirm
+              info("[App.jsx DEBUG] Usuario confirmó el cierre. Ejecutando logoutOnClose.");
+              await logoutOnClose(); // Usar la función segura y esperar
+              info("[App.jsx DEBUG] logoutOnClose completado. Permitiendo cierre.");
+              resolve(true);
+            },
+            () => { // onCancel
+              info("[App.jsx DEBUG] Usuario canceló el cierre.");
+              resolve(false);
+            }
+          );
+        } else {
+          info("[App.jsx DEBUG] 'activeSession' es null/undefined. Omitiendo confirmación y ejecutando logoutOnClose.");
+          // Usar una IIFE async para poder usar await
+          (async () => {
+            await logoutOnClose();
             resolve(true);
-          },
-          () => {
-            info("[App.jsx DEBUG] Usuario canceló el cierre.");
-            resolve(false); // onCancel
-          }
-        );
-      } else {
-        info("[App.jsx DEBUG] 'activeSession' es null/undefined. Omitiendo confirmación y ejecutando logout.");
-        logout(); // Ejecutar logout incluso si no hay sesión activa de caja
-        resolve(true); // Permitir cierre
-      }
-    });
-  }, [activeSession, isLoadingActiveSession, theme, logout]); // Añadir isLoadingActiveSession
-
+          })();
+        }
+      });
+    }, [activeSession, isLoadingActiveSession, theme, logoutOnClose]); // Usar logoutOnClose en dependencias
   usePreventClose(checkSessionBeforeClose);
 
 

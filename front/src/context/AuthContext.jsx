@@ -153,6 +153,22 @@ export const AuthProvider = ({ children }) => {
     }
   }, [isOnline]);
 
+  const logoutOnClose = useCallback(async () => {
+    info('[AuthContext] 🚪 Ejecutando logoutOnClose en segundo plano...');
+    try {
+      if (isOnline) {
+        await Api.post('/auth/logout');
+      }
+    } catch (err) {
+      error(`[AuthContext] Error al notificar al backend sobre el logout: ${err}`);
+    } finally {
+      // Limpieza destructiva SIN recarga de página
+      localStorage.clear();
+      sessionStorage.clear();
+      info('[AuthContext] ✅ Limpieza de storage completada para el cierre.');
+    }
+  }, [isOnline]);
+
   const login = async (username, password) => {
     if (isOnline) {
       info('[AuthContext] 🔐 Login online...');
@@ -220,6 +236,7 @@ export const AuthProvider = ({ children }) => {
     permisos,
     login,
     logout,
+    logoutOnClose, // <-- Exportar la nueva función
     verificarSesion,
     updateUserTheme,
     isOnline,
