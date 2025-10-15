@@ -136,17 +136,22 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
   }, [isOnline, isTauriLoading]);
 
-  const logout = useCallback(() => {
-    info('[AuthContext] 🚪 Ejecutando logout...');
-    setIsAuthenticated(false);
-    setUsuario(null);
-    setPermisos([]);
-    localStorage.removeItem('sessionID');
-
-    if (isOnline) {
-                                    Api.post('/auth/logout').catch(err =>
-                                      error(`[AuthContext] Error al cerrar sesión en backend: ${err}`)
-                                    );    }  }, [isOnline]);
+  const logout = useCallback(async () => {
+    info('[AuthContext] 🚪 Ejecutando logout y limpieza destructiva...');
+    try {
+      if (isOnline) {
+        await Api.post('/auth/logout');
+      }
+    } catch (err) {
+      error(`[AuthContext] Error al notificar al backend sobre el logout. Procediendo con limpieza local: ${err}`);
+    } finally {
+      // Limpieza destructiva para evitar fuga de estado.
+      localStorage.clear();
+      sessionStorage.clear();
+      // Forzar recarga completa para un estado limpio.
+      window.location.reload();
+    }
+  }, [isOnline]);
 
   const login = async (username, password) => {
     if (isOnline) {
