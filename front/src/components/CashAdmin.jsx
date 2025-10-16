@@ -59,6 +59,7 @@ import { mostrarInfo } from '../functions/mostrarInfo';
 import { mostrarError } from '../functions/MostrarError';
 import { mostrarCarga } from '../functions/mostrarCarga';
 import Swal from 'sweetalert2';
+import { useQueryClient } from '@tanstack/react-query'; // Importar useQueryClient
 
 import CloseCashSessionDialog from '../styledComponents/CloseCashSessionDialog';
 import FinalizeClosureDialog from '../styledComponents/FinalizeClosureDialog';
@@ -96,6 +97,9 @@ const CashAdmin = () => {
     const { mutateAsync: initiateClosure, isLoading: isInitiatingClosure } = useSubmit();
     const { mutateAsync: finalizeClosure, isLoading: isFinalizing } = useSubmit();
     const { mutateAsync: directClose } = useSubmit();
+
+    // React Query Client
+    const queryClient = useQueryClient(); // Inicializar queryClient
 
     // Estados para filtros
     const [filters, handleFilterChange, resetFilters] = useForm({
@@ -284,6 +288,7 @@ const CashAdmin = () => {
             setSelectedSession(null);
             refetchCashSessions();
             refetchHistory();
+            queryClient.invalidateQueries(['activeCashSession', usuario.id]); // Invalidar la query de sesión activa
             if (onSuccess) onSuccess();
 
         } catch (err) {
@@ -302,6 +307,8 @@ const CashAdmin = () => {
             setFinalizingSessionId(null); // Limpiar ID
             refetchCashSessions();
             refetchHistory();
+            queryClient.invalidateQueries(['activeCashSession', usuario.id]); // Invalidar la query de sesión activa
+            console.log(`[CashAdmin] Invalidando query 'activeCashSession' para usuario.id: ${usuario.id}`);
         } catch (err) {
             Swal.close();
             mostrarError(err.response?.data?.message || 'Error al finalizar el cierre.', theme);

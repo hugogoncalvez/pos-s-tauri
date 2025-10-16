@@ -41,7 +41,7 @@ export const useCashRegister = () => {
     info(`[useCashRegister DEBUG] rawActiveSessionData recibido: ${JSON.stringify(rawActiveSessionData)}`);
 
     /** @type {CashSession | null} */
-    const activeSession = rawActiveSessionData?.session || rawActiveSessionData || null;
+    const activeSession = rawActiveSessionData?.hasActiveSession ? rawActiveSessionData.session : null;
 
     info(`[useCashRegister DEBUG] activeSession procesado: ${JSON.stringify(activeSession)}`);
 

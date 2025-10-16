@@ -54,14 +54,16 @@ const CloseCashSessionDialog = ({
         return parseFloat(cashierDeclaredAmount) - expectedCash;
     }, [cashierDeclaredAmount, expectedCash]);
 
-    const handleConfirm = () => {
-        mostrarConfirmacion({
+    const handleConfirm = async () => {
+        const result = await mostrarConfirmacion({
             title: '¿Estás seguro?',
             html: `Estás a punto de cerrar la sesión de caja de <strong>${getUserName(selectedSession)}</strong>.`,
             icon: 'warning',
             confirmButtonText: 'Sí, enviar para revisión',
             cancelButtonText: 'Cancelar',
-        }, theme, () => {
+        }, theme);
+
+        if (result.isConfirmed) {
             // Pasamos todos los datos necesarios a la función del padre
             handleInitiateClosure(cashierDeclaredAmount, notes, () => {
                 // Esta es la función de éxito, se ejecuta solo si la API responde OK
@@ -69,7 +71,7 @@ const CloseCashSessionDialog = ({
                 setNotes('');
                 setSummary(null);
             });
-        });
+        }
     };
 
     const formatCurrency = (amount) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);

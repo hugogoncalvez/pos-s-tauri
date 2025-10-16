@@ -20,6 +20,8 @@ import { useSubmit } from '../hooks/useSubmit';
 import { StyledTextField } from './ui/StyledTextField';
 import { StyledDialog } from './ui/StyledDialog';
 import { StyledButton } from './ui/StyledButton';
+import { db } from '../db/offlineDB'; // Importar db
+import { useQueryClient } from '@tanstack/react-query'; // Importar useQueryClient
 
 export const CajaManager = ({ open, onClose, userId, activeSession = null }) => {
     const theme = useTheme();
@@ -29,6 +31,7 @@ export const CajaManager = ({ open, onClose, userId, activeSession = null }) => 
 
     // Usamos el hook para la mutación
     const { mutateAsync: openSession, isLoading, error: submitError } = useSubmit();
+    const queryClient = useQueryClient(); // Inicializar queryClient
 
     useEffect(() => {
         if (open) {
@@ -80,7 +83,7 @@ export const CajaManager = ({ open, onClose, userId, activeSession = null }) => 
                     console.error('[CashSession] Error guardando session en Dexie:', e);
                 }
             }
-
+            queryClient.invalidateQueries(['activeCashSession', userId]); // Invalidar la query de sesión activa
             onClose(true); // Indicar que la sesión se abrió con éxito
         } catch (err) {
             Swal.close();

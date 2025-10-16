@@ -2535,6 +2535,11 @@ export const getActiveCashSession = async (req, res) => {
             }]
         });
 
+        console.log(`[Backend] getActiveCashSession: Resultado de findOne para user_id ${user_id}: ${session ? 'Sesión encontrada' : 'No se encontró sesión'}`);
+        if (session) {
+            console.log(`[Backend] getActiveCashSession: Sesión encontrada - ID: ${session.id}, Status: ${session.status}`);
+        }
+
         if (!session) {
             console.log(`[Backend] getActiveCashSession: No se encontró sesión activa para user_id: ${user_id}`);
             return res.status(200).json({ hasActiveSession: false, session: null });

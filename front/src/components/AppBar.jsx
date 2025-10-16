@@ -74,6 +74,7 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
 
   const handleLogoutAndExit = async (event) => {
     handleClose(event);
+    console.log(`[AppBar] handleLogoutAndExit: Valor de activeSession: ${JSON.stringify(activeSession)}`);
     if (activeSession) {
       const result = await mostrarConfirmacion(
         {
