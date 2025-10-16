@@ -1,13 +1,13 @@
 import Swal from "sweetalert2";
 
-export const mostrarConfirmacion = (options, theme, onConfirm, onCancel) => {
+export const mostrarConfirmacion = (options, theme) => {
     let htmlContent = options.html || options.text || 'Esta acción no se puede revertir.';
 
     if (options.stockInfo !== undefined) {
         htmlContent += `<p>Stock Disponible: <strong>${options.stockInfo}</strong></p>`;
     }
 
-    Swal.fire({
+    return Swal.fire({
         title: options.title || '¿Estás seguro?',
         html: htmlContent,
         icon: options.icon || 'warning',
@@ -24,12 +24,6 @@ export const mostrarConfirmacion = (options, theme, onConfirm, onCancel) => {
             if (swalContainer) {
                 swalContainer.style.zIndex = '1400'; // Un z-index más alto que el modal de MUI (1300)
             }
-        }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            if (onConfirm) onConfirm();
-        } else if (result.dismiss === Swal.DismissReason.cancel) {
-            if (onCancel) onCancel();
         }
     });
 };

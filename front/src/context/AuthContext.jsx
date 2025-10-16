@@ -5,6 +5,7 @@ import { syncService } from '../services/syncService';
 import { mostrarHTML } from '../functions/mostrarHTML';
 
 import { useIsTauri } from '../hooks/useIsTauri';
+import { exit } from '@tauri-apps/plugin-process';
 import { debounce } from '../functions/Debounce'; // Importar debounce
 import { info, error } from '@tauri-apps/plugin-log';
 
@@ -153,8 +154,8 @@ export const AuthProvider = ({ children }) => {
     }
   }, [isOnline]);
 
-  const logoutOnClose = useCallback(async () => {
-    info('[AuthContext] 🚪 Ejecutando logoutOnClose en segundo plano...');
+  const logoutAndExit = useCallback(async () => {
+    info('[AuthContext] 🚪 Ejecutando logoutAndExit...');
     try {
       if (isOnline) {
         await Api.post('/auth/logout');
@@ -165,7 +166,8 @@ export const AuthProvider = ({ children }) => {
       // Limpieza destructiva SIN recarga de página
       localStorage.clear();
       sessionStorage.clear();
-      info('[AuthContext] ✅ Limpieza de storage completada para el cierre.');
+      info('[AuthContext] ✅ Limpieza de storage completada. Cerrando aplicación.');
+      await exit(0);
     }
   }, [isOnline]);
 
@@ -236,7 +238,7 @@ export const AuthProvider = ({ children }) => {
     permisos,
     login,
     logout,
-    logoutOnClose, // <-- Exportar la nueva función
+    logoutAndExit, // <-- Exportar la nueva función
     verificarSesion,
     updateUserTheme,
     isOnline,

@@ -11,6 +11,8 @@ import moment from 'moment';
 import 'moment/locale/es';
 import { attachConsole } from '@tauri-apps/plugin-log';
 
+const client = new QueryClient();
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <AuthProvider> {/* 1. AuthProvider envuelve todo */}
     <QueryClientProvider client={client}>

@@ -1,51 +1,100 @@
-import { useContext, useState, useEffect, useCallback } from 'react';
+import { useContext, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import IconButton from '@mui/material/IconButton';
-import LogoutIcon from '@mui/icons-material/Logout';
 import HomeIcon from '@mui/icons-material/Home';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
-import FullscreenIcon from '@mui/icons-material/Fullscreen';
-import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
-import { Typography, useMediaQuery, Tooltip, Button } from '@mui/material'; // Removed Badge, added Button
-import SyncIcon from '@mui/icons-material/Sync'; // Added SyncIcon
-import { useTheme } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
+import { Typography, useMediaQuery, Tooltip, Button, Popper, Paper, MenuList, MenuItem, ClickAwayListener, Grow } from '@mui/material';
+import SyncIcon from '@mui/icons-material/Sync';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { useTheme } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
+
 import { AuthContext } from '../context/AuthContext';
 import { ColorModeContext } from '../context/ThemeContextProvider';
 import { usePermissions } from '../hooks/usePermissions';
 import { useCashRegister } from '../hooks/useCashRegister';
 import { useIsTauri } from '../hooks/useIsTauri';
 import CashMovementModal from '../styledComponents/CashMovementModal';
+import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
 
 export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }) {
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   const isDesktopUp = useMediaQuery(theme.breakpoints.up('desktop'));
-  const { logout, usuario } = useContext(AuthContext);
+  const { logout, logoutAndExit, usuario } = useContext(AuthContext);
   const { SetColorMode, mode } = useContext(ColorModeContext);
   const { tienePermiso } = usePermissions();
-  const isTauri = useIsTauri();
-  const { activeSession, isLoadingActiveSession, createCashMovement, isSavingMovement, userName } = useCashRegister();
+  const { isTauri } = useIsTauri();
+  const { activeSession, createCashMovement, isSavingMovement, userName } = useCashRegister();
+
+  const [openPopper, setOpenPopper] = useState(false);
+  const anchorRef = useRef(null);
   const [isCashMovementModalOpen, setIsCashMovementModalOpen] = useState(false);
+
+  const handleToggle = () => {
+    setOpenPopper((prevOpen) => !prevOpen);
+  };
+
+  const handleClose = (event) => {
+    if (anchorRef.current && anchorRef.current.contains(event.target)) {
+      return;
+    }
+    setOpenPopper(false);
+  };
+
+  const handleLogout = async (event) => {
+    handleClose(event);
+    if (activeSession) {
+      const result = await mostrarConfirmacion(
+        {
+          title: '¡Sesión de Caja Activa!',
+          text: 'Hay una sesión de caja abierta. ¿Estás seguro de que quieres cerrar la sesión?',
+          icon: 'warning',
+          confirmButtonText: 'Sí, cerrar sesión',
+          cancelButtonText: 'No, cancelar',
+        },
+        theme
+      );
+      if (result.isConfirmed) {
+        logout();
+      }
+    } else {
+      logout();
+    }
+  };
+
+  const handleLogoutAndExit = async (event) => {
+    handleClose(event);
+    if (activeSession) {
+      const result = await mostrarConfirmacion(
+        {
+          title: '¡Sesión de Caja Activa!',
+          text: 'Hay una sesión de caja abierta. ¿Estás seguro de que quieres cerrar la aplicación? Se cerrará tu sesión actual.',
+          icon: 'warning',
+          confirmButtonText: 'Sí, cerrar y salir',
+          cancelButtonText: 'No, cancelar',
+        },
+        theme
+      );
+      if (result.isConfirmed) {
+        logoutAndExit();
+      }
+    } else {
+      logoutAndExit();
+    }
+  };
 
   const handleOpenCashMovementModal = () => setIsCashMovementModalOpen(true);
   const handleCloseCashMovementModal = () => setIsCashMovementModalOpen(false);
-
-  const handleLogout = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    }
-    logout();
-  };
 
   const goHome = () => {
     navigate('/');
@@ -54,8 +103,7 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
   const goToCashManagement = () => {
     if (tienePermiso('ver_cajas_admin')) {
       navigate('/admin-cajas');
-    }
-    else {
+    } else {
       navigate('/mi-caja');
     }
   };
@@ -112,12 +160,11 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
                 size="small"
                 startIcon={<SyncIcon />}
                 onClick={onSyncClick}
-                disabled={!isOnline} // Deshabilitar si no hay conexión
+                disabled={!isOnline}
                 sx={{
                   mr: 2,
                   color: 'white',
                   '&:hover': { color: 'warning.main' },
-                  // Estilo para el estado deshabilitado
                   '&.Mui-disabled': {
                     backgroundColor: theme.palette.grey[500],
                     color: theme.palette.action.disabled,
@@ -172,11 +219,52 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="Cerrar Sesión">
-              <IconButton size='small' onClick={handleLogout} edge="start" color="inherit" aria-label="cerrar sesión">
-                <LogoutIcon />
-              </IconButton>
-            </Tooltip>
+            {isTauri && (
+              <div>
+                <Tooltip title="Opciones">
+                  <IconButton
+                    ref={anchorRef}
+                    size="large"
+                    aria-controls={openPopper ? 'menu-appbar' : undefined}
+                    aria-haspopup="true"
+                    onClick={handleToggle}
+                    color="inherit"
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
+                </Tooltip>
+                <Popper
+                  sx={{ zIndex: 1500 }}
+                  open={openPopper}
+                  anchorEl={anchorRef.current}
+                  role={undefined}
+                  placement="bottom-end"
+                  transition
+                  disablePortal
+                >
+                  {({ TransitionProps, placement }) => (
+                    <Grow
+                      {...TransitionProps}
+                      style={{
+                        transformOrigin: placement === 'bottom-end' ? 'center top' : 'center bottom',
+                      }}
+                    >
+                      <Paper>
+                        <ClickAwayListener onClickAway={handleClose}>
+                          <MenuList
+                            autoFocusItem={openPopper}
+                            id="menu-appbar"
+                          >
+                            <MenuItem onClick={handleLogout}>Cerrar Sesión</MenuItem>
+                            <MenuItem onClick={handleLogoutAndExit}>Cerrar Sesión y Salir</MenuItem>
+                          </MenuList>
+                        </ClickAwayListener>
+                      </Paper>
+                    </Grow>
+                  )}
+                </Popper>
+              </div>
+            )}
           </Box>
         </Toolbar>
       </AppBar>
@@ -187,7 +275,7 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
         activeSessionId={activeSession?.id}
         userName={userName}
         isSaving={isSavingMovement}
-        theme={theme} // Pass the theme prop
+        theme={theme}
       />
     </>
   );

@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StyledButton as Button } from '../styledComponents/ui/StyledButton';
 import { AuthContext } from '../context/AuthContext';
@@ -24,9 +24,10 @@ import { mostrarError } from '../functions/MostrarError';
 import { mostrarHTML } from '../functions/mostrarHTML';
 import { useIsTauri } from '../hooks/useIsTauri';
 import { ColorModeContext } from '../context/ThemeContextProvider';
+import { exit } from '@tauri-apps/plugin-process'; // Importar exit
 
 const Auth = () => {
-  const isTauri = useIsTauri();
+  const { isTauri } = useIsTauri();
   const { Theme: theme } = useContext(ColorModeContext);
   const { isOnline } = useOnlineStatus();
   const navigate = useNavigate();
@@ -38,34 +39,9 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
 
-  // Permitir cerrar la app desde login
-  useEffect(() => {
-    if (!isTauri) return;
-
-    let unlisten;
-
-    const setup = async () => {
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const appWindow = getCurrentWindow();
-
-        unlisten = await appWindow.onCloseRequested(async () => {
-          const { exit } = await import('@tauri-apps/plugin-process');
-          await exit(0);
-        });
-      } catch (error) {
-        console.log('No es Tauri');
-      }
-    };
-
-    setup();
-
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, [isTauri]);
-
-
+  const handleExitApp = async () => {
+    await exit(0);
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -275,6 +251,24 @@ const Auth = () => {
                 )}
               </Box>
             </Box>
+          )}
+
+          {isTauri && (
+            <Button
+              onClick={handleExitApp}
+              fullWidth
+              variant="outlined"
+              sx={{
+                mt: 2,
+                py: 1,
+                fontSize: '0.9rem',
+                fontWeight: 500,
+                borderRadius: 2,
+                textTransform: 'none',
+              }}
+            >
+              Salir de la Aplicación
+            </Button>
           )}
 
           <Copyright />
