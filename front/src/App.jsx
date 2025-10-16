@@ -16,13 +16,14 @@ import { info } from '@tauri-apps/plugin-log';
 
 import { initializeOfflineUser } from './db/offlineDB';
 
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
 function App() {
   const theme = useTheme();
   const isDesktopUp = useMediaQuery(theme.breakpoints.up('sm'));
   const { user, isAuthenticated, logout, logoutOnClose, isOnline } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { setCheckFunction } = useContext(PreventCloseContext); // Usar el contexto
 
   const {
     pendingSync,
@@ -34,67 +35,47 @@ function App() {
   const pendingSalesCount = pendingSync.pendingSales;
 
   const { activeSession, isLoadingActiveSession } = useCashRegister();
-  // Se elimina el log de la consola de aquí para evitar ruido.
 
-  const checkSessionBeforeClose = useCallback(() => {
-    return new Promise((resolve) => {
-      if (isLoadingActiveSession) {
-        info("[App.jsx DEBUG] Se intentó cerrar mientras la sesión de caja estaba cargando. Cancelando temporalmente.");
-        Swal.fire({
-          title: 'Verificando sesión de caja...',
-          text: 'Por favor, espera un momento e intenta cerrar de nuevo.',
-          icon: 'info',
-          timer: 2000,
-          showConfirmButton: false
-        });
-        resolve(false);
-        return;
-      }
+  const handleCloseRequest = useCallback(async (event, unlistenPromise) => {
+    event.preventDefault();
 
-      info(`[App.jsx DEBUG] Intento de cierre. Valor de activeSession: ${JSON.stringify(activeSession)}`);
-      if (activeSession) {
-        info("[App.jsx DEBUG] 'activeSession' existe. Mostrando confirmación.");
-        mostrarConfirmacion(
-          {
-            title: '¡Sesión de Caja Activa!',
-            text: 'Hay una sesión de caja abierta. ¿Estás seguro de que quieres cerrar la aplicación? Se cerrará tu sesión actual.',
-            icon: 'warning',
-            confirmButtonText: 'Sí, cerrar y salir',
-            cancelButtonText: 'No, cancelar',
-          },
-          theme,
-          async () => { // onConfirm
-            info("[App.jsx DEBUG] Usuario confirmó el cierre. Ejecutando logoutOnClose.");
-            await logoutOnClose(); // Usar la función segura y esperar
-            info("[App.jsx DEBUG] logoutOnClose completado. Permitiendo cierre.");
-            resolve(true);
-          },
-          () => { // onCancel
-            info("[App.jsx DEBUG] Usuario canceló el cierre.");
-            resolve(false);
-          }
-        );
-      } else {
-        info("[App.jsx DEBUG] 'activeSession' es null/undefined. Omitiendo confirmación y ejecutando logoutOnClose.");
-        (async () => {
-          await logoutOnClose();
-          resolve(true);
-        })();
-      }
-    });
+    if (isLoadingActiveSession) {
+      Swal.fire({
+        title: 'Verificando sesión...',
+        text: 'Por favor, espera un momento e intenta cerrar de nuevo.',
+        icon: 'info',
+        timer: 2000,
+        showConfirmButton: false
+      });
+      return; // No se puede cerrar ahora
+    }
+
+    let canClose = false;
+    if (activeSession) {
+      const result = await mostrarConfirmacion(
+        {
+          title: '¡Sesión de Caja Activa!',
+          text: 'Hay una sesión de caja abierta. ¿Estás seguro de que quieres cerrar la aplicación? Se cerrará tu sesión actual.',
+          icon: 'warning',
+          confirmButtonText: 'Sí, cerrar y salir',
+          cancelButtonText: 'No, cancelar',
+        },
+        theme
+      );
+      canClose = result.isConfirmed;
+    } else {
+      canClose = true; // Si no hay sesión, se puede cerrar directamente
+    }
+
+    if (canClose) {
+      await logoutOnClose();
+      const unlisten = await unlistenPromise;
+      unlisten();
+      await getCurrentWindow().close();
+    }
   }, [activeSession, isLoadingActiveSession, theme, logoutOnClose]);
 
-  // Registrar la función de chequeo en el contexto
-  useEffect(() => {
-    info('[App.jsx DEBUG] Registrando función checkSessionBeforeClose en el contexto.');
-    setCheckFunction(checkSessionBeforeClose);
-
-    // Limpiar la función cuando App.jsx se desmonte
-    return () => {
-      info('[App.jsx DEBUG] Desmontando App.jsx. Eliminando función de chequeo del contexto.');
-      setCheckFunction(null);
-    };
-  }, [checkSessionBeforeClose, setCheckFunction]);
+  usePreventClose(handleCloseRequest);
 
 
   useEffect(() => {
