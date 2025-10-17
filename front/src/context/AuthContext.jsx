@@ -24,46 +24,52 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [permisos, setPermisos] = useState([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [errorCount, setErrorCount] = useState(0);
-  const [successCount, setSuccessCount] = useState(0);
+  
+  // Usar useRef para los contadores para no disparar re-renders
+  const errorCountRef = useRef(0);
+  const successCountRef = useRef(0);
   const checkIntervalRef = useRef(null);
 
   const checkRealConnectivity = useCallback(async () => {
     const healthCheckUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/health`;
-    await info(`[AuthContext] Verificando conexión a: ${healthCheckUrl} (Errores: ${errorCount}, Éxitos: ${successCount})`);
+    await info(`[AuthContext] Verificando conexión a: ${healthCheckUrl} (Errores: ${errorCountRef.current}, Éxitos: ${successCountRef.current})`);
 
     try {
-      const response = await Api.get('/health', { timeout: 15000 }); // Timeout de 15s
+      const response = await Api.get('/health', { timeout: 15000 });
       const data = response.data;
 
       if (data && data.db === true) {
-        // Éxito en la conexión
-        setErrorCount(0); // Reiniciar contador de errores
-        const newSuccessCount = successCount + 1;
-        setSuccessCount(newSuccessCount);
+        errorCountRef.current = 0;
 
-        if (!isOnline && newSuccessCount >= MIN_CONSECUTIVE_SUCCESS) {
-          info(`[AuthContext] 🔄 Conexión restablecida. Cambiando a ONLINE.`);
-          setIsOnline(true);
-          setSuccessCount(0); // Resetear para el próximo ciclo
+        if (!isOnline) {
+          successCountRef.current += 1;
+          if (successCountRef.current >= MIN_CONSECUTIVE_SUCCESS) {
+            info(`[AuthContext] 🔄 Conexión restablecida. Cambiando a ONLINE.`);
+            setIsOnline(true);
+            successCountRef.current = 0;
+          }
+        } else {
+          // Si ya estamos online, simplemente reiniciamos el contador de éxitos si es necesario.
+          if (successCountRef.current > 0) {
+            successCountRef.current = 0;
+          }
         }
       } else {
         throw new Error('La respuesta del Health-check no fue la esperada.');
       }
     } catch (err) {
-      // Fallo en la conexión
-      setSuccessCount(0); // Reiniciar contador de éxitos
-      const newErrorCount = errorCount + 1;
-      setErrorCount(newErrorCount);
-      await error(`[AuthContext] ⚠️ Fallo en health-check N°${newErrorCount}: ${err.message}`);
+      successCountRef.current = 0;
+      errorCountRef.current += 1;
+      await error(`[AuthContext] ⚠️ Fallo en health-check N°${errorCountRef.current}: ${err.message}`);
 
-      if (isOnline && newErrorCount >= MAX_CONSECUTIVE_ERRORS) {
+      if (isOnline && errorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
         error(`[AuthContext] ⚠️ Conexión perdida. Cambiando a OFFLINE.`);
         setIsOnline(false);
-        setErrorCount(0); // Resetear para el próximo ciclo
+        errorCountRef.current = 0;
       }
     }
-  }, [isOnline, errorCount, successCount]);
+  }, [isOnline]); // La dependencia ahora es solo isOnline, que es estable hasta que realmente cambia.
+
 
   useEffect(() => {
     if (isTauriLoading) return;
