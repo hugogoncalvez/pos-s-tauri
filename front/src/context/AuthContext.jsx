@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback, useContext, useRef } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext, useRef, useMemo } from 'react';
 import { Api } from '../api/api';
 import { db } from '../db/offlineDB';
 import { syncService } from '../services/syncService';
@@ -12,6 +12,9 @@ import { info, error } from '@tauri-apps/plugin-log';
 export const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
+const MAX_CONSECUTIVE_ERRORS = 3; // Requerir 3 fallos para pasar a OFFLINE
+const MIN_CONSECUTIVE_SUCCESS = 2; // Requerir 2 éxitos para volver a ONLINE
+
 export const AuthProvider = ({ children }) => {
   const { isTauri, isLoading: isTauriLoading } = useIsTauri();
 
@@ -20,35 +23,47 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [permisos, setPermisos] = useState([]);
-  const [isOnline, setIsOnline] = useState(navigator.onLine); // Inicializar con navigator.onLine
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [errorCount, setErrorCount] = useState(0);
+  const [successCount, setSuccessCount] = useState(0);
   const checkIntervalRef = useRef(null);
 
   const checkRealConnectivity = useCallback(async () => {
     const healthCheckUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/health`;
+    await info(`[AuthContext] Verificando conexión a: ${healthCheckUrl} (Errores: ${errorCount}, Éxitos: ${successCount})`);
 
-    await info(`[AuthContext] Verificando conexión a: ${healthCheckUrl}`);
     try {
-      const response = await Api.get('/health'); // Use Axios directly
-      const data = response.data; // Axios response has data directly
+      const response = await Api.get('/health', { timeout: 15000 }); // Timeout de 15s
+      const data = response.data;
 
-      const reallyOnline = data && data.db === true;
-      setIsOnline(prev => {
-        if (prev !== reallyOnline) {
-          info(`[AuthContext] 🔄 Estado de conexión cambiado a: ${reallyOnline ? 'ONLINE' : 'OFFLINE'}`);
+      if (data && data.db === true) {
+        // Éxito en la conexión
+        setErrorCount(0); // Reiniciar contador de errores
+        const newSuccessCount = successCount + 1;
+        setSuccessCount(newSuccessCount);
+
+        if (!isOnline && newSuccessCount >= MIN_CONSECUTIVE_SUCCESS) {
+          info(`[AuthContext] 🔄 Conexión restablecida. Cambiando a ONLINE.`);
+          setIsOnline(true);
+          setSuccessCount(0); // Resetear para el próximo ciclo
         }
-        return reallyOnline;
-      });
-
+      } else {
+        throw new Error('La respuesta del Health-check no fue la esperada.');
+      }
     } catch (err) {
-      await error(`[AuthContext] ⚠️ Error en health-check para URL ${healthCheckUrl}: ${JSON.stringify(err)}`);
-      setIsOnline(prev => {
-        if (prev !== false) {
-          error(`[AuthContext] ⚠️ Error en health-check, cambiando a OFFLINE: ${err.message}`);
-        }
-        return false;
-      });
+      // Fallo en la conexión
+      setSuccessCount(0); // Reiniciar contador de éxitos
+      const newErrorCount = errorCount + 1;
+      setErrorCount(newErrorCount);
+      await error(`[AuthContext] ⚠️ Fallo en health-check N°${newErrorCount}: ${err.message}`);
+
+      if (isOnline && newErrorCount >= MAX_CONSECUTIVE_ERRORS) {
+        error(`[AuthContext] ⚠️ Conexión perdida. Cambiando a OFFLINE.`);
+        setIsOnline(false);
+        setErrorCount(0); // Resetear para el próximo ciclo
+      }
     }
-  }, [isTauri]);
+  }, [isOnline, errorCount, successCount]);
 
   useEffect(() => {
     if (isTauriLoading) return;
@@ -56,7 +71,7 @@ export const AuthProvider = ({ children }) => {
     if (isTauri) {
       info('[AuthContext] 🌐 Modo Tauri: verificación activa de conectividad habilitada.');
       checkRealConnectivity(); // chequeo inicial
-      checkIntervalRef.current = setInterval(checkRealConnectivity, 15000);
+      checkIntervalRef.current = setInterval(checkRealConnectivity, 30000); // Intervalo de 30 segundos
       return () => {
         if (checkIntervalRef.current) {
           clearInterval(checkIntervalRef.current);
@@ -67,7 +82,7 @@ export const AuthProvider = ({ children }) => {
       const handleOnline = debounce(() => {
         info('[AuthContext] 🌐 Evento: ONLINE');
         setIsOnline(true);
-        checkRealConnectivity(); // También verificar la conectividad real al backend
+        checkRealConnectivity();
       }, 300);
       const handleOffline = debounce(() => {
         info('[AuthContext] 🔌 Evento: OFFLINE');
@@ -109,24 +124,23 @@ export const AuthProvider = ({ children }) => {
           setUsuario(data.usuario);
           setIsAuthenticated(true);
           setPermisos(data.usuario.permisos || []);
-          // ✅ Sincroniza datos locales tras verificar sesión (sin esperar)
           syncService.loadReferenceData(data.usuario.id);
         } else {
-          info('[AuthContext] ℹ️ No hay sesión activa. Limpiando TODO el localStorage.');
+          info('[AuthContext] ℹ️ No hay sesión activa. Limpiando datos sensibles.');
           setUsuario(null);
           setIsAuthenticated(false);
           setPermisos([]);
-          localStorage.clear(); // Limpieza completa para evitar fuga de estado.
+          localStorage.removeItem('sessionID');
         }
         setIsLoading(false);
         return;
       } catch (err) {
         if (err.response?.status === 401) {
-          info('[AuthContext] ℹ️ Servidor responde 401. No hay sesión activa. Limpiando TODO el localStorage.');
+          info('[AuthContext] ℹ️ Servidor responde 401. Limpiando datos sensibles.');
           setUsuario(null);
           setIsAuthenticated(false);
           setPermisos([]);
-          localStorage.clear(); // Limpieza completa para evitar fuga de estado en caso de 401.
+          localStorage.removeItem('sessionID');
           setIsLoading(false);
           return;
         }
@@ -146,10 +160,8 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       error(`[AuthContext] Error al notificar al backend sobre el logout. Procediendo con limpieza local: ${err}`);
     } finally {
-      // Limpieza destructiva para evitar fuga de estado.
       localStorage.clear();
       sessionStorage.clear();
-      // Forzar recarga completa para un estado limpio.
       window.location.reload();
     }
   }, [isOnline]);
@@ -163,7 +175,6 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       error(`[AuthContext] Error al notificar al backend sobre el logout: ${err}`);
     } finally {
-      // Limpieza destructiva SIN recarga de página
       localStorage.clear();
       sessionStorage.clear();
       info('[AuthContext] ✅ Limpieza de storage completada. Cerrando aplicación.');
@@ -183,7 +194,6 @@ export const AuthProvider = ({ children }) => {
         setPermisos(data.usuario.permisos || []);
         if (data.sessionID) localStorage.setItem('sessionID', data.sessionID);
 
-        // ✅ Sincroniza BD local al loguear (sin esperar)
         syncService.loadReferenceData(data.usuario.id);
 
         return { success: true, usuario: data.usuario };
@@ -229,20 +239,20 @@ export const AuthProvider = ({ children }) => {
       }
     );
     return () => Api.interceptors.response.eject(interceptor);
-  }, [verificarSesion, isTauriLoading]); // isOnline ya no es una dependencia directa aquí
+  }, [verificarSesion, isTauriLoading]);
 
-  const value = {
+  const value = useMemo(() => ({
     usuario,
     isAuthenticated,
     isLoading,
     permisos,
     login,
     logout,
-    logoutAndExit, // <-- Exportar la nueva función
+    logoutAndExit,
     verificarSesion,
     updateUserTheme,
     isOnline,
-  };
+  }), [usuario, isAuthenticated, isLoading, permisos, isOnline, login, logout, logoutAndExit, verificarSesion, updateUserTheme]);
 
   if (isTauriLoading) {
     return null;

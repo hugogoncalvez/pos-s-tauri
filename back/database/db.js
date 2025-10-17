@@ -21,11 +21,26 @@ const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
     port: DB_PORT,
     dialect: 'mysql',
     pool: {
-        max: 5, // Limita el número máximo de conexiones a 5
+        max: 5, 
         min: 0,
-        acquire: 30000,
-        idle: 10000
+        acquire: 60000, // Aumentado a 60 segundos
+        idle: 60000      // Aumentado a 60 segundos
+    },
+    retry: {
+        match: [
+            /SequelizeConnectionError/,
+            /SequelizeConnectionRefusedError/,
+            /SequelizeHostNotFoundError/,
+            /SequelizeHostNotReachableError/,
+            /SequelizeInvalidConnectionError/,
+            /SequelizeConnectionTimedOutError/,
+            /ETIMEDOUT/,
+            /EHOSTUNREACH/,
+            /ECONNRESET/,
+            /ECONNREFUSED/
+        ],
+        max: 3 // Reintentar hasta 3 veces
     },
     logging: console.log // Habilitar el log de consultas SQL
-})
+});
 export default db;
