@@ -36,7 +36,7 @@ app.use((req, res, next) => {
 const corsOptions = {
   origin: (origin, callback) => {
     console.log('🔍 Origin recibido:', origin || 'SIN ORIGIN');
-    
+
     const allowedOrigins = [
       'tauri://localhost',
       'http://tauri.localhost',
@@ -55,13 +55,13 @@ const corsOptions = {
       console.log('✅ Petición sin Origin - Permitida');
       return callback(null, true);
     }
-    
+
     // Verificar contra la lista
     const isAllowed = allowedOrigins.some(allowed => {
       if (allowed instanceof RegExp) return allowed.test(origin);
       return allowed === origin;
     });
-    
+
     if (isAllowed) {
       console.log('✅ Origin permitido:', origin);
       callback(null, true);
@@ -96,6 +96,13 @@ const sessionStoreOptions = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  // Añadir configuración de pool para robustez
+  pool: true, // Habilita el uso de un pool de conexiones
+  max: 5, // Máximo de 5 conexiones como en Sequelize
+  min: 0,
+  acquire: 60000, // 60 segundos para adquirir una conexión
+  idle: 60000,    // 60 segundos de inactividad antes de liberar
+
   createDatabaseTable: true,
   charset: 'utf8mb4_bin',
   schema: {
@@ -151,12 +158,12 @@ async function startServer() {
         currentRetry++;
         const delay = Math.min(5000 * Math.pow(2, currentRetry - 1), 30000); // Backoff exponencial
         console.error(`❌ Error al conectar a la DB. Intento ${currentRetry}/${MAX_RETRIES}. Reintentando en ${delay / 1000}s...`);
-        
+
         if (currentRetry >= MAX_RETRIES) {
           console.error('❌ Se alcanzó el máximo de reintentos. El servidor no pudo iniciarse.');
           process.exit(1);
         }
-        
+
         await new Promise(res => setTimeout(res, delay));
       }
     }

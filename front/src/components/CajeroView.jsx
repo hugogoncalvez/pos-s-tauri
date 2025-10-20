@@ -46,12 +46,15 @@ import { useForm } from '../hooks/useForm';
 import { useSubmit } from '../hooks/useSubmit';
 import { UseFetchQuery } from '../hooks/useQuery';
 import { CajaManager } from '../styledComponents/CajaManager';
+import { useQueryClient } from '@tanstack/react-query'; // Importar useQueryClient
 import { MyFab } from '../styledComponents/MyFab';
 import { variants } from '../styles/variants';
 import { AuthContext } from '../context/AuthContext';
 import { mostrarExito } from '../functions/mostrarExito';
 import { mostrarError } from '../functions/MostrarError';
 import { mostrarInfo } from '../functions/mostrarInfo';
+import { mostrarCarga } from '../functions/mostrarCarga'; // Importar mostrarCarga
+import Swal from 'sweetalert2'; // Importar Swal
 import CloseCashSessionDialog from '../styledComponents/CloseCashSessionDialog';
 import { printCashSessionReport } from '../functions/printCashSessionReport';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
@@ -73,6 +76,8 @@ const CajeroView = () => {
     const [visibleFab, setVisibleFab] = useState(false);
     const [cashMovementModalOpen, setCashMovementModalOpen] = useState(false);
     const [viewingSessionId, setViewingSessionId] = useState(null);
+
+    const queryClient = useQueryClient(); // Inicializar queryClient
 
     const [openFilterSection, setOpenFilterSection] = useState(false);
 
@@ -185,6 +190,7 @@ const CajeroView = () => {
 
     const handleInitiateClosure = async (declaredAmount, notes, onSuccess) => {
         if (!selectedSession) return mostrarError('No hay una sesión seleccionada.', theme);
+        mostrarCarga('Procesando cierre...', theme);
         try {
             await initiateClosure({
                 url: `/cash-sessions/${selectedSession.id}/initiate-close`,
@@ -193,13 +199,16 @@ const CajeroView = () => {
                     notes: notes.trim()
                 }
             });
+            Swal.close();
             mostrarInfo('Tu caja ha sido enviada para revisión del administrador.', theme);
             setCloseDialogOpen(false);
             setSelectedSession(null);
             refetchActiveSession();
             refetchHistory();
+            queryClient.invalidateQueries(['activeCashSession', usuario.id]); // Invalidar la query de sesión activa
             if (onSuccess) onSuccess();
         } catch (error) {
+            Swal.close();
             const errorMessage = error.response?.data?.message || 'Error al iniciar el cierre de caja.';
             mostrarError(errorMessage, theme);
         }
