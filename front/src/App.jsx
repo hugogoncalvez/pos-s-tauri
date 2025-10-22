@@ -22,7 +22,7 @@ function App() {
     handleSyncComplete,
   } = useSyncManager();
 
-  const pendingSalesCount = pendingSync.pendingSales;
+  const totalPendingCount = pendingSync.pendingSales + pendingSync.pendingTickets;
 
   const { activeSession, isLoadingActiveSession } = useCashRegister();
 
@@ -41,7 +41,7 @@ function App() {
   return (
     <div className="App">
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <DenseAppBar isOnline={isOnline} pendingSalesCount={pendingSalesCount} onSyncClick={handleSyncClick} />
+        <DenseAppBar isOnline={isOnline} pendingSalesCount={totalPendingCount} onSyncClick={handleSyncClick} />
         <Box sx={{ height: appBarHeight }} />
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
           <AnimatePresence mode='wait'>

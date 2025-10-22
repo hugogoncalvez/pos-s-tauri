@@ -442,97 +442,99 @@ const CajeroView = () => {
                         </IconButton>
                     </Grid>
                     <Box sx={{ height: openFilterSection ? 'auto' : 0, overflow: 'hidden', transition: 'height 0.3s ease-in-out' }}>
-                        <Grid container spacing={2} justifyContent="center" alignItems="center">
+                        <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, mt: 2, backgroundColor: theme.palette.background.paper }}>
+                            <Grid container spacing={2} justifyContent="center" alignItems="center">
 
-                            {/* Columna para filtros de Estado y Diferencia Final */}
-                            <Grid sx={{ width: 'clamp(250px, 30%, 350px)' }}>
-                                <Grid container direction="column" spacing={2}>
-                                    <Grid >
-                                        <StyledTextField
-                                            select
-                                            label="Estado"
-                                            name="status"
-                                            value={filters.status || ''}
-                                            onChange={(e) => { handleFilterChange(e); setPage(0); }}
-                                        >
-                                            <MenuItem value="">Todos</MenuItem>
-                                            <MenuItem value="cerrada">Cerrada</MenuItem>
-                                            <MenuItem value="pendiente_cierre">Pendiente Cierre</MenuItem>
-                                        </StyledTextField>
+                                {/* Columna para filtros de Estado y Diferencia Final */}
+                                <Grid sx={{ width: 'clamp(250px, 30%, 350px)' }}>
+                                    <Grid container direction="column" spacing={2}>
+                                        <Grid >
+                                            <StyledTextField
+                                                select
+                                                label="Estado"
+                                                name="status"
+                                                value={filters.status || ''}
+                                                onChange={(e) => { handleFilterChange(e); setPage(0); }}
+                                            >
+                                                <MenuItem value="">Todos</MenuItem>
+                                                <MenuItem value="cerrada">Cerrada</MenuItem>
+                                                <MenuItem value="pendiente_cierre">Pendiente Cierre</MenuItem>
+                                            </StyledTextField>
+                                        </Grid>
+                                        <Grid >
+                                            <StyledTextField
+                                                select
+                                                label="Diferencia Final"
+                                                name="finalDiscrepancy"
+                                                value={filters.finalDiscrepancy || ''}
+                                                onChange={(e) => { handleFilterChange(e); setPage(0); }}
+                                            >
+                                                <MenuItem value="">Todos</MenuItem>
+                                                <MenuItem value="positiva">Positiva</MenuItem>
+                                                <MenuItem value="negativa">Negativa</MenuItem>
+                                                <MenuItem value="nula">Nula (0.00)</MenuItem>
+                                            </StyledTextField>
+                                        </Grid>
                                     </Grid>
-                                    <Grid >
-                                        <StyledTextField
-                                            select
-                                            label="Diferencia Final"
-                                            name="finalDiscrepancy"
-                                            value={filters.finalDiscrepancy || ''}
-                                            onChange={(e) => { handleFilterChange(e); setPage(0); }}
-                                        >
-                                            <MenuItem value="">Todos</MenuItem>
-                                            <MenuItem value="positiva">Positiva</MenuItem>
-                                            <MenuItem value="negativa">Negativa</MenuItem>
-                                            <MenuItem value="nula">Nula (0.00)</MenuItem>
-                                        </StyledTextField>
+                                </Grid>
+
+                                {/* Columna para filtros de Fecha Desde y Fecha Hasta */}
+                                <Grid sx={{ width: 'clamp(250px, 30%, 350px)' }}>
+                                    <Grid container direction="column" spacing={2}>
+                                        <Grid >
+                                            <StyledTextField
+                                                label="Fecha Desde"
+                                                type="date"
+                                                name="startDate"
+                                                value={filters.startDate || ''}
+                                                onChange={(e) => { handleFilterChange(e); setPage(0); }}
+                                                InputLabelProps={{ shrink: true }}
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <IconButton size='small' onClick={() => { handleFilterChange({ target: { name: 'startDate', value: '' } }); setPage(0); }}>
+                                                                <ClearIcon fontSize='small' color='error' />
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    )
+                                                }}
+                                            />
+                                        </Grid>
+                                        <Grid >
+                                            <StyledTextField
+                                                label="Fecha Hasta"
+                                                type="date"
+                                                name="endDate"
+                                                value={filters.endDate || ''}
+                                                onChange={(e) => { handleFilterChange(e); setPage(0); }}
+                                                InputLabelProps={{ shrink: true }}
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <IconButton size='small' onClick={() => { handleFilterChange({ target: { name: 'endDate', value: '' } }); setPage(0); }}>
+                                                                <ClearIcon fontSize='small' color='error' />
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    )
+                                                }}
+                                            />
+                                        </Grid>
+                                    </Grid>
+                                </Grid>
+
+                                {/* Columna para el botón Limpiar */}
+                                <Grid sx={{ width: 'clamp(150px, 15%, 200px)' }}>
+                                    <Grid container spacing={2} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                                        <Grid >
+                                            <StyledButton variant="outlined" color="secondary" onClick={() => {
+                                                resetFilters();
+                                                setPage(0);
+                                            }}>Limpiar</StyledButton>
+                                        </Grid>
                                     </Grid>
                                 </Grid>
                             </Grid>
-
-                            {/* Columna para filtros de Fecha Desde y Fecha Hasta */}
-                            <Grid sx={{ width: 'clamp(250px, 30%, 350px)' }}>
-                                <Grid container direction="column" spacing={2}>
-                                    <Grid >
-                                        <StyledTextField
-                                            label="Fecha Desde"
-                                            type="date"
-                                            name="startDate"
-                                            value={filters.startDate || ''}
-                                            onChange={(e) => { handleFilterChange(e); setPage(0); }}
-                                            InputLabelProps={{ shrink: true }}
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <IconButton size='small' onClick={() => { handleFilterChange({ target: { name: 'startDate', value: '' } }); setPage(0); }}>
-                                                            <ClearIcon fontSize='small' color='error' />
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                )
-                                            }}
-                                        />
-                                    </Grid>
-                                    <Grid >
-                                        <StyledTextField
-                                            label="Fecha Hasta"
-                                            type="date"
-                                            name="endDate"
-                                            value={filters.endDate || ''}
-                                            onChange={(e) => { handleFilterChange(e); setPage(0); }}
-                                            InputLabelProps={{ shrink: true }}
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <IconButton size='small' onClick={() => { handleFilterChange({ target: { name: 'endDate', value: '' } }); setPage(0); }}>
-                                                            <ClearIcon fontSize='small' color='error' />
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                )
-                                            }}
-                                        />
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-
-                            {/* Columna para el botón Limpiar */}
-                            <Grid sx={{ width: 'clamp(150px, 15%, 200px)' }}>
-                                <Grid container spacing={2} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                                    <Grid >
-                                        <StyledButton variant="outlined" color="secondary" onClick={() => {
-                                            resetFilters();
-                                            setPage(0);
-                                        }}>Limpiar</StyledButton>
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-                        </Grid>
+                        </Box>
                     </Box>
                 </StyledCard>
 

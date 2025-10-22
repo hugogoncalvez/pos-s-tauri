@@ -418,9 +418,8 @@ const PurchasesManager = () => {
                 return;
             }
 
-            // Basic validation for EAN-13 (if applicable)
-            if (!validator.isNumeric(barcode) || barcode.length !== 13) {
-                setModalError('Código de barras inválido. Debe ser numérico y de 13 dígitos.');
+            if (validator.isEmpty(barcode)) {
+                setModalError('Por favor, ingrese un código de barras.');
                 return;
             }
 
@@ -694,7 +693,7 @@ const PurchasesManager = () => {
                 <Box sx={{ height: openFilterSection ? 'auto' : 0, overflow: 'hidden', transition: 'height 0.3s ease-in-out' }}>
                     <Grid container spacing={2} justifyContent="center" alignItems="flex-start">
                         <Grid xs={12}>
-                            <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, height: '100%' }}>
+                            <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, height: '100%', backgroundColor: theme.palette.background.paper }}>
                                 <Typography variant="subtitle1" gutterBottom>Filtrar Tabla</Typography>
                                 <Grid container spacing={2}>
                                     <Grid xs={12} sm={6} md={3}><StyledTextField label="Nº de Factura" name="factura" value={facturaInput} onChange={(e) => setFacturaInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setFacturaInput('')}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>

@@ -9,7 +9,7 @@ export const useSyncManager = () => {
   const { isOnline } = useOnlineStatus();
   const { isAuthenticated, usuario } = useContext(AuthContext);
   const queryClient = useQueryClient(); // Get queryClient
-  const [pendingSync, setPendingSync] = useState({ pendingSales: 0, permanentlyFailedSales: 0 });
+  const [pendingSync, setPendingSync] = useState({ pendingSales: 0, pendingTickets: 0, permanentlyFailedSales: 0 });
   const [showSyncModal, setShowSyncModal] = useState(false);
 
   const handleSyncClick = useCallback(async () => {
@@ -31,9 +31,9 @@ export const useSyncManager = () => {
       // si existen ventas pendientes, sincronizarlas
       const activeSession = await db.active_cash_session.toCollection().first();
       if (activeSession && activeSession.id) {
-        await syncService.syncPendingSalesWithSession(activeSession.id, (p)=>console.log('sync progress', p));
+        await syncService.syncPendingSalesWithSession(activeSession.id, usuario.id, (p)=>console.log('sync progress', p));
       } else {
-        await syncService.syncPendingSales();
+        await syncService.syncPendingSales(usuario.id);
       }
       
       // Invalidar queries para refrescar la UI después de la sincronización
@@ -54,8 +54,12 @@ export const useSyncManager = () => {
 
   useEffect(() => {
     const updateSyncStats = async () => {
-      const stats = await syncService.getSyncStats();
-      setPendingSync(stats);
+      if (usuario?.id) { // Only update if user is logged in
+        const stats = await syncService.getSyncStats(usuario.id);
+        setPendingSync(stats);
+      } else {
+        setPendingSync({ pendingSales: 0, permanentlyFailedSales: 0 }); // Clear stats if no user
+      }
     };
 
     // Carga inicial de estadisticas
@@ -69,7 +73,7 @@ export const useSyncManager = () => {
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [usuario?.id]); // Add usuario.id as a dependency
 
   console.log("[useSyncManager] Retornando pendingSync:", pendingSync);
   return {

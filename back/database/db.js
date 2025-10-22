@@ -41,6 +41,6 @@ const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
         ],
         max: 3 // Reintentar hasta 3 veces
     },
-    logging: console.log // Habilitar el log de consultas SQL
+    logging: process.env.NODE_ENV !== 'production' ? console.log : false // Deshabilitar el log de consultas SQL en producción
 });
 export default db;

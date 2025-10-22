@@ -8,8 +8,8 @@ export const StyledDialog = styled(Dialog, {
   '& .MuiDialog-paper': {
     borderRadius: '12px', // Bordes más redondeados para el diálogo
     padding: 'clamp(16px, 3vw, 24px)', // Padding responsivo
-    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.8)', // Sombra más pronunciada
-    backgroundColor: 'theme.palette.background.dialog' || theme.palette.background.paper, // Fondo del tema
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)', // Sombra más pronunciada
+    backgroundColor: theme.palette.background.dialog || theme.palette.background.paper, // Fondo del tema
     // Ancho máximo responsivo
     ...(!maxWidth && {
       maxWidth: 'clamp(300px, 80vw, 600px)', // Aplicar solo si no hay prop maxWidth

@@ -28,14 +28,18 @@ const app = express();
 
 // Middleware para loguear todas las peticiones entrantes
 app.use((req, res, next) => {
-  console.log(`[Request Logger] Method: ${req.method}, URL: ${req.originalUrl}, Origin: ${req.headers.origin}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Request Logger] Method: ${req.method}, URL: ${req.originalUrl}, Origin: ${req.headers.origin}`);
+  }
   next();
 });
 
 // Opciones de CORS para permitir la app de Tauri y el frontend de desarrollo
 const corsOptions = {
   origin: (origin, callback) => {
-    console.log('🔍 Origin recibido:', origin || 'SIN ORIGIN');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔍 Origin recibido:', origin || 'SIN ORIGIN');
+    }
 
     const allowedOrigins = [
       'tauri://localhost',
@@ -52,7 +56,9 @@ const corsOptions = {
 
     // CRÍTICO: Si no hay origin (curl, Postman, requests internos), PERMITIR
     if (!origin) {
-      console.log('✅ Petición sin Origin - Permitida');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('✅ Petición sin Origin - Permitida');
+      }
       return callback(null, true);
     }
 
@@ -63,10 +69,14 @@ const corsOptions = {
     });
 
     if (isAllowed) {
-      console.log('✅ Origin permitido:', origin);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('✅ Origin permitido:', origin);
+      }
       callback(null, true);
     } else {
-      console.warn('🚫 Origin rechazado:', origin);
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('🚫 Origin rechazado:', origin);
+      }
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -129,12 +139,16 @@ app.use(session({
   genid: function (req) {
     // Si viene sessionID en la cookie (que pusimos en el middleware), usar ese
     if (req.cookies && req.cookies[sessionKey]) {
-      console.log('[SESSION] 🔄 Usando sessionID existente:', req.cookies[sessionKey]);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[SESSION] 🔄 Usando sessionID existente:', req.cookies[sessionKey]);
+      }
       return req.cookies[sessionKey];
     }
     // Si no, generar uno nuevo
     const newId = randomUUID();
-    console.log('[SESSION] ✨ Generando nuevo sessionID:', newId);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[SESSION] ✨ Generando nuevo sessionID:', newId);
+    }
     return newId;
   }
 }));

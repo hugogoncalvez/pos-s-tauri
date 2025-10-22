@@ -60,6 +60,8 @@ import { mostrarError } from '../functions/MostrarError';
 import { mostrarCarga } from '../functions/mostrarCarga';
 import Swal from 'sweetalert2';
 import { useQueryClient } from '@tanstack/react-query'; // Importar useQueryClient
+import { syncService } from '../services/syncService'; // Import syncService
+import { useSyncManager } from '../hooks/useSyncManager'; // Import useSyncManager
 
 import CloseCashSessionDialog from '../styledComponents/CloseCashSessionDialog';
 import FinalizeClosureDialog from '../styledComponents/FinalizeClosureDialog';
@@ -120,6 +122,7 @@ const CashAdmin = () => {
     const [cashMovementModalOpen, setCashMovementModalOpen] = useState(false);
 
     const { usuario, isLoading: authLoading } = useContext(AuthContext);
+    const { pendingSync } = useSyncManager(); // Get pendingSync state
 
     const statusOptions = [
         { value: '', label: 'Todos' },
@@ -254,6 +257,12 @@ const CashAdmin = () => {
     // --- HANDLERS DE MUTACIONES ---
     const handleInitiateClosure = async (declaredAmount, notes, onSuccess) => {
         if (!selectedSession) return mostrarError('No hay una sesión seleccionada.', theme);
+
+        // Check for pending sales before initiating closure
+        if (pendingSync.pendingSales > 0) {
+            Swal.close(); // Close any existing loading dialog
+            return mostrarError('No se puede cerrar la caja. Hay ventas pendientes de sincronización. Por favor, sincroniza las ventas primero.', theme);
+        }
 
         const isPrivilegedUser = usuario.rol_nombre === 'Administrador' || usuario.rol_nombre === 'Gerente';
 
@@ -480,147 +489,149 @@ const CashAdmin = () => {
                     </IconButton>
                 </Grid>
                 <Box sx={{ height: openFilterSection ? 'auto' : 0, overflow: 'hidden', transition: 'height 0.3s ease-in-out' }}>
-                    <Grid container spacing={2} justifyContent="center" alignItems="center">
-                        {/* Columna para filtros de Usuario, Estado y Diferencia Final */}
-                        <Grid sx={{ width: 'clamp(280px, 30%, 350px)', padding: 2 }}>
-                            <Grid container direction="column" spacing={2}>
-                                <Grid>
-                                    <StyledAutocomplete
-                                        options={Array.isArray(usersData) ? usersData : []}
-                                        getOptionLabel={(option) => option.username || ''}
-                                        isOptionEqualToValue={(option, value) => option.id === value.id}
-                                        onChange={(event, value) => {
-                                            handleFilterChange({ target: { name: 'userId', value: value ? value.id : null } });
-                                            setPage(0);
-                                            setJustFiltered(true);
-                                        }}
-                                        value={usersData?.find(u => u.id === filters.userId) || null}
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                label="Usuario"
-                                                fullWidth
-                                                InputLabelProps={{ shrink: true }}
-                                                InputProps={{
-                                                    ...params.InputProps,
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <IconButton size='small' onClick={() => {
-                                                                handleFilterChange({ target: { name: 'userId', value: null } });
-                                                                setPage(0);
-                                                                setJustFiltered(true);
-                                                            }}>
-                                                                <ClearIcon fontSize='small' color='error' />
-                                                            </IconButton>
-                                                        </InputAdornment>
-                                                    )
-                                                }}
-                                            />
-                                        )}
-                                    />
-                                </Grid>
-                                <Grid>
-                                    <Autocomplete
-                                        options={statusOptions}
-                                        getOptionLabel={(option) => option.label}
-                                        value={statusOptions.find(o => o.value === filters.status) || null}
-                                        onChange={(event, newValue) => {
-                                            handleFilterChange({ target: { name: 'status', value: newValue ? newValue.value : '' } });
-                                            setPage(0);
-                                            setJustFiltered(true);
-                                        }}
-                                        isOptionEqualToValue={(option, value) => option.value === value.value}
-                                        renderInput={(params) => (
-                                            <StyledTextField
-                                                {...params}
-                                                label="Estado"
-                                                fullWidth
-                                            />
-                                        )}
-                                    />
-                                </Grid>
-                                <Grid>
-                                    <Autocomplete
-                                        options={[{ value: '', label: 'Todos' }, { value: 'positiva', label: 'Positiva' }, { value: 'negativa', label: 'Negativa' }, { value: 'nula', label: 'Nula (0.00)' }]}
-                                        getOptionLabel={(option) => option.label}
-                                        value={[{ value: '', label: 'Todos' }, { value: 'positiva', label: 'Positiva' }, { value: 'negativa', label: 'Negativa' }, { value: 'nula', label: 'Nula (0.00)' }].find(o => o.value === filters.finalDiscrepancy) || null}
-                                        onChange={(event, newValue) => {
-                                            handleFilterChange({ target: { name: 'finalDiscrepancy', value: newValue ? newValue.value : '' } });
-                                            setPage(0);
-                                            setJustFiltered(true);
-                                        }}
-                                        isOptionEqualToValue={(option, value) => option.value === value.value}
-                                        renderInput={(params) => (
-                                            <StyledTextField
-                                                {...params}
-                                                label="Diferencia Final"
-                                                fullWidth
-                                            />
-                                        )}
-                                    />
+                    <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, mt: 2, backgroundColor: theme.palette.background.paper }}>
+                        <Grid container spacing={2} justifyContent="center" alignItems="center">
+                            {/* Columna para filtros de Usuario, Estado y Diferencia Final */}
+                            <Grid sx={{ width: 'clamp(280px, 30%, 350px)', padding: 2 }}>
+                                <Grid container direction="column" spacing={2}>
+                                    <Grid>
+                                        <StyledAutocomplete
+                                            options={Array.isArray(usersData) ? usersData : []}
+                                            getOptionLabel={(option) => option.username || ''}
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                                            onChange={(event, value) => {
+                                                handleFilterChange({ target: { name: 'userId', value: value ? value.id : null } });
+                                                setPage(0);
+                                                setJustFiltered(true);
+                                            }}
+                                            value={usersData?.find(u => u.id === filters.userId) || null}
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    label="Usuario"
+                                                    fullWidth
+                                                    InputLabelProps={{ shrink: true }}
+                                                    InputProps={{
+                                                        ...params.InputProps,
+                                                        startAdornment: (
+                                                            <InputAdornment position="start">
+                                                                <IconButton size='small' onClick={() => {
+                                                                    handleFilterChange({ target: { name: 'userId', value: null } });
+                                                                    setPage(0);
+                                                                    setJustFiltered(true);
+                                                                }}>
+                                                                    <ClearIcon fontSize='small' color='error' />
+                                                                </IconButton>
+                                                            </InputAdornment>
+                                                        )
+                                                    }}
+                                                />
+                                            )}
+                                        />
+                                    </Grid>
+                                    <Grid>
+                                        <Autocomplete
+                                            options={statusOptions}
+                                            getOptionLabel={(option) => option.label}
+                                            value={statusOptions.find(o => o.value === filters.status) || null}
+                                            onChange={(event, newValue) => {
+                                                handleFilterChange({ target: { name: 'status', value: newValue ? newValue.value : '' } });
+                                                setPage(0);
+                                                setJustFiltered(true);
+                                            }}
+                                            isOptionEqualToValue={(option, value) => option.value === value.value}
+                                            renderInput={(params) => (
+                                                <StyledTextField
+                                                    {...params}
+                                                    label="Estado"
+                                                    fullWidth
+                                                />
+                                            )}
+                                        />
+                                    </Grid>
+                                    <Grid>
+                                        <Autocomplete
+                                            options={[{ value: '', label: 'Todos' }, { value: 'positiva', label: 'Positiva' }, { value: 'negativa', label: 'Negativa' }, { value: 'nula', label: 'Nula (0.00)' }]}
+                                            getOptionLabel={(option) => option.label}
+                                            value={[{ value: '', label: 'Todos' }, { value: 'positiva', label: 'Positiva' }, { value: 'negativa', label: 'Negativa' }, { value: 'nula', label: 'Nula (0.00)' }].find(o => o.value === filters.finalDiscrepancy) || null}
+                                            onChange={(event, newValue) => {
+                                                handleFilterChange({ target: { name: 'finalDiscrepancy', value: newValue ? newValue.value : '' } });
+                                                setPage(0);
+                                                setJustFiltered(true);
+                                            }}
+                                            isOptionEqualToValue={(option, value) => option.value === value.value}
+                                            renderInput={(params) => (
+                                                <StyledTextField
+                                                    {...params}
+                                                    label="Diferencia Final"
+                                                    fullWidth
+                                                />
+                                            )}
+                                        />
+                                    </Grid>
                                 </Grid>
                             </Grid>
-                        </Grid>
 
-                        {/* Columna para filtros de Fecha Desde y Fecha Hasta */}
-                        <Grid sx={{ width: 'clamp(280px, 30%, 350px)' }}>
-                            <Grid container direction="column" spacing={2}>
-                                <Grid>
-                                    <StyledTextField
-                                        label="Fecha Desde"
-                                        type="date"
-                                        name="startDate"
-                                        value={filters.startDate || ''}
-                                        onChange={(e) => { handleFilterChange(e); setPage(0); setJustFiltered(true); }}
-                                        InputLabelProps={{ shrink: true }}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <IconButton size='small' onClick={() => { handleFilterChange({ target: { name: 'startDate', value: '' } }); setPage(0); setJustFiltered(true); }}>
-                                                        <ClearIcon fontSize='small' color='error' />
-                                                    </IconButton>
-                                                </InputAdornment>
-                                            )
-                                        }}
-                                        fullWidth
-                                    />
-                                </Grid>
-                                <Grid>
-                                    <StyledTextField
-                                        label="Fecha Hasta"
-                                        type="date"
-                                        name="endDate"
-                                        value={filters.endDate || ''}
-                                        onChange={(e) => { handleFilterChange(e); setPage(0); setJustFiltered(true); }}
-                                        InputLabelProps={{ shrink: true }}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <IconButton size='small' onClick={() => { handleFilterChange({ target: { name: 'endDate', value: '' } }); setPage(0); setJustFiltered(true); }}>
-                                                        <ClearIcon fontSize='small' color='error' />
-                                                    </IconButton>
-                                                </InputAdornment>
-                                            )
-                                        }}
-                                        fullWidth
-                                    />
+                            {/* Columna para filtros de Fecha Desde y Fecha Hasta */}
+                            <Grid sx={{ width: 'clamp(280px, 30%, 350px)' }}>
+                                <Grid container direction="column" spacing={2}>
+                                    <Grid>
+                                        <StyledTextField
+                                            label="Fecha Desde"
+                                            type="date"
+                                            name="startDate"
+                                            value={filters.startDate || ''}
+                                            onChange={(e) => { handleFilterChange(e); setPage(0); setJustFiltered(true); }}
+                                            InputLabelProps={{ shrink: true }}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <IconButton size='small' onClick={() => { handleFilterChange({ target: { name: 'startDate', value: '' } }); setPage(0); setJustFiltered(true); }}>
+                                                            <ClearIcon fontSize='small' color='error' />
+                                                        </IconButton>
+                                                    </InputAdornment>
+                                                )
+                                            }}
+                                            fullWidth
+                                        />
+                                    </Grid>
+                                    <Grid>
+                                        <StyledTextField
+                                            label="Fecha Hasta"
+                                            type="date"
+                                            name="endDate"
+                                            value={filters.endDate || ''}
+                                            onChange={(e) => { handleFilterChange(e); setPage(0); setJustFiltered(true); }}
+                                            InputLabelProps={{ shrink: true }}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <IconButton size='small' onClick={() => { handleFilterChange({ target: { name: 'endDate', value: '' } }); setPage(0); setJustFiltered(true); }}>
+                                                            <ClearIcon fontSize='small' color='error' />
+                                                        </IconButton>
+                                                    </InputAdornment>
+                                                )
+                                            }}
+                                            fullWidth
+                                        />
+                                    </Grid>
                                 </Grid>
                             </Grid>
-                        </Grid>
 
-                        {/* Columna para el botón Limpiar */}
-                        <Grid sx={{ width: 'clamp(180px, 15%, 200px)' }}>
-                            <Grid container spacing={2} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                                <Grid>
-                                    <StyledButton variant="outlined" color="secondary" onClick={() => {
-                                        resetFilters();
-                                        setPage(0);
-                                        setJustFiltered(true);
-                                    }} sx={{ padding: '2px 12px' }}>Limpiar</StyledButton>
+                            {/* Columna para el botón Limpiar */}
+                            <Grid sx={{ width: 'clamp(180px, 15%, 200px)' }}>
+                                <Grid container spacing={2} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                                    <Grid>
+                                        <StyledButton variant="outlined" color="secondary" onClick={() => {
+                                            resetFilters();
+                                            setPage(0);
+                                            setJustFiltered(true);
+                                        }} sx={{ padding: '2px 12px' }}>Limpiar</StyledButton>
+                                    </Grid>
                                 </Grid>
                             </Grid>
                         </Grid>
-                    </Grid>
+                    </Box>
                 </Box>
             </StyledCard>
 

@@ -43,7 +43,7 @@ export const StyledTextField = styled(({
     },
     // FIX: Añadir fondo al label encogido para evitar que el borde lo atraviese
     '&.MuiInputLabel-shrink': {
-      backgroundColor: theme.palette.background.dialog,
+      backgroundColor: theme.palette.background.paper,
       paddingRight: '4px',
       paddingLeft: '4px',
     },

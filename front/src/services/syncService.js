@@ -190,6 +190,7 @@ class SyncService {
       synced: 0,
       server_id: null,
       cash_session_id: sessionId, // Usar el ID de sesión correspondiente
+      user_id: saleData.user_id, // Add user_id
       retryCount: 0, // Inicializar contador de reintentos
       lastError: null, // Inicializar último error
     };
@@ -261,7 +262,7 @@ class SyncService {
   /**
    * Sincroniza las ventas pendientes de la cola local con el servidor.
    */
-  async syncPendingSales() {
+  async syncPendingSales(userId) { // Add userId parameter
     if (this.isSyncing) {
       console.log('⏳ Ya hay una sincronización en curso.');
       return { synced: 0, failed: 0, alreadySyncing: true };
@@ -270,6 +271,7 @@ class SyncService {
     // Solo obtener ventas pendientes que no hayan excedido el límite de reintentos
     const pendingSales = await db.pending_sales
       .where('synced').equals(0)
+      .and(sale => sale.user_id === userId) // Filter by user_id
       .filter(sale => (sale.retryCount || 0) < this.MAX_RETRIES)
       .toArray();
 
@@ -337,12 +339,13 @@ class SyncService {
    * @param {number} realCashSessionId - El ID de la sesión de caja creada en el servidor.
    * @param {function} onProgress - Callback para notificar el progreso (ej. onProgress({ current, total })).
    */
-  async syncPendingSalesWithSession(realCashSessionId, onProgress) {
+  async syncPendingSalesWithSession(realCashSessionId, userId, onProgress) { // Add userId parameter
     console.log(`[SyncService] 🚀 Iniciando sincronización de ventas pendientes con sesión de caja real: ${realCashSessionId}`);
     
     // Solo obtener ventas pendientes que no hayan excedido el límite de reintentos
     const pendingSales = await db.pending_sales
       .where('synced').equals(0)
+      .and(sale => sale.user_id === userId) // Filter by user_id
       .filter(sale => (sale.retryCount || 0) < this.MAX_RETRIES)
       .toArray();
     
@@ -409,16 +412,30 @@ class SyncService {
   /**
    * Obtiene estadísticas de la cola de sincronización.
    */
-  async getSyncStats() {
+  async getSyncStats(userId) {
     const pendingSalesCount = await db.pending_sales
       .where('synced').equals(0)
+      .and(sale => sale.user_id === userId) // Filter by user_id
       .filter(sale => (sale.retryCount || 0) < this.MAX_RETRIES)
       .count();
     
-    const permanentlyFailedSalesCount = await db.pending_sales.where('synced').equals(-1).count();
+    const permanentlyFailedSalesCount = await db.pending_sales
+      .where('synced').equals(-1)
+      .and(sale => sale.user_id === userId) // Filter by user_id
+      .count();
 
-    console.log(`[SyncService] 📊 Ventas pendientes detectadas: ${pendingSalesCount}, Fallidas permanentemente: ${permanentlyFailedSalesCount}`);
-    return { pendingSales: pendingSalesCount, permanentlyFailedSales: permanentlyFailedSalesCount };
+    // Add pending tickets count
+    const pendingTicketsCount = await db.pending_tickets
+      .where('synced').equals(0)
+      .and(ticket => ticket.user_id === userId) // Filter by user_id
+      .count();
+
+    console.log(`[SyncService] 📊 Ventas pendientes detectadas para el usuario ${userId}: ${pendingSalesCount}, Tickets pendientes: ${pendingTicketsCount}, Fallidas permanentemente: ${permanentlyFailedSalesCount}`);
+    return {
+      pendingSales: pendingSalesCount,
+      pendingTickets: pendingTicketsCount, // Add pendingTickets
+      permanentlyFailedSales: permanentlyFailedSalesCount
+    };
   }
 
   /**

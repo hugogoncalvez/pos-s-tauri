@@ -364,149 +364,151 @@ const Customers = () => {
                         </IconButton>
                     </Grid>
                     <Box sx={{ height: openFilterSection ? 'auto' : 0, overflow: 'hidden', transition: 'height 0.3s ease-in-out' }}>
-                        <Grid container spacing={2} justifyContent="center" alignItems="flex-start" marginTop={1}>
-                            {/* Fila de filtros */}
-                            <Grid item xs={12}>
-                                <Grid container spacing={2} justifyContent="center" alignItems="flex-start">
-                                    {/* Columna 1: Fechas */}
-                                    <Grid item sx={{ width: 'clamp(250px, 30%, 350px)' }}>
-                                        <Grid container direction="column" spacing={2}>
-                                            <Grid item>
-                                                <StyledTextField
-                                                    label="Fecha Desde"
-                                                    type="date"
-                                                    name="startDate"
-                                                    value={startDate}
-                                                    onChange={(e) => handleStartDateChange(e.target.value, e)}
-                                                    fullWidth
-                                                    size="small"
-                                                    autoComplete='off'
-                                                    InputLabelProps={{ shrink: true }}
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <InputAdornment position="start">
-                                                                <IconButton size='small' onClick={() => handleStartDateChange('', null)}>
-                                                                    <ClearIcon fontSize='small' color='error' />
-                                                                </IconButton>
-                                                            </InputAdornment>
-                                                        )
-                                                    }}
-                                                />
-                                            </Grid>
-                                            <Grid item>
-                                                <StyledTextField
-                                                    label="Fecha Hasta"
-                                                    type="date"
-                                                    name="endDate"
-                                                    value={endDate}
-                                                    onChange={(e) => handleEndDateChange(e.target.value, e)}
-                                                    fullWidth
-                                                    size="small"
-                                                    autoComplete='off'
-                                                    InputLabelProps={{ shrink: true }}
-                                                    InputProps={{
-                                                        startAdornment: (
-                                                            <InputAdornment position="start">
-                                                                <IconButton size='small' onClick={() => handleEndDateChange('', null)}>
-                                                                    <ClearIcon fontSize='small' color='error' />
-                                                                </IconButton>
-                                                            </InputAdornment>
-                                                        )
-                                                    }}
-                                                />
-                                            </Grid>
-                                        </Grid>
-                                    </Grid>
-
-                                    {/* Columna 2: Búsqueda y Ordenar por */}
-                                    <Grid item sx={{ width: 'clamp(250px, 30%, 350px)' }}>
-                                        <Grid container direction="column" spacing={2}>
-                                            <Grid item>
-                                                <StyledTextField
-                                                    fullWidth
-                                                    size="small"
-                                                    placeholder="Buscar por nombre, email, etc."
-                                                    value={search}
-                                                    onChange={(e) => handleSearchChange(e.target.value)}
-                                                    InputProps={{
-                                                        startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-                                                        endAdornment: search && (
-                                                            <IconButton size="small" onClick={() => handleSearchChange('')}>
-                                                                <ClearIcon />
-                                                            </IconButton>
-                                                        )
-                                                    }}
-                                                />
-                                            </Grid>
-                                            <Grid item>
-                                                <Autocomplete
-                                                    fullWidth
-                                                    size="small"
-                                                    options={sortByOptions}
-                                                    getOptionLabel={(option) => option.label}
-                                                    value={sortByOptions.find(option => option.value === sortBy) || null}
-                                                    onChange={(event, newValue) => handleSortByChange(newValue ? newValue.value : '')}
-                                                    renderInput={(params) => <StyledTextField {...params} label="Ordenar por" />}
-                                                />
+                        <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, mt: 2, backgroundColor: theme.palette.background.paper }}>
+                            <Grid container spacing={2} justifyContent="center" alignItems="flex-start" marginTop={1}>
+                                {/* Fila de filtros */}
+                                <Grid item xs={12}>
+                                    <Grid container spacing={2} justifyContent="center" alignItems="flex-start">
+                                        {/* Columna 1: Fechas */}
+                                        <Grid item sx={{ width: 'clamp(250px, 30%, 350px)' }}>
+                                            <Grid container direction="column" spacing={2}>
+                                                <Grid item>
+                                                    <StyledTextField
+                                                        label="Fecha Desde"
+                                                        type="date"
+                                                        name="startDate"
+                                                        value={startDate}
+                                                        onChange={(e) => handleStartDateChange(e.target.value, e)}
+                                                        fullWidth
+                                                        size="small"
+                                                        autoComplete='off'
+                                                        InputLabelProps={{ shrink: true }}
+                                                        InputProps={{
+                                                            startAdornment: (
+                                                                <InputAdornment position="start">
+                                                                    <IconButton size='small' onClick={() => handleStartDateChange('', null)}>
+                                                                        <ClearIcon fontSize='small' color='error' />
+                                                                    </IconButton>
+                                                                </InputAdornment>
+                                                            )
+                                                        }}
+                                                    />
+                                                </Grid>
+                                                <Grid item>
+                                                    <StyledTextField
+                                                        label="Fecha Hasta"
+                                                        type="date"
+                                                        name="endDate"
+                                                        value={endDate}
+                                                        onChange={(e) => handleEndDateChange(e.target.value, e)}
+                                                        fullWidth
+                                                        size="small"
+                                                        autoComplete='off'
+                                                        InputLabelProps={{ shrink: true }}
+                                                        InputProps={{
+                                                            startAdornment: (
+                                                                <InputAdornment position="start">
+                                                                    <IconButton size='small' onClick={() => handleEndDateChange('', null)}>
+                                                                        <ClearIcon fontSize='small' color='error' />
+                                                                    </IconButton>
+                                                                </InputAdornment>
+                                                            )
+                                                        }}
+                                                    />
+                                                </Grid>
                                             </Grid>
                                         </Grid>
-                                    </Grid>
 
-                                    {/* Columna 3: Orden y Estado de Deuda */}
-                                    <Grid item sx={{ width: 'clamp(250px, 30%, 350px)' }}>
-                                        <Grid container direction="column" spacing={2}>
-                                            <Grid item>
-                                                <Autocomplete
-                                                    fullWidth
-                                                    size="small"
-                                                    options={sortOrderOptions}
-                                                    getOptionLabel={(option) => option.label}
-                                                    value={sortOrderOptions.find(option => option.value === sortOrder) || null}
-                                                    onChange={(event, newValue) => handleSortOrderChange(newValue ? newValue.value : '')}
-                                                    renderInput={(params) => <StyledTextField {...params} label="Orden" />}
-                                                />
+                                        {/* Columna 2: Búsqueda y Ordenar por */}
+                                        <Grid item sx={{ width: 'clamp(250px, 30%, 350px)' }}>
+                                            <Grid container direction="column" spacing={2}>
+                                                <Grid item>
+                                                    <StyledTextField
+                                                        fullWidth
+                                                        size="small"
+                                                        placeholder="Buscar por nombre, email, etc."
+                                                        value={search}
+                                                        onChange={(e) => handleSearchChange(e.target.value)}
+                                                        InputProps={{
+                                                            startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                                                            endAdornment: search && (
+                                                                <IconButton size="small" onClick={() => handleSearchChange('')}>
+                                                                    <ClearIcon />
+                                                                </IconButton>
+                                                            )
+                                                        }}
+                                                    />
+                                                </Grid>
+                                                <Grid item>
+                                                    <Autocomplete
+                                                        fullWidth
+                                                        size="small"
+                                                        options={sortByOptions}
+                                                        getOptionLabel={(option) => option.label}
+                                                        value={sortByOptions.find(option => option.value === sortBy) || null}
+                                                        onChange={(event, newValue) => handleSortByChange(newValue ? newValue.value : '')}
+                                                        renderInput={(params) => <StyledTextField {...params} label="Ordenar por" />}
+                                                    />
+                                                </Grid>
                                             </Grid>
-                                            <Grid item>
-                                                <Autocomplete
-                                                    fullWidth
-                                                    size="small"
-                                                    options={debtStatusOptions}
-                                                    getOptionLabel={(option) => option.label}
-                                                    value={debtStatusOptions.find(option => option.value === debtStatus) || null}
-                                                    onChange={(event, newValue) => handleDebtStatusChange(newValue ? newValue.value : '')}
-                                                    renderInput={(params) => <StyledTextField {...params} label="Estado de Deuda" />}
-                                                />
+                                        </Grid>
+
+                                        {/* Columna 3: Orden y Estado de Deuda */}
+                                        <Grid item sx={{ width: 'clamp(250px, 30%, 350px)' }}>
+                                            <Grid container direction="column" spacing={2}>
+                                                <Grid item>
+                                                    <Autocomplete
+                                                        fullWidth
+                                                        size="small"
+                                                        options={sortOrderOptions}
+                                                        getOptionLabel={(option) => option.label}
+                                                        value={sortOrderOptions.find(option => option.value === sortOrder) || null}
+                                                        onChange={(event, newValue) => handleSortOrderChange(newValue ? newValue.value : '')}
+                                                        renderInput={(params) => <StyledTextField {...params} label="Orden" />}
+                                                    />
+                                                </Grid>
+                                                <Grid item>
+                                                    <Autocomplete
+                                                        fullWidth
+                                                        size="small"
+                                                        options={debtStatusOptions}
+                                                        getOptionLabel={(option) => option.label}
+                                                        value={debtStatusOptions.find(option => option.value === debtStatus) || null}
+                                                        onChange={(event, newValue) => handleDebtStatusChange(newValue ? newValue.value : '')}
+                                                        renderInput={(params) => <StyledTextField {...params} label="Estado de Deuda" />}
+                                                    />
+                                                </Grid>
                                             </Grid>
                                         </Grid>
                                     </Grid>
                                 </Grid>
-                            </Grid>
 
-                            {/* Fila de botones de acción */}
-                            <Grid item xs={12}>
-                                <Grid container spacing={2} justifyContent="center" alignItems="center">
-                                    <Grid item>
-                                        <StyledButton
-                                            variant="outlined"
-                                            color="secondary"
-                                            onClick={handleClearFilters}
-                                        >
-                                            Limpiar Filtros
-                                        </StyledButton>
-                                    </Grid>
-                                    <Grid item>
-                                        <StyledButton
-                                            variant="outlined"
-                                            startIcon={<DownloadIcon />}
-                                            onClick={() => handleExportCSV()}
-                                            size={isMobile ? "small" : "medium"}
-                                        >
-                                            Exportar CSV
-                                        </StyledButton>
+                                {/* Fila de botones de acción */}
+                                <Grid item xs={12}>
+                                    <Grid container spacing={2} justifyContent="center" alignItems="center">
+                                        <Grid item>
+                                            <StyledButton
+                                                variant="outlined"
+                                                color="secondary"
+                                                onClick={handleClearFilters}
+                                            >
+                                                Limpiar Filtros
+                                            </StyledButton>
+                                        </Grid>
+                                        <Grid item>
+                                            <StyledButton
+                                                variant="outlined"
+                                                startIcon={<DownloadIcon />}
+                                                onClick={() => handleExportCSV()}
+                                                size={isMobile ? "small" : "medium"}
+                                            >
+                                                Exportar CSV
+                                            </StyledButton>
+                                        </Grid>
                                     </Grid>
                                 </Grid>
                             </Grid>
-                        </Grid>
+                        </Box>
                     </Box>
                 </StyledCard>
             </motion.div>

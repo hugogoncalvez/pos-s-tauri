@@ -172,7 +172,7 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
                   },
                 }}
               >
-                {isOnline ? `Sincronizar (${pendingSalesCount})` : `${pendingSalesCount} Ventas Pendientes`}
+                {isOnline ? `Sincronizar (${pendingSalesCount})` : `${pendingSalesCount} Pendientes`}
               </Button>)}
 
             <Tooltip title="Inicio">

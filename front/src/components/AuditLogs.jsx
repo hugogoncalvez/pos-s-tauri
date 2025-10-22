@@ -313,100 +313,102 @@ const AuditLogs = () => {
                                 </Tooltip>
                             )}
                         </Box>
-                        <Grid container spacing={2} sx={{ justifyContent: 'center', padding: 2 }}>
+                        <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, mt: 2, backgroundColor: theme.palette.background.paper }}>
+                            <Grid container spacing={2} sx={{ justifyContent: 'center', padding: 2 }}>
 
-                            {/* Columna para filtros de Acción y Tipo de Entidad */}
-                            <Grid item sx={{ width: 'clamp(250px, 30%, 350px)' }}>
-                                <Grid container direction="column" spacing={2}>
-                                    <Grid item>
-                                        <Autocomplete
-                                            fullWidth
-                                            size="small"
-                                            options={actionOptions}
-                                            getOptionLabel={(option) => option.label}
-                                            value={actionOptions.find(option => option.value === filters.action) || null}
-                                            onChange={(event, newValue) => handleFilterChange({ target: { name: 'action', value: newValue ? newValue.value : '' } })}
-                                            renderInput={(params) => <TextField {...params} label="Acción" />}
-                                        />
+                                {/* Columna para filtros de Acción y Tipo de Entidad */}
+                                <Grid item sx={{ width: 'clamp(250px, 30%, 350px)' }}>
+                                    <Grid container direction="column" spacing={2}>
+                                        <Grid item>
+                                            <Autocomplete
+                                                fullWidth
+                                                size="small"
+                                                options={actionOptions}
+                                                getOptionLabel={(option) => option.label}
+                                                value={actionOptions.find(option => option.value === filters.action) || null}
+                                                onChange={(event, newValue) => handleFilterChange({ target: { name: 'action', value: newValue ? newValue.value : '' } })}
+                                                renderInput={(params) => <TextField {...params} label="Acción" />}
+                                            />
+                                        </Grid>
+                                        <Grid item>
+                                            <Autocomplete
+                                                fullWidth
+                                                size="small"
+                                                options={entityTypeOptions}
+                                                getOptionLabel={(option) => option.label}
+                                                value={entityTypeOptions.find(option => option.value === filters.entity_type) || null}
+                                                onChange={(event, newValue) => handleFilterChange({ target: { name: 'entity_type', value: newValue ? newValue.value : '' } })}
+                                                renderInput={(params) => <TextField {...params} label="Tipo de Entidad" />}
+                                            />
+                                        </Grid>
                                     </Grid>
-                                    <Grid item>
-                                        <Autocomplete
-                                            fullWidth
-                                            size="small"
-                                            options={entityTypeOptions}
-                                            getOptionLabel={(option) => option.label}
-                                            value={entityTypeOptions.find(option => option.value === filters.entity_type) || null}
-                                            onChange={(event, newValue) => handleFilterChange({ target: { name: 'entity_type', value: newValue ? newValue.value : '' } })}
-                                            renderInput={(params) => <TextField {...params} label="Tipo de Entidad" />}
-                                        />
+                                </Grid>
+
+                                {/* Columna para filtros de Fecha Inicio y Fecha Fin */}
+                                <Grid item sx={{ width: 'clamp(250px, 30%, 350px)' }}>
+                                    <Grid container direction="column" spacing={2}>
+                                        <Grid item>
+                                            <StyledTextField
+                                                fullWidth
+                                                size="small"
+                                                label="Fecha Inicio"
+                                                type="date"
+                                                name="start_date"
+                                                value={filters.start_date}
+                                                onChange={handleFilterChange}
+                                                InputLabelProps={{ shrink: true }}
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <IconButton size='small' onClick={() => setFilters(prev => ({ ...prev, start_date: '' }))}>
+                                                                <ClearIcon fontSize='small' color='error' />
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    )
+                                                }}
+                                            />
+                                        </Grid>
+                                        <Grid item>
+                                            <StyledTextField
+                                                fullWidth
+                                                size="small"
+                                                label="Fecha Fin"
+                                                type="date"
+                                                name="end_date"
+                                                value={filters.end_date}
+                                                onChange={handleFilterChange}
+                                                InputLabelProps={{ shrink: true }}
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <IconButton size='small' onClick={() => setFilters(prev => ({ ...prev, end_date: '' }))}>
+                                                                <ClearIcon fontSize='small' color='error' />
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    )
+                                                }}
+                                            />
+                                        </Grid>
+                                    </Grid>
+                                </Grid>
+
+                                {/* Columna para el botón Limpiar Filtros */}
+                                <Grid item sx={{ width: 'clamp(150px, 15%, 200px)' }}>
+                                    <Grid container spacing={2} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                                        <Grid item>
+                                            <StyledButton
+                                                sx={{ padding: '2px 12px' }}
+                                                variant="outlined"
+                                                color="secondary"
+                                                onClick={handleClearFilters}
+                                            >
+                                                Limpiar Filtros
+                                            </StyledButton>
+                                        </Grid>
                                     </Grid>
                                 </Grid>
                             </Grid>
-
-                            {/* Columna para filtros de Fecha Inicio y Fecha Fin */}
-                            <Grid item sx={{ width: 'clamp(250px, 30%, 350px)' }}>
-                                <Grid container direction="column" spacing={2}>
-                                    <Grid item>
-                                        <StyledTextField
-                                            fullWidth
-                                            size="small"
-                                            label="Fecha Inicio"
-                                            type="date"
-                                            name="start_date"
-                                            value={filters.start_date}
-                                            onChange={handleFilterChange}
-                                            InputLabelProps={{ shrink: true }}
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <IconButton size='small' onClick={() => setFilters(prev => ({ ...prev, start_date: '' }))}>
-                                                            <ClearIcon fontSize='small' color='error' />
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                )
-                                            }}
-                                        />
-                                    </Grid>
-                                    <Grid item>
-                                        <StyledTextField
-                                            fullWidth
-                                            size="small"
-                                            label="Fecha Fin"
-                                            type="date"
-                                            name="end_date"
-                                            value={filters.end_date}
-                                            onChange={handleFilterChange}
-                                            InputLabelProps={{ shrink: true }}
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <IconButton size='small' onClick={() => setFilters(prev => ({ ...prev, end_date: '' }))}>
-                                                            <ClearIcon fontSize='small' color='error' />
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                )
-                                            }}
-                                        />
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-
-                            {/* Columna para el botón Limpiar Filtros */}
-                            <Grid item sx={{ width: 'clamp(150px, 15%, 200px)' }}>
-                                <Grid container spacing={2} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                                    <Grid item>
-                                        <StyledButton
-                                            sx={{ padding: '2px 12px' }}
-                                            variant="outlined"
-                                            color="secondary"
-                                            onClick={handleClearFilters}
-                                        >
-                                            Limpiar Filtros
-                                        </StyledButton>
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-                        </Grid>
+                        </Box>
                     </StyledCard>
                 </Grid>
             </Grid>

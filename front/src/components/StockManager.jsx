@@ -77,6 +77,7 @@ const StockManager = () => {
     });
 
     const [nameInputValue, setNameInputValue] = useState(filters.name || '');
+    const [barcodeInputValue, setBarcodeInputValue] = useState(filters.barcode || '');
 
     useEffect(() => {
         const handler = setTimeout(() => {
@@ -92,11 +93,31 @@ const StockManager = () => {
     }, [nameInputValue]);
 
     useEffect(() => {
+        const handler = setTimeout(() => {
+            if (barcodeInputValue !== filters.barcode) {
+                handleFilterChange({ target: { name: 'barcode', value: barcodeInputValue } });
+                setPage(0);
+            }
+        }, 500); // 500ms delay
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [barcodeInputValue]);
+
+    useEffect(() => {
         // Sync input when filters are cleared externally
         if (filters.name === '' && nameInputValue !== '') {
             setNameInputValue('');
         }
     }, [filters.name]);
+
+    useEffect(() => {
+        // Sync input when filters are cleared externally
+        if (filters.barcode === '' && barcodeInputValue !== '') {
+            setBarcodeInputValue('');
+        }
+    }, [filters.barcode]);
 
     const tipoVentaOptions = [
         { value: '', label: 'Todos' },
@@ -384,7 +405,7 @@ const StockManager = () => {
                     <Grid container spacing={2} justifyContent="center" alignItems="flex-start">
                         {/* Columna para filtros de la tabla */}
                         <Grid xs={12}>
-                            <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, height: '100%' }}>
+                            <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, height: '100%', backgroundColor: theme.palette.background.paper }}>
                                 <Typography variant="subtitle1" gutterBottom>Filtrar Tabla</Typography>
                                 <Grid container spacing={2}>
                                     <Grid xs={12} sm={6} md={4}>
@@ -400,9 +421,9 @@ const StockManager = () => {
                                         <StyledTextField
                                             label="Código de Barras"
                                             name="barcode"
-                                            value={filters.barcode || ''}
-                                            onChange={(e) => { handleFilterChange(e); setPage(0); }}
-                                            InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleFilterChange({ target: { name: 'barcode', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                                            value={barcodeInputValue}
+                                            onChange={(e) => setBarcodeInputValue(e.target.value)}
+                                            InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setBarcodeInputValue('')}><ClearIcon color='error' /></IconButton></InputAdornment> }}
                                         />
                                     </Grid>
                                     <Grid xs={12} sm={6} md={4}>

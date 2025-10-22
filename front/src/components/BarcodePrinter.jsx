@@ -393,64 +393,66 @@ const BarcodePrinter = () => {
 
             <StyledCard sx={{ p: 2, mb: 3 }}>
                 <Typography variant="h6" gutterBottom>Seleccionar Elementos</Typography>
-                <Grid container spacing={2}>
-                    {/* Presentations Filter */}
-                    <Grid item xs={12} sm={6} md={6}>
-                        <StyledTextField
-                            label="Buscar Presentación"
-                            name="presentationSearch"
-                            value={filters.presentationSearch || ''}
-                            onChange={handleFilterChange}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton onClick={() => handleFilterChange({ target: { name: 'presentationSearch', value: '' } })}><ClearIcon /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={6}>
-                        <StyledAutocomplete
-                            options={Array.isArray(categoriesData) ? categoriesData : []}
-                            getOptionLabel={(option) => option.name || ''}
-                            isOptionEqualToValue={(option, value) => option.id === value.id}
-                            onChange={(event, value) => handleFilterChange({ target: { name: 'presentationCategory', value: value ? value.id : '' } })}
-                            value={categoriesData?.find(cat => cat.id === filters.presentationCategory) || null}
-                            renderInput={(params) => (
-                                <StyledTextField
-                                    {...params}
-                                    label="Filtrar por Categoría"
-                                    InputProps={{
-                                        ...params.InputProps,
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <IconButton onClick={() => handleFilterChange({ target: { name: 'presentationCategory', value: '' } })}><ClearIcon /></IconButton>
-                                            </InputAdornment>
-                                        )
-                                    }}
-                                />
-                            )}
-                        />
-                    </Grid>
+                <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, mt: 2, backgroundColor: theme.palette.background.paper }}>
+                    <Grid container spacing={2}>
+                        {/* Presentations Filter */}
+                        <Grid item xs={12} sm={6} md={6}>
+                            <StyledTextField
+                                label="Buscar Presentación"
+                                name="presentationSearch"
+                                value={filters.presentationSearch || ''}
+                                onChange={handleFilterChange}
+                                InputProps={{
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton onClick={() => handleFilterChange({ target: { name: 'presentationSearch', value: '' } })}><ClearIcon /></IconButton>
+                                        </InputAdornment>
+                                    )
+                                }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={6}>
+                            <StyledAutocomplete
+                                options={Array.isArray(categoriesData) ? categoriesData : []}
+                                getOptionLabel={(option) => option.name || ''}
+                                isOptionEqualToValue={(option, value) => option.id === value.id}
+                                onChange={(event, value) => handleFilterChange({ target: { name: 'presentationCategory', value: value ? value.id : '' } })}
+                                value={categoriesData?.find(cat => cat.id === filters.presentationCategory) || null}
+                                renderInput={(params) => (
+                                    <StyledTextField
+                                        {...params}
+                                        label="Filtrar por Categoría"
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton onClick={() => handleFilterChange({ target: { name: 'presentationCategory', value: '' } })}><ClearIcon /></IconButton>
+                                                </InputAdornment>
+                                            )
+                                        }}
+                                    />
+                                )}
+                            />
+                        </Grid>
 
-                    {/* Combos Filter */}
-                    <Grid item xs={12} sm={6} md={6}>
-                        <StyledTextField
-                            label="Buscar Combo"
-                            name="comboSearch"
-                            value={filters.comboSearch || ''}
-                            onChange={handleFilterChange}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton onClick={() => handleFilterChange({ target: { name: 'comboSearch', value: '' } })}><ClearIcon /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
+                        {/* Combos Filter */}
+                        <Grid item xs={12} sm={6} md={6}>
+                            <StyledTextField
+                                label="Buscar Combo"
+                                name="comboSearch"
+                                value={filters.comboSearch || ''}
+                                onChange={handleFilterChange}
+                                InputProps={{
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton onClick={() => handleFilterChange({ target: { name: 'comboSearch', value: '' } })}><ClearIcon /></IconButton>
+                                        </InputAdornment>
+                                    )
+                                }}
+                            />
+                        </Grid>
                     </Grid>
-                </Grid>
+                </Box>
 
                 <Grid container spacing={2} sx={{ mt: 3 }}>
                     {/* Presentations List */}

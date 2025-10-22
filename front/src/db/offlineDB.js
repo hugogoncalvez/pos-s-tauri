@@ -2,7 +2,7 @@ import Dexie from 'dexie';
 
 export const db = new Dexie('POSOfflineDB');
 
-db.version(2).stores({
+db.version(3).stores({
   // --- Datos Maestros (Caché del servidor) ---
   stock: '++id, name, barcode, price, stock, tipo_venta, category_id',
   presentations: '++id, stock_id, barcode, name, price',
@@ -19,12 +19,17 @@ db.version(2).stores({
   active_cash_session: 'id',
 
   // --- Colas de Sincronización ---
-  pending_sales: '++local_id, timestamp, synced, server_id, cash_session_id',
+  pending_sales: '++local_id, timestamp, synced, server_id, cash_session_id, user_id',
   pending_tickets: '++local_id, id, name, ticket_data, synced, server_id',
   
   // --- Configuración y Metadatos Offline ---
   sync_metadata: 'key, value, updated_at', // 'key' será 'last_sync'
   offline_config: 'key, value' // Para guardar configuraciones como el usuario offline
+}).upgrade(async (tx) => {
+  // Add user_id to existing pending_sales entries
+  await tx.pending_sales.toCollection().modify(sale => {
+    sale.user_id = null; // Set to null for existing sales
+  });
 });
 
 // --- Definición del Usuario Offline ---

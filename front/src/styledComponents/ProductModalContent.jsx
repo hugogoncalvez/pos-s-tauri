@@ -59,6 +59,7 @@ export const ProductModalContent = React.memo(({
     // --- Estados para el formulario principal de producto ---
     const [values, handleInputChange, resetForm, , setValues] = useForm(product || {});
     const [barcodeError, setBarcodeError] = useState('');
+    const [barcodeWarning, setBarcodeWarning] = useState('');
     const [productModalError, setProductModalError] = useState('');
     const [productModalSuccess, setProductModalSuccess] = useState('');
     const [isBarcodeValidated, setIsBarcodeValidated] = useState(true);
@@ -81,13 +82,13 @@ export const ProductModalContent = React.memo(({
     const { data: barcodeCheckData, isFetching: isCheckingBarcode, error: barcodeCheckError } = UseFetchQuery(
         ['checkBarcode', barcodeToCheck],
         async () => {
-            if (!barcodeToCheck || (barcodeToCheck.length !== 8 && barcodeToCheck.length !== 13)) {
+            if (!barcodeToCheck) {
                 return { exists: false };
             }
             const res = await Api.get(`/stock/check-barcode?barcode=${barcodeToCheck}${values.id ? `&productId=${values.id}` : ''}`);
             return res.data;
         },
-        !!barcodeToCheck && (barcodeToCheck.length === 8 || barcodeToCheck.length === 13), // Habilitación dinámica
+        !!barcodeToCheck, // Habilitación dinámica para cualquier código
         0,
         {
             retry: 1,
@@ -137,6 +138,32 @@ export const ProductModalContent = React.memo(({
         return (10 - (sum % 10)) % 10;
     }, []);
 
+    const calculateUPCACheckDigitValidation = useCallback((upc) => {
+        if (!upc || upc.length !== 11 || !/^\d+$/.test(upc)) return null;
+        let sum = 0;
+        for (let i = 0; i < 11; i++) {
+            const digit = parseInt(upc[i], 10);
+            sum += i % 2 === 0 ? digit * 3 : digit;
+        }
+        return (10 - (sum % 10)) % 10;
+    }, []);
+
+    // Note: EAN-14 (GTIN-14) uses the same algorithm as EAN-13 but with a different length.
+    const calculateEAN14CheckDigitValidation = useCallback((ean14) => {
+        if (!ean14 || ean14.length !== 13 || !/^\d+$/.test(ean14)) return null;
+        let sum = 0;
+        for (let i = 0; i < 13; i++) {
+            const digit = parseInt(ean14[i], 10);
+            sum += i % 2 === 0 ? digit * 3 : digit;
+        }
+        return (10 - (sum % 10)) % 10;
+    }, []);
+
+
+
+
+
+
     const calculateEAN13CheckDigit = useCallback((barcode) => {
         if (barcode.length !== 12) throw new Error("Input must be 12 digits");
         let sum = 0;
@@ -159,7 +186,7 @@ export const ProductModalContent = React.memo(({
     }, []);
 
     const checkBarcode = useCallback((barcode) => {
-        if (barcode && (barcode.length === 8 || barcode.length === 13)) {
+        if (barcode) {
             setBarcodeError('');
             setProductModalError('');
             setIsBarcodeValidated(false);
@@ -173,27 +200,43 @@ export const ProductModalContent = React.memo(({
     }, [handleInputChange, productModalError]);
 
     const handleBarcodeChange = useCallback((e) => {
-        const newBarcode = e.target.value.toString().slice(0, 13);
+        const newBarcode = e.target.value.toString().slice(0, 18);
         let error = "";
+        let warning = "";
         setProductModalError('');
+        setBarcodeWarning(''); // Reset warning
 
         if (newBarcode.length > 0) {
             if (!/^\d+$/.test(newBarcode)) {
                 error = "Solo puede contener dígitos numéricos.";
-            } else if (newBarcode.length === 8) {
-                if (calculateEAN8CheckDigitValidation(newBarcode.substring(0, 7)) !== parseInt(newBarcode[7], 10)) {
-                    error = "Dígito de control EAN-8 inválido.";
+            } else {
+                let isValidFormat = false;
+                let hasIncorrectCheckDigit = false;
+
+                if (newBarcode.length === 8) {
+                    if (calculateEAN8CheckDigitValidation(newBarcode.substring(0, 7)) === parseInt(newBarcode[7], 10)) isValidFormat = true;
+                    else hasIncorrectCheckDigit = true;
+                } else if (newBarcode.length === 12) {
+                    if (calculateUPCACheckDigitValidation(newBarcode.substring(0, 11)) === parseInt(newBarcode[11], 10)) isValidFormat = true;
+                    else hasIncorrectCheckDigit = true;
+                } else if (newBarcode.length === 13) {
+                    if (calculateEAN13CheckDigitValidation(newBarcode.substring(0, 12)) === parseInt(newBarcode[12], 10)) isValidFormat = true;
+                    else hasIncorrectCheckDigit = true;
+                } else if (newBarcode.length === 14) {
+                    if (calculateEAN14CheckDigitValidation(newBarcode.substring(0, 13)) === parseInt(newBarcode[13], 10)) isValidFormat = true;
+                    else hasIncorrectCheckDigit = true;
                 }
-            } else if (newBarcode.length === 13) {
-                if (calculateEAN13CheckDigitValidation(newBarcode.substring(0, 12)) !== parseInt(newBarcode[12], 10)) {
-                    error = "Dígito de control EAN-13 inválido.";
+
+                if (hasIncorrectCheckDigit) {
+                    warning = "Dígito de control inválido para el formato.";
+                } else if (!isValidFormat) {
+                    warning = "Formato no estándar. Recomendados: EAN-8, UPC-A(12), EAN-13, EAN-14.";
                 }
-            } else if (newBarcode.length !== 0 && newBarcode.length !== 8 && newBarcode.length !== 13) {
-                error = "Debe tener 8 o 13 dígitos.";
             }
         }
 
         setBarcodeError(error);
+        setBarcodeWarning(warning);
         handleLocalInputChange({ target: { name: 'barcode', value: newBarcode } });
 
         if (!error && newBarcode) {
@@ -201,7 +244,8 @@ export const ProductModalContent = React.memo(({
         } else {
             checkBarcode(null);
         }
-    }, [handleLocalInputChange, calculateEAN8CheckDigitValidation, calculateEAN13CheckDigitValidation, checkBarcode]);
+    }, [handleLocalInputChange, calculateEAN8CheckDigitValidation, calculateEAN13CheckDigitValidation, calculateUPCACheckDigitValidation, calculateEAN14CheckDigitValidation, checkBarcode]);
+
 
     const handleBarcodeScan = useCallback((e) => {
         if (e.key === 'Enter') {
@@ -432,10 +476,10 @@ export const ProductModalContent = React.memo(({
                             onChange={handleBarcodeChange}
                             onKeyDown={handleBarcodeScan}
 
-                            inputProps={{ maxLength: 13, inputMode: 'numeric', pattern: '[0-9]*' }}
-                            onInput={(e) => { e.target.value = e.target.value.toString().slice(0, 13); }}
+                            inputProps={{ maxLength: 18, inputMode: 'numeric', pattern: '[0-9]*' }}
+                            onInput={(e) => { e.target.value = e.target.value.toString().slice(0, 18); }}
                             error={!!barcodeError}
-                            helperText={barcodeError || (isCheckingBarcode ? 'Verificando...' : '')}
+                            helperText={barcodeError || barcodeWarning || (isCheckingBarcode ? 'Verificando...' : '')}
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position="start">

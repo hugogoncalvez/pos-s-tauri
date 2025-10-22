@@ -6,7 +6,7 @@ import Card from '@mui/material/Card';
 const CustomCard = styled(Card)(({ theme }) => ({
   borderRadius: '12px',
   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-  backgroundColor: theme.palette.background.styledCard || theme.palette.background.paper,
+  backgroundColor: theme.palette.background.paper,
   padding: 'clamp(16px, 2vw, 24px)',
   transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
   '&:hover': {
