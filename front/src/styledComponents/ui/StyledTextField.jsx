@@ -41,11 +41,11 @@ export const StyledTextField = styled(({
     '&.Mui-focused': {
       fontWeight: 'bold', // Hacer el label más notorio en foco
     },
-    // FIX: Añadir fondo al label encogido para evitar que el borde lo atraviese
-    '&.MuiInputLabel-shrink': {
-      backgroundColor: theme.palette.background.paper,
-      paddingRight: '4px',
-      paddingLeft: '4px',
-    },
+    // // FIX: Añadir fondo al label encogido para evitar que el borde lo atraviese
+    // '&.MuiInputLabel-shrink': {
+    //   backgroundColor: theme.palette.background.paper,
+    //   paddingRight: '4px',
+    //   paddingLeft: '4px',
+    // },
   },
 }));

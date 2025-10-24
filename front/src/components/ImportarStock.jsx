@@ -40,6 +40,7 @@ const ImportarStock = () => {
         precio: 150.75,
         stock: 50,
         min_stock: 10,
+        tipo_venta: 'unitario',
         unidad: 'Unidad',
         categoria: 'General',
         proveedor: 'Proveedor Ejemplo'

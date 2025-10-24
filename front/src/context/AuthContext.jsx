@@ -9,7 +9,18 @@ import { exit } from '@tauri-apps/plugin-process';
 import { debounce } from '../functions/Debounce'; // Importar debounce
 import { info, error } from '@tauri-apps/plugin-log';
 
-export const AuthContext = createContext();
+export const AuthContext = createContext({
+  usuario: null,
+  isAuthenticated: false,
+  isLoading: true,
+  permisos: [],
+  login: async () => {},
+  logout: async () => {},
+  logoutAndExit: async () => {},
+  verificarSesion: async () => {},
+  updateUserTheme: () => {},
+  isOnline: navigator.onLine,
+});
 export const useAuth = () => useContext(AuthContext);
 
 const MAX_CONSECUTIVE_ERRORS = 3; // Requerir 3 fallos para pasar a OFFLINE
@@ -158,7 +169,7 @@ export const AuthProvider = ({ children }) => {
   }, [isOnline, isTauriLoading]);
 
   const logout = useCallback(async () => {
-    info('[AuthContext] 🚪 Ejecutando logout y limpieza destructiva...');
+    info('[AuthContext] 🚪 Ejecutando logout...');
     try {
       if (isOnline) {
         await Api.post('/auth/logout');
@@ -166,25 +177,37 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       error(`[AuthContext] Error al notificar al backend sobre el logout. Procediendo con limpieza local: ${err}`);
     } finally {
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.reload();
+      setUsuario(null);
+      setIsAuthenticated(false);
+      setPermisos([]);
+      localStorage.removeItem('sessionID');
+      // Al cambiar el estado a no autenticado, el Router se encargará de redirigir a /login
+      // No es necesario un reload forzado.
     }
   }, [isOnline]);
 
   const logoutAndExit = useCallback(async () => {
     info('[AuthContext] 🚪 Ejecutando logoutAndExit...');
+
+    // Set state to logged out to prevent new operations
+    setUsuario(null);
+    setIsAuthenticated(false);
+    setPermisos([]);
+
     try {
       if (isOnline) {
-        await Api.post('/auth/logout');
+        // Fire and forget is fine, we are exiting anyway
+        Api.post('/auth/logout');
       }
     } catch (err) {
       error(`[AuthContext] Error al notificar al backend sobre el logout: ${err}`);
     } finally {
       localStorage.clear();
       sessionStorage.clear();
-      info('[AuthContext] ✅ Limpieza de storage completada. Cerrando aplicación.');
-      await exit(0);
+      info('[AuthContext] ✅ Limpieza de storage completada. Cerrando aplicación en 300ms.');
+      setTimeout(() => {
+        exit(0);
+      }, 300);
     }
   }, [isOnline]);
 

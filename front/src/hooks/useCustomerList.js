@@ -187,7 +187,7 @@ export const useCustomerList = (tienePermiso) => { // Receive tienePermiso as an
             confirmButtonText: 'Sí, eliminar',
             cancelButtonText: 'Cancelar'
         }, theme, () => { // onConfirm
-            deleteCustomerMutation.mutateAsync({ url: '/customers/', id: customer.id }, {
+            deleteCustomerMutation.mutateAsync({ url: '/customers', id: customer.id }, {
                 onSuccess: () => {
                     refetchCustomers();
                     mostrarExito('¡Eliminado! El cliente ha sido eliminado.', theme);

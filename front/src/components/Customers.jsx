@@ -61,13 +61,18 @@ import { mostrarInfo } from '../functions/mostrarInfo'; // Added
 import { CajaManager } from '../styledComponents/CajaManager'; // Added
 import CustomersSkeleton from '../styledComponents/skeletons/CustomersSkeleton';
 import Swal from 'sweetalert2'; // Added
+import { UseFetchQuery } from '../hooks/useQuery.js';
+import { CircularProgress } from '@mui/material';
+
+
 const Customers = () => {
     // Forzar re-render para asegurar que los cambios se apliquen
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const { tienePermiso } = usePermissions(); // Usar el hook usePermissions
-    const { usuario: user } = useContext(AuthContext); // Added to get user.id
+
+    const { usuario: user } = useContext(AuthContext); // Added to get user.id            const { 
     const {
         customers,
         isLoadingCustomers,
@@ -106,16 +111,22 @@ const Customers = () => {
         handleStartDateChange,
         handleEndDateChange,
         handleClearFilters,
-        error, // Exponer el error para el Snackbar
-        success, // Exponer el éxito para el Snackbar
-        setError, // Exponer la función para limpiar el error
-        setSuccess, // Exponer la función para limpiar el éxito
+        error,
+        success,
+        setError,
+        setSuccess,
         checkDuplicate,
         dniExistsError,
-        emailExistsError,
-    } = useCustomerList(tienePermiso); // Pass tienePermiso as an argument
+        emailExistsError  // ✅ SIN COMA AL FINAL
+    } = useCustomerList(tienePermiso);
 
-
+    const { data: totalDebtData, isLoading: isLoadingTotalDebt } = UseFetchQuery(
+        ['totalCustomerDebt', search, debtStatus], // La clave de la query incluye los filtros
+        `/customers/total-debt?search=${search}&debt_status=${debtStatus}`,
+        true, // enabled
+        0, // staleTime
+        { keepPreviousData: true } // Opcional
+    );
 
     const { purchaseHistory, paymentHistory, errorHistory, loadingHistory, historyFilters, openPurchaseDetailDialog, setOpenPurchaseDetailDialog, openPaymentDetailDialog, setOpenPaymentDetailDialog, selectedPurchase, setSelectedPurchase, selectedPayment, setSelectedPayment, purchaseDetails, setPurchaseDetails, handleHistoryFilterChange, applyHistoryFilters, clearHistoryFilters, handleViewPurchaseDetail, handleViewPaymentDetail, handlePrintPurchase, handlePrintPayment, handlePrintDoublePaymentReceipt, setSaleIdForDetail } = useCustomerHistory(selectedCustomer?.id, selectedCustomer?.name);
     const handleCloseErrorSnackbar = useCallback(() => setError(''), [setError]);
@@ -214,10 +225,10 @@ const Customers = () => {
 
     // Configuración de columnas para la tabla
     const columns = React.useMemo(() => [
-        { id: 'id', label: 'ID', valueGetter: ({ row }) => row.id, align: 'center' },
         { id: 'name', label: 'Nombre', valueGetter: ({ row }) => row.name, align: 'left' },
         { id: 'email', label: 'Email', valueGetter: ({ row }) => row.email || '-', align: 'left' },
         { id: 'phone', label: 'Teléfono', valueGetter: ({ row }) => row.phone || '-', align: 'center' },
+        { id: 'address', label: 'Dirección', valueGetter: ({ row }) => row.address || '-', align: 'left' },
         { id: 'dni', label: 'DNI', valueGetter: ({ row }) => row.dni || '-', align: 'center' },
         {
             id: 'debt',
@@ -495,7 +506,7 @@ const Customers = () => {
                                                 Limpiar Filtros
                                             </StyledButton>
                                         </Grid>
-                                        <Grid item>
+                                        {/* <Grid item>
                                             <StyledButton
                                                 variant="outlined"
                                                 startIcon={<DownloadIcon />}
@@ -504,7 +515,7 @@ const Customers = () => {
                                             >
                                                 Exportar CSV
                                             </StyledButton>
-                                        </Grid>
+                                        </Grid> */}
                                     </Grid>
                                 </Grid>
                             </Grid>
@@ -543,6 +554,24 @@ const Customers = () => {
                         </Typography>
                     </Box>
                 )}
+
+                {/* Total Deuda Display */}
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, pr: 2 }}>
+                    <StyledCard sx={{ p: 2, backgroundColor: 'background.paper' }}>
+                        <Typography variant="h6" component="span" sx={{ fontWeight: 'bold' }}>
+                            Deuda Total (Filtro Actual): {' '}
+                        </Typography>
+                        <Typography variant="h6" component="span" color="error.main" sx={{ fontWeight: 'bold' }}>
+                            ${
+                                isLoadingTotalDebt ? (
+                                    <CircularProgress size={20} color="inherit" />
+                                ) : (
+                                    (totalDebtData?.totalDebt || 0).toFixed(2)
+                                )
+                            }
+                        </Typography>
+                    </StyledCard>
+                </Box>
             </motion.div>
 
             {/* FAB para móvil */}

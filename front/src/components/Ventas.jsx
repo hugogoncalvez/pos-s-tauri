@@ -188,14 +188,7 @@ const Ventas = () => {
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [isScanningBarcode, setIsScanningBarcode] = useState(false);
 
-  const handlePresentationModalClose = useCallback(() => {
-    setIsPresentationModalOpen(false);
-    setProductWithPresentations(null);
-    setPendingQuantity(null);
-    setCustomQuantityMode(false);
-    setCustomQuantity('');
-    setTimeout(() => inputRefCodigoBarra.current?.focus(), 100);
-  }, []);
+
 
 
 
@@ -233,6 +226,29 @@ const Ventas = () => {
 
   const processedTempTable = useMemo(() => applyPromotions(tempTable, promotions), [tempTable, promotions]);
 
+// Función helper para enfocar el campo de código de barras (NO es useCallback)
+const focusBarcodeInput = () => {
+  setTimeout(() => {
+    if (autocompleteInputRef.current) {
+      autocompleteInputRef.current.blur();
+    }
+    setTimeout(() => {
+      if (inputRefCodigoBarra.current) {
+        inputRefCodigoBarra.current.focus();
+      }
+    }, 50);
+  }, 200);
+};
+
+const handlePresentationModalClose = () => {
+  setIsPresentationModalOpen(false);
+  setProductWithPresentations(null);
+  setPendingQuantity(null);
+  setCustomQuantityMode(false);
+  setCustomQuantity('');
+  focusBarcodeInput();
+};
+
   // Función centralizada para limpiar el estado de la venta
   const clearSaleState = useCallback(() => {
     setTempTable([]);
@@ -254,8 +270,8 @@ const Ventas = () => {
     setIvaActivo(false);
     localStorage.removeItem('tempTable');
     setAmountReceived('');
-    inputRefCodigoBarra.current?.focus();
-  }, [paymentMethods, setValues]); // Dependencias necesarias para la función
+    focusBarcodeInput();
+  }, [paymentMethods, setValues, focusBarcodeInput]); // Dependencias necesarias para la función
 
   // Nueva función para cancelar la edición de un ticket pendiente
   const handleCancelEdit = () => {
@@ -344,7 +360,7 @@ const Ventas = () => {
     return true;
   }, [mixedPayments, subtotal, descuento, paymentMethods, selectedCustomer]);
 
-  const handleSaveSale = async () => {
+  const handleSaveSale = useCallback(async () => {
     const ticketIdToDelete = currentTicketId;
 
     if (tempTable.length === 0) {
@@ -453,13 +469,16 @@ const Ventas = () => {
     } finally {
       setIsSavingSale(false);
     }
-  };
+  }, [
+    currentTicketId, tempTable, paymentOption, selectedSinglePaymentType, selectedCustomer,
+    setSummaryError, totalFinal, mixedPayments, setIsSavingSale, usuario, theme, subtotal,
+    descuentoAplicado, surchargeAmount, processedTempTable, isOnline, deleteItem,
+    refetchPendingTickets, clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
+    mostrarError, mostrarInfo, inputRefCodigoBarra
+  ]);
 
   // Función para guardar ticket pendiente
   const handleSavePendingTicket = useCallback(async (fromSummaryModal = false) => {
-    console.log('[Ventas - handleSavePendingTicket] isLoadingActiveSession:', isLoadingActiveSession);
-    console.log('[Ventas - handleSavePendingTicket] activeSessionData:', activeSessionData);
-
     if (isLoadingActiveSession) {
       mostrarInfo('Verificando estado de la sesión de caja. Por favor, espere.', theme);
       return;
@@ -475,13 +494,11 @@ const Ventas = () => {
       return;
     }
 
-    // 1. Close the modal to avoid focus trap (only if it was open)
     if (fromSummaryModal) {
       setIsSummaryModalOpen(false);
     }
 
     try {
-      // 2. Get user input
       const result = await mostrarInput({
         title: 'Guardar Ticket Pendiente',
         inputLabel: 'Por favor, ingrese un nombre para el ticket pendiente (ej: Pedido de Ana):',
@@ -492,9 +509,7 @@ const Ventas = () => {
         }
       }, theme);
 
-      // 3. Process the result
       if (result.isConfirmed && result.value) {
-        // 3a. Show loading indicator
         mostrarCarga('Guardando Ticket', theme);
 
         const ticketName = result.value;
@@ -520,7 +535,6 @@ const Ventas = () => {
           cash_session_id: activeSessionData?.id,
         };
 
-        // 3b. Perform async action
         await createPendingTicket({
           url: '/pending-tickets',
           values: dataToSend,
@@ -528,29 +542,25 @@ const Ventas = () => {
           successMessage: 'Ticket guardado correctamente'
         });
 
-        // 3c. Clean up state on success
         clearSaleState();
         refetchPendingTickets();
-
+        // The modal is already closed if fromSummaryModal was true
       } else {
-        // 4. If user cancelled, conditionally re-open the summary modal
         if (fromSummaryModal) {
           setIsSummaryModalOpen(true);
         }
-        await mostrarInfo('Operación cancelada.', theme); // Await the promise
-        inputRefCodigoBarra.current?.focus(); // Then set focus
       }
     } catch (error) {
-      // 5. On error, conditionally re-open the summary modal
+      console.error('Error al guardar ticket pendiente:', error);
       if (fromSummaryModal) {
         setIsSummaryModalOpen(true);
       }
-      console.error('Error al guardar ticket pendiente:', error);
-      // The useSubmit hook will show the error alert, but we still need to handle UI state
     }
   }, [
     tempTable, usuario, activeSessionData, isLoadingActiveSession, theme,
-    createPendingTicket, clearSaleState, refetchPendingTickets, mostrarInfo, mostrarCarga, mostrarError
+    createPendingTicket, clearSaleState, refetchPendingTickets, calcularTotal, 
+    selectedCustomer, selectedSinglePaymentType, paymentOption, mixedPayments, 
+    ivaActivo, setIsSummaryModalOpen
   ]);
 
 
@@ -684,7 +694,7 @@ const Ventas = () => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!e.key) return;
-      const key = e.key.toLowerCase();
+      const key = typeof e.key === 'string' ? e.key.toLowerCase() : ''; // Ensure e.key is a string
 
       // IMPORTANTE: Capturar Alt+M ANTES de que el navegador lo procese
       if (e.altKey && key === 'm') {
@@ -715,7 +725,7 @@ const Ventas = () => {
         }
         if (e.altKey && key === 'p') {
           e.preventDefault();
-          handleSavePendingTicket();
+          handleSavePendingTicket(true);
           return;
         }
         if (e.altKey && key === 'c') {
@@ -887,9 +897,7 @@ const Ventas = () => {
       mostrarExito(`Venta #${saleCompletedId} registrada correctamente`, theme).then(() => {
         // Pequeño retraso para asegurar que Swal haya terminado su animación de cierre
         // y liberado el control del foco antes de que intentemos moverlo.
-        setTimeout(() => {
-          inputRefCodigoBarra.current?.focus();
-        }, 100);
+        focusBarcodeInput();
         setSaleCompletedId(null); // Resetear el estado para futuras ventas
       });
     }
@@ -913,7 +921,7 @@ const Ventas = () => {
     const setFocus = () => {
       setTimeout(() => {
         if (!isSummaryModalOpen) {
-          inputRefCodigoBarra.current?.focus();
+          focusBarcodeInput();
         }
       }, 100);
     };
@@ -1000,11 +1008,7 @@ const Ventas = () => {
     setCustomQuantity('');
 
     // Return focus to barcode field
-    setTimeout(() => {
-      if (!isSummaryModalOpen) {
-        inputRefCodigoBarra.current?.focus();
-      }
-    }, 100);
+    focusBarcodeInput();
   };
 
   const finalizeManualEntry = (itemToFinalize, forceSale = false) => {
@@ -1031,12 +1035,8 @@ const Ventas = () => {
     setCustomQuantity('');
     setIsManualEntryMode(false); // Asegurar que el modo manual se desactive al agregar
 
-    setValues(prev => ({ ...prev, barcode: '' })); // Limpiar el campo de código de barras
-
     // Volver el foco al campo de código de barras
-    setTimeout(() => {
-      inputRefCodigoBarra.current?.focus();
-    }, 100);
+    focusBarcodeInput();
   };
 
   const handleManualEntrySubmit = () => {
@@ -1279,38 +1279,13 @@ const Ventas = () => {
       };
       setTempTable(prevTable => [itemToAdd, ...prevTable]);
     }
-  };
 
-  const handleAddItemToCart = (product, quantity) => {
-    const existingItem = tempTable.find(item => item.stock_id === product.id && item.type === 'product');
-    const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
-    const requestedQuantity = currentQuantityInCart + quantity;
-
-    // Use the stock from the product object that was just scanned and passed in.
-    // Also, parse it to a number to be safe.
-    const availableStock = parseFloat(product.stock);
-
-    if (availableStock < requestedQuantity) {
-      mostrarConfirmacion({
-        title: 'Stock Insuficiente',
-        html: `
-          <p>Producto: <strong>${product.name}</strong></p>
-          <p>Stock Disponible: <strong>${availableStock}</strong></p>
-          <p>Stock Solicitado: <strong>${requestedQuantity}</strong></p>
-          <br/>
-          <p>¿Desea continuar la venta y dejar el stock en negativo?</p>
-        `,
-        icon: 'warning',
-        confirmButtonText: 'Sí, continuar',
-        cancelButtonText: 'No, cancelar'
-      }, theme, () => {
-        // Forzar venta
-        addItem(product, quantity, true);
-      });
-    } else {
-      // Stock suficiente
-      addItem(product, quantity, false);
-    }
+    setSelectedProduct(null);
+    setCustomQuantityMode(false);
+    setCustomQuantity('');
+    setTimeout(() => {
+      inputRefCodigoBarra.current?.focus();
+    }, 100);
   };
 
   const addItem = (product, quantity, forceSale = false) => {
@@ -1355,7 +1330,41 @@ const Ventas = () => {
     }, 100);
   };
 
-  const handleAddPesableProduct = () => {
+  const handleConfirmInsufficientStock = useCallback((product, quantity) => {
+    addItem(product, quantity, true);
+  }, [addItem]);
+
+  const handleAddItemToCart = useCallback((product, quantity) => {
+    const existingItem = tempTable.find(item => item.stock_id === product.id && item.type === 'product');
+    const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
+    const requestedQuantity = currentQuantityInCart + quantity;
+
+    const availableStock = parseFloat(product.stock);
+
+    if (availableStock < requestedQuantity) {
+      mostrarConfirmacion({
+        title: 'Stock Insuficiente',
+        text: `Producto: ${product.name}. Stock Disponible: ${availableStock}. Stock Solicitado: ${requestedQuantity}. ¿Desea continuar la venta y dejar el stock en negativo?`,
+        icon: 'warning',
+        confirmButtonText: 'Sí, continuar',
+        cancelButtonText: 'No, cancelar'
+      }, theme,
+      () => {
+        // onConfirm: agregar producto y devolver foco
+        handleConfirmInsufficientStock(product, quantity);
+        focusBarcodeInput();
+      },
+      () => {
+        // onCancel: solo devolver foco
+        focusBarcodeInput();
+      });
+    } else {
+      // Stock suficiente
+      addItem(product, quantity, false);
+    }
+  }, [tempTable, theme, addItem, handleConfirmInsufficientStock]);
+
+  const handleAddPesableProduct = useCallback(() => {
     if (!productToWeigh || !weight || parseFloat(weight) <= 0) {
       mostrarError('Por favor, ingrese un peso válido.', theme);
       return;
@@ -1455,7 +1464,7 @@ const Ventas = () => {
         inputRefCodigoBarra.current?.focus();
       }, 100);
     }
-  };
+  }, [productToWeigh, weight, theme, stock, setTempTable, setIsPesableModalOpen, setProductToWeigh, setWeight, setPendingQuantity, setValues]);
 
   const handleCustomQuantityEntry = (barcode) => {
     const quantity = parseFloat(barcode);
@@ -1485,8 +1494,9 @@ const Ventas = () => {
   };
 
   const handleBarcodeScanLogic = async (barcode) => {
-    if (!validator.isNumeric(barcode) || barcode.length !== 13) {
-      mostrarError('Código de barras inválido. Debe ser numérico y de 13 dígitos.', theme);
+    const validLengths = [8, 12, 13, 14];
+    if (!validator.isNumeric(barcode) || !validLengths.includes(barcode.length)) {
+      mostrarError(`Código de barras inválido. Debe ser numérico y tener ${validLengths.join(', ')} dígitos.`, theme);
       setValues(prev => ({ ...prev, barcode: '' }));
       inputRefCodigoBarra.current?.focus();
       return;
@@ -1758,6 +1768,7 @@ const Ventas = () => {
     setSelectedProduct(null);
     setValues({});
     if (!aModalWillOpen) {
+      autocompleteInputRef.current?.blur(); // Ensure autocomplete loses focus
       setTimeout(() => inputRefCodigoBarra.current?.focus(), 100);
     }
   }, [stock, theme, pendingQuantity, handleAddItemToCart]); // Dependencias del useCallback
@@ -2077,7 +2088,7 @@ const Ventas = () => {
               inputRefCodigoBarra.current?.focus();
             }, 100);
           }}
-          onAdd={handleAddPesableProduct}
+          handleAddPesableProduct={handleAddPesableProduct}
           product={productToWeigh}
           weight={weight}
           setWeight={setWeight}

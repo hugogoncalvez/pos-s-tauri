@@ -1,6 +1,6 @@
 import Swal from "sweetalert2";
 
-export const mostrarConfirmacion = (options, theme) => {
+export const mostrarConfirmacion = (options, theme, onConfirm, onCancel) => {
     let htmlContent = options.html || options.text || 'Esta acción no se puede revertir.';
 
     if (options.stockInfo !== undefined) {
@@ -22,8 +22,15 @@ export const mostrarConfirmacion = (options, theme) => {
         didOpen: () => {
             const swalContainer = document.querySelector('.swal2-container');
             if (swalContainer) {
-                swalContainer.style.zIndex = '1400'; // Un z-index más alto que el modal de MUI (1300)
+                swalContainer.style.zIndex = '1400';
             }
         }
+    }).then((result) => {
+        if (result.isConfirmed && onConfirm) {
+            onConfirm();
+        } else if (result.isDismissed && onCancel) {
+            onCancel();
+        }
+        return result;
     });
 };

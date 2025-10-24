@@ -60,6 +60,7 @@ export const ProductModalContent = React.memo(({
     const [values, handleInputChange, resetForm, , setValues] = useForm(product || {});
     const [barcodeError, setBarcodeError] = useState('');
     const [barcodeWarning, setBarcodeWarning] = useState('');
+    const [barcodeSuccess, setBarcodeSuccess] = useState('');
     const [productModalError, setProductModalError] = useState('');
     const [productModalSuccess, setProductModalSuccess] = useState('');
     const [isBarcodeValidated, setIsBarcodeValidated] = useState(true);
@@ -83,10 +84,17 @@ export const ProductModalContent = React.memo(({
         ['checkBarcode', barcodeToCheck],
         async () => {
             if (!barcodeToCheck) {
-                return { exists: false };
+                return null;
             }
-            const res = await Api.get(`/stock/check-barcode?barcode=${barcodeToCheck}${values.id ? `&productId=${values.id}` : ''}`);
-            return res.data;
+            try {
+                const res = await Api.get(`/stock/product-by-barcode/${barcodeToCheck}`);
+                return res.data;
+            } catch (err) {
+                if (err.response && err.response.status === 404) {
+                    return null; // No se encontró el producto
+                }
+                throw err;
+            }
         },
         !!barcodeToCheck, // Habilitación dinámica para cualquier código
         0,
@@ -98,22 +106,52 @@ export const ProductModalContent = React.memo(({
 
     // Efecto para manejar los resultados de la verificación del código de barras
     useEffect(() => {
-        if (barcodeCheckData) {
-            const barcodeExists = barcodeCheckData?.exists === true;
-            if (barcodeExists) {
-                setBarcodeError('Este código de barras ya está en uso.');
-            } else {
+        console.info('barcodeCheckData changed:', barcodeCheckData);
+        if (barcodeCheckData !== undefined) { // Solo actuar cuando barcodeCheckData ha sido cargado (no undefined)
+            if (barcodeCheckData === null) {
+                // Producto no encontrado, el código de barras está disponible
                 setBarcodeError('');
+                setBarcodeSuccess('Código de barras disponible.');
+                if (!values.id) { // Si estamos creando un nuevo producto, limpiar si se escribio algo
+                    const currentBarcode = values.barcode; // Guardar el código de barras actual
+                    resetForm(); // Limpiar todo el formulario
+                    setValues(prev => ({ ...prev, barcode: currentBarcode })); // Restaurar solo el código de barras
+                    setPresentations([]);
+                }
+            } else {
+                // Producto, presentación o combo encontrado: el código de barras ya está en uso
+                setBarcodeSuccess(''); // Limpiar mensaje de éxito
+                if (barcodeCheckData.type === 'product') {
+                    setBarcodeError('Código de barras ya en uso por otro producto.');
+                    console.info('Setting product values:', barcodeCheckData);
+                    setValues(barcodeCheckData);
+                    setPresentations(barcodeCheckData.presentations || []);
+                } else if (barcodeCheckData.type === 'presentation') {
+                    setBarcodeError('Código de barras ya en uso por una presentación de otro producto.');
+                    console.info('Setting presentation stock values:', barcodeCheckData.stock);
+                    setValues(barcodeCheckData.stock);
+                    setPresentations([barcodeCheckData]);
+                } else if (barcodeCheckData.type === 'combo') {
+                    setBarcodeError('Código de barras ya en uso por un combo. Los combos no se pueden editar desde aquí.');
+                    resetForm();
+                    setPresentations([]);
+                }
             }
             setIsBarcodeValidated(true);
         }
-    }, [barcodeCheckData]);
+    }, [barcodeCheckData, values.id]); // Agregamos values.id a las dependencias para que el efecto se re-ejecute correctamente
 
     // Efecto para manejar errores en la verificación del código de barras
     useEffect(() => {
+        console.info('barcodeCheckError changed:', barcodeCheckError);
         if (barcodeCheckError) {
-            setBarcodeError('Error al verificar el código de barras.');
-            setIsBarcodeValidated(true);
+            if (barcodeCheckError.response && barcodeCheckError.response.status === 404) {
+                // No hacer nada, ya que barcodeCheckData manejará el caso de "no encontrado"
+            } else {
+                setBarcodeError('Error al verificar el código de barras.');
+                setBarcodeSuccess(''); // Limpiar cualquier mensaje de éxito
+                setIsBarcodeValidated(true);
+            }
         }
     }, [barcodeCheckError]);
 
@@ -186,8 +224,10 @@ export const ProductModalContent = React.memo(({
     }, []);
 
     const checkBarcode = useCallback((barcode) => {
+        console.info('checkBarcode called with:', barcode);
         if (barcode) {
             setBarcodeError('');
+            setBarcodeSuccess(''); // Clear success message when a new barcode is being checked
             setProductModalError('');
             setIsBarcodeValidated(false);
         }
@@ -200,7 +240,9 @@ export const ProductModalContent = React.memo(({
     }, [handleInputChange, productModalError]);
 
     const handleBarcodeChange = useCallback((e) => {
+        console.info('handleBarcodeChange called with:', e.target.value);
         const newBarcode = e.target.value.toString().slice(0, 18);
+        console.log('handleBarcodeChange - newBarcode:', newBarcode);
         let error = "";
         let warning = "";
         setProductModalError('');
@@ -233,27 +275,45 @@ export const ProductModalContent = React.memo(({
                     warning = "Formato no estándar. Recomendados: EAN-8, UPC-A(12), EAN-13, EAN-14.";
                 }
             }
+        } else { // newBarcode is empty
+            setBarcodeError('');
+            setBarcodeWarning('');
+            setBarcodeSuccess('');
         }
 
         setBarcodeError(error);
         setBarcodeWarning(warning);
         handleLocalInputChange({ target: { name: 'barcode', value: newBarcode } });
 
-        if (!error && newBarcode) {
+        const validLength = [8, 12, 13, 14].includes(newBarcode.length);
+
+        if (!error && newBarcode && validLength) {
+            console.info('Calling checkBarcode from handleBarcodeChange with:', newBarcode);
             checkBarcode(newBarcode);
-        } else {
+        } else if (!newBarcode) {
+            console.info('Calling checkBarcode from handleBarcodeChange with null (empty barcode):', newBarcode);
             checkBarcode(null);
         }
     }, [handleLocalInputChange, calculateEAN8CheckDigitValidation, calculateEAN13CheckDigitValidation, calculateUPCACheckDigitValidation, calculateEAN14CheckDigitValidation, checkBarcode]);
 
 
     const handleBarcodeScan = useCallback((e) => {
+        console.info('handleBarcodeScan called with key:', e.key, 'and value:', e.target.value);
         if (e.key === 'Enter') {
             e.preventDefault();
             const barcode = e.target.value.trim();
             if (barcode) {
+                console.info('Calling checkBarcode from handleBarcodeScan with:', barcode);
                 checkBarcode(barcode);
             }
+        }
+    }, [checkBarcode]);
+
+    const handleBarcodeBlur = useCallback((e) => {
+        const barcode = e.target.value.trim();
+        if (barcode) {
+            console.info('Calling checkBarcode from handleBarcodeBlur with:', barcode);
+            checkBarcode(barcode);
         }
     }, [checkBarcode]);
 
@@ -367,19 +427,7 @@ export const ProductModalContent = React.memo(({
             setProductModalError('Verificando código de barras, por favor espera.');
             return;
         }
-        if (!isBarcodeValidated && values.barcode) {
-            try {
-                const { data } = await Api.get(`/stock/check-barcode?barcode=${values.barcode}${values.id ? `&productId=${values.id}` : ''}`);
-                if (data.exists) {
-                    setProductModalError('El código de barras ya está en uso. No se pudo guardar.');
-                    setBarcodeError('Este código de barras ya está en uso.');
-                    return;
-                }
-            } catch (error) {
-                setProductModalError('Error al verificar el código de barras. Intenta de nuevo.');
-                return;
-            }
-        }
+
 
         const finalValues = { ...values, presentations };
         const camposRequeridos = { name: finalValues.name, stock: finalValues.stock, category_id: finalValues.category_id, units_id: finalValues.units_id, price: finalValues.price, tipo_venta: finalValues.tipo_venta, min_stock: finalValues.min_stock };
@@ -406,6 +454,7 @@ export const ProductModalContent = React.memo(({
             setNextPresentationBarcodeSequential(1);
         }
         setBarcodeError('');
+        setBarcodeWarning('');
         setProductModalError('');
         setProductModalSuccess('');
         resetPresentationForm();
@@ -475,11 +524,11 @@ export const ProductModalContent = React.memo(({
                             value={values?.barcode || ''}
                             onChange={handleBarcodeChange}
                             onKeyDown={handleBarcodeScan}
-
+                            onBlur={handleBarcodeBlur}
                             inputProps={{ maxLength: 18, inputMode: 'numeric', pattern: '[0-9]*' }}
                             onInput={(e) => { e.target.value = e.target.value.toString().slice(0, 18); }}
                             error={!!barcodeError}
-                            helperText={barcodeError || barcodeWarning || (isCheckingBarcode ? 'Verificando...' : '')}
+                            helperText={barcodeError || barcodeWarning || barcodeSuccess || (isCheckingBarcode ? 'Verificando...' : '')}
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position="start">

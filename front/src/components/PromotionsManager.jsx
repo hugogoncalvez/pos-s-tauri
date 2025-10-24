@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import moment from 'moment';
 import {
   Box,
@@ -9,7 +9,8 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
-  CircularProgress
+  CircularProgress,
+  Chip
 } from '@mui/material';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
@@ -37,6 +38,8 @@ const PromotionsManager = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [openPromotionModal, setOpenPromotionModal] = useState(false);
+  const startDateRef = useRef(null);
+  const endDateRef = useRef(null);
   const [currentPromotion, setCurrentPromotion] = useState(null);
   const [formValues, handleInputChange, reset, , setFormValues] = useForm();
   const [productSearchTerm, setProductSearchTerm] = useState('');
@@ -97,7 +100,7 @@ const PromotionsManager = () => {
       start_date: promotion?.start_date ? moment.utc(promotion.start_date).format('YYYY-MM-DD') : '',
       end_date: promotion?.end_date ? moment.utc(promotion.end_date).format('YYYY-MM-DD') : '',
       is_active: promotion ? String(promotion.is_active) : 'true',
-      products: promotion?.products || [],
+      products: promotion?.stocks || [],
       presentations: promotion?.presentations || [],
     };
     setFormValues(initialValues);
@@ -107,6 +110,7 @@ const PromotionsManager = () => {
   const handleClosePromotionModal = () => {
     setOpenPromotionModal(false);
     setCurrentPromotion(null);
+    setProductSearchTerm('');
     reset();
   };
 
@@ -115,7 +119,7 @@ const PromotionsManager = () => {
     const dataToSend = {
       ...formValues,
       is_active: formValues.is_active === 'true',
-      products: formValues.products.map(p => p.id),
+      products: formValues.stocks.map(p => p.id),
       presentations: formValues.presentations.map(p => p.id),
     };
 
@@ -158,6 +162,7 @@ const PromotionsManager = () => {
 
   // --- Procesamiento y Paginación ---
   const processedPromotions = useMemo(() => {
+    console.log('Data de promociones recibida del backend:', promotions);
     if (!Array.isArray(promotions)) return [];
 
     const getStatus = (promo) => {
@@ -194,6 +199,33 @@ const PromotionsManager = () => {
   // --- Definición de Columnas ---
   const promotionColumns = useMemo(() => [
     { id: 'name', label: 'Nombre', sx: { fontWeight: 'bold' } },
+    {
+      id: 'appliesTo',
+      label: 'Aplica a',
+      valueGetter: ({ row }) => {
+        const products = row.stocks || [];
+        const presentations = row.presentations || [];
+
+        if (products.length === 0 && presentations.length === 0) {
+          return <Typography variant="body2" color="text.secondary">N/A</Typography>;
+        }
+
+        const items = [...products, ...presentations];
+
+        return (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {items.map(item => (
+              <Tooltip
+                key={`${item.id}-${item.name}`}
+                title={`Código: ${item.barcode || 'N/A'}`}
+              >
+                <Chip label={item.name} size="small" />
+              </Tooltip>
+            ))}
+          </Box>
+        );
+      }
+    },
     {
       id: 'status',
       label: 'Estado',
@@ -271,7 +303,7 @@ const PromotionsManager = () => {
     },
   ], [theme, tienePermiso, handleOpenPromotionModal, handleDeletePromotion]);
 
-  const isPageLoading = isLoadingPromotions || productsLoading || presentationsLoading;
+  const isPageLoading = isLoadingPromotions;
 
   if (isPageLoading) {
     return <PromotionsManagerSkeleton />;
@@ -354,7 +386,6 @@ const PromotionsManager = () => {
                   name="name"
                   value={formValues.name || ''}
                   onChange={handleInputChange}
-                  autoFocus
                   InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
                 />
               </Grid>
@@ -410,9 +441,15 @@ const PromotionsManager = () => {
                   label="Fecha de Inicio"
                   name="start_date"
                   value={formValues.start_date || ''}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    if (startDateRef.current) {
+                      startDateRef.current.blur();
+                    }
+                  }}
                   InputLabelProps={{ shrink: true }}
                   InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'start_date', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                  inputRef={startDateRef}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -423,9 +460,15 @@ const PromotionsManager = () => {
                   label="Fecha de Fin"
                   name="end_date"
                   value={formValues.end_date || ''}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    if (endDateRef.current) {
+                      endDateRef.current.blur();
+                    }
+                  }}
                   InputLabelProps={{ shrink: true }}
                   InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'end_date', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                  inputRef={endDateRef}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -453,12 +496,14 @@ const PromotionsManager = () => {
                   getOptionLabel={(option) => option.name || ""}
                   getOptionKey={(option) => option.id}
                   isOptionEqualToValue={(option, value) => option.id === value.id} // <-- Añadir esta línea
-                  value={formValues.products || []}
+                  value={formValues.stocks || []}
                   onChange={(event, newValue) => {
-                    setFormValues({ ...formValues, products: newValue });
+                    setFormValues({ ...formValues, stocks: newValue });
                   }}
-                  onInputChange={(event, newInputValue) => {
-                    debouncedSetProductSearchTerm(newInputValue);
+                  onInputChange={(event, newInputValue, reason) => {
+                    if (reason === 'input') {
+                      debouncedSetProductSearchTerm(newInputValue);
+                    }
                   }}
                   loading={productsLoading}
                   filterOptions={(x) => x}
@@ -487,7 +532,11 @@ const PromotionsManager = () => {
                   getOptionLabel={(option) => option.name}
                   getOptionKey={(option) => option.id} // Asegurarse de que getOptionKey también esté presente
                   isOptionEqualToValue={(option, value) => option.id === value.id} // <-- Añadir esta línea
-                  value={formValues.presentations || []}
+                  value={
+                    (formValues.presentations || []).filter(selectedPresentation =>
+                      (presentations?.presentations || []).some(option => option.id === selectedPresentation.id)
+                    )
+                  }
                   onChange={(event, newValue) => {
                     setFormValues({ ...formValues, presentations: newValue });
                   }}

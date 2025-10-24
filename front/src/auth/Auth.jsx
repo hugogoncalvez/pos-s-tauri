@@ -8,14 +8,14 @@ import {
   Alert,
   Box,
   Grid,
-  Paper,
-  TextField,
   Typography,
   Link,
   InputAdornment,
   IconButton,
   LinearProgress,
 } from '@mui/material';
+import { StyledCard } from '../styledComponents/ui/StyledCard';
+import { StyledTextField } from '../styledComponents/ui/StyledTextField';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import PersonIcon from '@mui/icons-material/Person';
@@ -25,6 +25,7 @@ import { mostrarHTML } from '../functions/mostrarHTML';
 import { useIsTauri } from '../hooks/useIsTauri';
 import { ColorModeContext } from '../context/ThemeContextProvider';
 import { exit } from '@tauri-apps/plugin-process'; // Importar exit
+import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 
 const Auth = () => {
   const { isTauri } = useIsTauri();
@@ -88,16 +89,14 @@ const Auth = () => {
     enter: { opacity: 1, y: 0 },
     exit: { opacity: 0, y: 50 }
   };
-
+  console.log(theme.palette.mode);
   return (
     <Grid
       container
       component="main"
       sx={{
         height: '100vh',
-        background: theme.palette.mode === 'dark'
-          ? 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)'
-          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: theme.palette.background.dialog,
         justifyContent: 'center',
         alignItems: 'center',
         p: 2
@@ -110,9 +109,9 @@ const Auth = () => {
         variants={variants}
         transition={{ duration: 0.5 }}
       >
-        <Paper
-          elevation={24}
+        <StyledCard
           sx={{
+            position: 'relative',
             width: 'clamp(350px, 90vw, 480px)',
             p: 5,
             display: 'flex',
@@ -126,6 +125,25 @@ const Auth = () => {
             border: '1px solid rgba(255, 255, 255, 0.15)', // Borde sutil
           }}
         >
+          {isTauri && (
+            <IconButton
+              aria-label="Salir de la aplicación"
+              onClick={handleExitApp}
+              sx={{
+                position: 'absolute',
+                top: 'clamp(8px, 2vw, 16px)',
+                right: 'clamp(8px, 2vw, 16px)',
+                color: 'text.secondary',
+                transition: 'transform 0.2s ease-in-out, color 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'scale(1.2) rotate(15deg)',
+                  color: 'error.main',
+                }
+              }}
+            >
+              <PowerSettingsNewIcon />
+            </IconButton>
+          )}
           <Box sx={{ mb: 3 }}>
             <img
               src='/logo.png'
@@ -157,7 +175,7 @@ const Auth = () => {
             </Alert>
           ) : (
             <Box component="form" noValidate onSubmit={handleSubmit} sx={{ width: '100%' }}>
-              <TextField
+              <StyledTextField
                 margin="normal"
                 required
                 fullWidth
@@ -175,14 +193,9 @@ const Auth = () => {
                     </InputAdornment>
                   ),
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
               />
 
-              <TextField
+              <StyledTextField
                 margin="normal"
                 required
                 fullWidth
@@ -209,11 +222,6 @@ const Auth = () => {
                       </IconButton>
                     </InputAdornment>
                   ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
                 }}
               />
 
@@ -253,26 +261,8 @@ const Auth = () => {
             </Box>
           )}
 
-          {isTauri && (
-            <Button
-              onClick={handleExitApp}
-              fullWidth
-              variant="outlined"
-              sx={{
-                mt: 2,
-                py: 1,
-                fontSize: '0.9rem',
-                fontWeight: 500,
-                borderRadius: 2,
-                textTransform: 'none',
-              }}
-            >
-              Salir de la Aplicación
-            </Button>
-          )}
-
           <Copyright />
-        </Paper>
+        </StyledCard>
       </motion.div>
     </Grid>
   );

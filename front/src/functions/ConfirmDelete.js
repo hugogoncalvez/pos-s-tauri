@@ -9,10 +9,16 @@ export const confirmAction = async (onConfirm, onDenied = () => {}, message = 'E
         background: theme.palette.background.paper, // Usar color del tema
         color: theme.palette.text.primary, // Asegurar color de texto
         showDenyButton: true,
-        confirmButtonText: 'Si',
+        confirmButtonText: 'Sí',
         denyButtonText: 'No',
         customClass: {
             popup: 'swal-higher-zindex' // Clase CSS para un z-index más alto
+        },
+        didOpen: () => {
+            const swalContainer = document.querySelector('.swal2-container');
+            if (swalContainer) {
+                swalContainer.style.zIndex = '1400'; // Set a higher z-index
+            }
         }
     }).then(async (result) => {
         if (result.isConfirmed) {

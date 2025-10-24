@@ -399,7 +399,7 @@ const PurchasesManager = () => {
     const handleDeletePurchase = (purchase) => {
         confirmAction(async () => {
             try {
-                await deletePurchase({ url: '/delPurchase/', id: purchase.id });
+                await deletePurchase({ url: '/delPurchase', id: purchase.id });
                 mostrarExito('Compra eliminada con éxito!', theme);
                 refetchPurchases();
             } catch (error) {
@@ -408,59 +408,72 @@ const PurchasesManager = () => {
         }, () => { }, '¿Estás seguro de eliminar esta compra?', theme); // Pasar onDenied como función vacía y el mensaje
     };
 
-    const handleBarcodeScanKeyDown = async (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault(); // Prevent form submission or other default behavior
-            const barcode = barcodeInput.trim();
+    const handleBarcodeSearch = useCallback(async (barcode) => {
+        if (!barcode) {
+            setSelectedProduct(null);
+            handleItemInputChange({ target: { name: 'stock_id', value: '' } });
+            setModalError('');
+            return;
+        }
 
-            if (!barcode) {
-                setModalError('Por favor, ingrese un código de barras.');
-                return;
-            }
+        if (validator.isEmpty(barcode)) {
+            setModalError('Por favor, ingrese un código de barras.');
+            setSelectedProduct(null);
+            handleItemInputChange({ target: { name: 'stock_id', value: '' } });
+            return;
+        }
 
-            if (validator.isEmpty(barcode)) {
-                setModalError('Por favor, ingrese un código de barras.');
-                return;
-            }
+        try {
+            const { data: product } = await Api.get(`/stock/barcode/${barcode}`);
 
-            try {
-                const { data: product } = await Api.get(`/stock/barcode/${barcode}`);
+            if (product) {
+                setSelectedProduct(product);
+                handleItemInputChange({ target: { name: 'stock_id', value: product.id } });
+                handleItemInputChange({ target: { name: 'name', value: product.name } }); // Pre-fill name
+                handleItemInputChange({ target: { name: 'description', value: product.description } }); // Pre-fill description
 
-                if (product) {
-                    setSelectedProduct(product);
-                    handleItemInputChange({ target: { name: 'stock_id', value: product.id } });
-                    handleItemInputChange({ target: { name: 'name', value: product.name } }); // Pre-fill name
-                    handleItemInputChange({ target: { name: 'description', value: product.description } }); // Pre-fill description
-
-                    // For non-pesable products, pre-fill quantity and cost if available
-                    if (product.tipo_venta !== 'pesable') {
-                        handleItemInputChange({ target: { name: 'quantityPerUnits', value: 1 } }); // Default to 1 unit
-                        // handleItemInputChange({ target: { name: 'cost', value: product.cost || '' } }); // Removed: Cost should be entered by user
-                    } else {
-                        // For pesable products, clear quantity fields and focus on quantity input
-                        handleItemInputChange({ target: { name: 'quantity', value: '' } });
-                        handleItemInputChange({ target: { name: 'cost', value: '' } });
-                    }
-                    setModalError('');
-                    // Focus on the quantity input field (assuming it exists and is correctly referenced)
-                    if (quantityInputRef.current) {
-                        quantityInputRef.current.focus();
-                    }
+                // For non-pesable products, pre-fill quantity and cost if available
+                if (product.tipo_venta !== 'pesable') {
+                    handleItemInputChange({ target: { name: 'quantityPerUnits', value: 1 } }); // Default to 1 unit
                 } else {
-                    setModalError('Producto no encontrado con este código de barras.');
-                    setSelectedProduct(null);
-                    handleItemInputChange({ target: { name: 'stock_id', value: '' } });
+                    // For pesable products, clear quantity fields and focus on quantity input
+                    handleItemInputChange({ target: { name: 'quantity', value: '' } });
+                    handleItemInputChange({ target: { name: 'cost', value: '' } });
                 }
-            } catch (error) {
-                console.error('Error al buscar producto por código de barras:', error);
-                setModalError('Error al buscar producto: ' + (error.response?.data?.message || 'Error desconocido'));
+                setModalError('');
+                setProductSearchTerm(product.name); // Update search term to ensure product is in options
+                // Focus on the quantity input field (assuming it exists and is correctly referenced)
+                if (quantityInputRef.current) {
+                    quantityInputRef.current.focus();
+                }
+            } else {
+                setModalError('Producto no encontrado con este código de barras. Por favor, agregue el producto en el módulo de Stock.');
                 setSelectedProduct(null);
                 handleItemInputChange({ target: { name: 'stock_id', value: '' } });
-            } finally {
-                // setBarcodeInput(''); // Clear barcode input after processing - Removed as per user request
             }
+        } catch (error) {
+            console.error('Error al buscar producto por código de barras:', error);
+            setModalError('Error al buscar producto: ' + (error.response?.data?.message || 'Error desconocido'));
+            setSelectedProduct(null);
+            handleItemInputChange({ target: { name: 'stock_id', value: '' } });
         }
-    };
+    }, [barcodeInput, handleItemInputChange, quantityInputRef]); // Added barcodeInput to dependencies
+
+    const debouncedSearchRef = useRef(debounce((barcode) => handleBarcodeSearch(barcode), 750));
+
+    const handleBarcodeInputChange = useCallback((e) => {
+        const newBarcode = e.target.value;
+        setBarcodeInput(newBarcode);
+        debouncedSearchRef.current(newBarcode); // Call the debounced function from useRef
+    }, [debouncedSearchRef]);
+
+    const handleBarcodeKeyDown = useCallback((e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            debouncedSearchRef.current.cancel(); // Cancel any pending debounced calls
+            handleBarcodeSearch(e.target.value); // Use e.target.value for immediate search
+        }
+    }, [handleBarcodeSearch, debouncedSearchRef]);
 
     // --- Handlers para Items del Modal ---
     const handleAddItem = () => {
@@ -480,10 +493,10 @@ const PurchasesManager = () => {
         let isValid = false;
         if (isPesableProduct) {
             const { quantity, cost } = processedItemValues;
-            isValid = selectedProduct && validator.isNumeric(quantity?.toString()) && quantity > 0 && validator.isNumeric(cost?.toString()) && cost > 0;
+            isValid = selectedProduct && validator.isNumeric((quantity || '').toString()) && quantity > 0 && validator.isNumeric((cost || '').toString()) && cost > 0;
         } else {
             const { boxes, unitsPerBox, quantityPerUnits, cost } = processedItemValues;
-            isValid = selectedProduct && validator.isNumeric(boxes?.toString()) && boxes > 0 && validator.isNumeric(unitsPerBox?.toString()) && unitsPerBox > 0 && validator.isNumeric(quantityPerUnits?.toString()) && quantityPerUnits > 0 && validator.isNumeric(cost?.toString()) && cost > 0;
+            isValid = selectedProduct && validator.isNumeric((boxes || '').toString()) && boxes > 0 && validator.isNumeric((unitsPerBox || '').toString()) && unitsPerBox > 0 && validator.isNumeric((quantityPerUnits || '').toString()) && quantityPerUnits > 0 && validator.isNumeric((cost || '').toString()) && cost > 0;
         }
 
         if (!isValid) {
@@ -798,12 +811,20 @@ const PurchasesManager = () => {
                                     type="text"
                                     name="barcode"
                                     value={barcodeInput}
-                                    onChange={(e) => setBarcodeInput(e.target.value)}
-                                    onKeyDown={handleBarcodeScanKeyDown}
+                                    onChange={handleBarcodeInputChange}
+                                    onKeyDown={handleBarcodeKeyDown}
                                     InputProps={{
                                         startAdornment: (
                                             <InputAdornment position="start">
-                                                <IconButton onClick={() => setBarcodeInput('')}>
+                                                <IconButton onClick={() => {
+                                                    setBarcodeInput('');
+                                                    setSelectedProduct(null);
+                                                    resetItemForm();
+                                                    setModalError('');
+                                                    // Explicitly call handleBarcodeSearch with an empty string
+                                                    // to trigger the reset logic in the search function.
+                                                    handleBarcodeSearch('');
+                                                }}>
                                                     <ClearIcon color='error' />
                                                 </IconButton>
                                             </InputAdornment>
@@ -873,7 +894,7 @@ const PurchasesManager = () => {
                 </DialogActions>
             </StyledDialog>
 
-            <StyledDialog open={detailsModalOpen} onClose={() => setDetailsModalOpen(false)} maxWidth="md" fullWidth>
+            <StyledDialog open={detailsModalOpen} onClose={() => setDetailsModalOpen(false)} maxWidth="lg" fullWidth>
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
                     Detalle de la Compra #{selectedPurchase?.id}
                     <IconButton onClick={() => setDetailsModalOpen(false)}>

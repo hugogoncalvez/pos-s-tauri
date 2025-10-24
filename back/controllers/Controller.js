@@ -1074,6 +1074,7 @@ export const importarStock = async (req, res) => {
                     precio: price,
                     stock,
                     min_stock,
+                    tipo_venta = 'unitario', // Default to 'unitario' if not provided unidad: unitName,
                     unidad: unitName,
                     categoria: categoryName,
                     proveedor: supplierName
@@ -1119,6 +1120,7 @@ export const importarStock = async (req, res) => {
                         stock: parseInt(stock) || 0,
                         min_stock: parseInt(min_stock) || 0,
                         units_id: unit.id,
+                        tipo_venta, // Add tipo_venta to the creation logic units_id: unit.id,
                         category_id: category.id,
                         supplier_id: supplierId,
                         visible: 1 // Por defecto visible
@@ -3656,6 +3658,58 @@ export const getAllCustomers = async (req, res) => {
         });
     }
 };
+
+export const getTotalCustomersDebt = async (req, res) => {
+    try {
+        const {
+            search = '',
+            debt_status = 'all'
+        } = req.query;
+
+        const whereConditions = {
+            name: { [Op.ne]: 'Consumidor Final' }
+        };
+
+        if (debt_status === 'with_debt') {
+            whereConditions.debt = { [Op.gt]: 0 };
+        } else if (debt_status === 'no_debt') {
+            whereConditions.debt = { [Op.eq]: 0 };
+        }
+
+        if (search) {
+            whereConditions[Op.and] = [
+                { name: { [Op.ne]: 'Consumidor Final' } },
+                {
+                    [Op.or]: [
+                        { name: { [Op.like]: `%${search}%` } },
+                        { email: { [Op.like]: `%${search}%` } },
+                        { phone: { [Op.like]: `%${search}%` } },
+                        { dni: { [Op.like]: `%${search}%` } },
+                        { id: { [Op.like]: `%${search}%` } }
+                    ]
+                }
+            ];
+        }
+
+        const totalDebt = await CustomerModel.sum('debt', {
+            where: whereConditions,
+        });
+
+        res.json({
+            success: true,
+            totalDebt: totalDebt || 0
+        });
+
+    } catch (error) {
+        console.error('Error al obtener la deuda total de clientes:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
 // Obtener un cliente por ID
 export const getCustomerById = async (req, res) => {
     try {

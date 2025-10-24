@@ -281,13 +281,13 @@ const StockManager = () => {
     const handleDeleteProduct = (product) => {
         confirmAction(async () => {
             try {
-                await deleteProductStock({ url: `/stock/${product.id}` });
+                await deleteProductStock({ url: '/delstock', id: product.id });
                 mostrarExito('Producto eliminado con éxito!', theme);
                 refetchStock();
             } catch (error) {
                 mostrarError(error.response?.data?.message || 'Hubo un error al eliminar el producto.', theme);
             }
-        });
+        }, () => {}, 'Está seguro que desea eliminar?', theme);
     };
 
     // --- Columnas para EnhancedTable ---

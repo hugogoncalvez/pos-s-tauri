@@ -14,7 +14,7 @@ import {
     getAuditLogs, getAuditStats, getUserActivity, getLowStockAlerts,
     getCustomers, getPaymentMethods, createPaymentMethod, updatePaymentMethod, deletePaymentMethod, getPaymentMethodById, getPaymentSurcharges, updatePaymentSurcharge,
     getAllSuppliers, createSupplier,
-    getAllCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer,
+    getAllCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer, getTotalCustomersDebt,
     registerCustomerPayment, getCustomerPurchaseHistory, getCustomerPaymentHistory,
     exportCustomersCSV, getCustomersStats,
     getSalesToday, getTotalCustomers, getTotalSuppliers, getTopSellingProducts, getSalesWeek, getSalesMonth,
@@ -66,17 +66,17 @@ router.get('/health', async (req, res) => {
         // Intentar una query simple a la BD para una verificación más robusta
         await db.authenticate();
         await db.query('SELECT 1', { type: db.QueryTypes.SELECT });
-        
-        res.status(200).json({ 
-            status: "ok", 
+
+        res.status(200).json({
+            status: "ok",
             db: true,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         console.error("Database connection failed during health check:", error.message);
-        res.status(503).json({ 
-            status: "error", 
-            db: false, 
+        res.status(503).json({
+            status: "error",
+            db: false,
             error: error.message,
             timestamp: new Date().toISOString()
         });
@@ -135,7 +135,7 @@ authenticatedRouter.put('/purchases/:id', checkPermission('accion_crear_compra')
 
 // --- RUTAS DE STOCK, PRODUCTOS, CATEGORÍAS ---
 authenticatedRouter.post('/stock', checkPermission('accion_crear_producto'), createStocks);
-authenticatedRouter.get('/stock/check-barcode', checkPermission('accion_crear_producto'), checkBarcodeExists);
+router.get('/stock/product-by-barcode/:barcode', verificarSesion, checkPermission('listar_productos'), getProductByBarcode);
 authenticatedRouter.get('/stock', checkPermission(['listar_stock', 'listar_productos']), getStocks);
 authenticatedRouter.get('/stock/barcode/:barcode', checkPermission('accion_crear_venta'), getProductByBarcode);
 authenticatedRouter.get('/barcodes/generate/:type', checkPermission('accion_crear_producto'), generateInternalBarcode);
@@ -169,6 +169,7 @@ authenticatedRouter.get('/cash-sessions/:session_id/summary', checkPermission(['
 // --- RUTAS DE CLIENTES ---
 authenticatedRouter.get('/customers', checkPermission(['listar_clientes', 'ver_vista_clientes']), getCustomers);
 authenticatedRouter.get('/customers/all', checkPermission(['listar_clientes', 'ver_vista_clientes']), getAllCustomers);
+authenticatedRouter.get('/customers/total-debt', checkPermission(['listar_clientes', 'ver_vista_clientes']), getTotalCustomersDebt);
 authenticatedRouter.get('/customers/check-duplicate', checkPermission(['accion_crear_cliente', 'accion_editar_cliente']), checkCustomerDuplicate);
 authenticatedRouter.get('/customers/:id', checkPermission('ver_vista_clientes'), getCustomerById);
 authenticatedRouter.post('/customers', checkPermission('accion_crear_cliente'), createCustomer);

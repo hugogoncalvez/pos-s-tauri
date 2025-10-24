@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -39,12 +39,23 @@ const ComboManager = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [openComboModal, setOpenComboModal] = useState(false);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [currentCombo, setCurrentCombo] = useState(null);
+  const startDateRef = useRef(null);
+  const endDateRef = useRef(null);
+  const quantityRef = useRef(null);
   const [formValues, handleInputChange, reset, , setFormValues] = useForm();
   const [isGeneratingBarcode, setIsGeneratingBarcode] = useState(false);
   const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [newComponent, setNewComponent] = useState({
+    product: null,
+    presentation: null,
+    quantity: 1,
+  });
 
   const [comboComponents, setComboComponents] = useState([]);
+
+  console.log('ComboManager Render - comboComponents:', comboComponents);
 
   const statusOptions = [
     { value: 'true', label: 'Activo' },
@@ -69,20 +80,6 @@ const ComboManager = () => {
   const updateCombo = useUpdate('updateCombo');
   const deleteCombo = useDelete('deleteCombo');
 
-  // --- Efectos ---
-  // Inicializar combo components cuando se edita un combo existente
-  useEffect(() => {
-    if (currentCombo && currentCombo.combo_items) {
-      setComboComponents(currentCombo.combo_items.map(item => ({
-        stock_id: item.stock_id,
-        quantity: item.quantity,
-        component_presentation_id: item.component_presentation_id,
-      })));
-    } else {
-      setComboComponents([]);
-    }
-  }, [currentCombo]);
-
   const debouncedSetProductSearchTerm = useCallback(
     debounce((newValue) => {
       setProductSearchTerm(newValue);
@@ -93,25 +90,71 @@ const ComboManager = () => {
   // --- Funciones para manejar componentes del combo ---
   const addComboComponent = () => {
     setComboComponents([...comboComponents, {
+      _id: `temp_${crypto.randomUUID()}`, // ID único temporal
       stock_id: null,
       quantity: 1,
       component_presentation_id: null
     }]);
   };
 
-  const removeComboComponent = (index) => {
-    const newComboComponents = comboComponents.filter((_, i) => i !== index);
+  const removeComboComponent = (_id) => {
+    console.log('--- REMOVE COMPONENT ---');
+    console.log('ID to remove:', _id);
+
+    setIsConfirmDialogOpen(true);
+
+    ConfirmDelete(
+      () => { // onConfirm
+        setComboComponents(prevComboComponents => { // Use functional update
+          const newComboComponents = prevComboComponents.filter(item => item._id !== _id);
+          console.log('Combo Components AFTER filter:', newComboComponents);
+          return newComboComponents;
+        });
+        setIsConfirmDialogOpen(false);
+      },
+      () => { // onCancel
+        setIsConfirmDialogOpen(false);
+      },
+      '¿Estás seguro de eliminar este componente?',
+      theme
+    );
+  };
+
+  const updateComboComponent = (_id, field, value) => {
+    console.log("updateComboComponent:", { _id, field, value });
+    const newComboComponents = comboComponents.map(item =>
+      item._id === _id ? { ...item, [field]: value } : item
+    );
     setComboComponents(newComboComponents);
   };
 
-  const updateComboComponent = (index, field, value) => {
-    const newComboComponents = [...comboComponents];
-    newComboComponents[index] = { ...newComboComponents[index], [field]: value };
-    setComboComponents(newComboComponents);
-  };
+  const handleAddComponent = () => {
+    console.log('handleAddComponent - newComponent:', newComponent);
+    if (!newComponent.product || newComponent.quantity < 1) {
+      mostrarError('Selecciona un producto y una cantidad válida.', theme);
+      return;
+    }
 
+    setComboComponents(prev => [...prev, {
+      _id: `temp_${crypto.randomUUID()}`,
+      stock_id: newComponent.product.id,
+      product_name: newComponent.product.name, // Store name for display
+      component_presentation_id: newComponent.presentation?.id || null,
+      presentation_name: newComponent.presentation?.name || null, // Store name for display
+      quantity: newComponent.quantity,
+    }]);
+
+    // Clear the form
+    setNewComponent({
+      product: null,
+      presentation: null,
+      quantity: 1,
+    });
+    setProductSearchTerm(''); // Clear search term for the single Autocomplete
+  };
   // --- Manejadores de Eventos (Combos) ---
   const handleOpenComboModal = (combo = null) => {
+    console.log('handleOpenComboModal called with combo:', combo);
     setCurrentCombo(combo);
     const initialValues = {
       name: combo?.name || '',
@@ -122,13 +165,37 @@ const ComboManager = () => {
       end_date: combo?.end_date ? new Date(combo.end_date).toISOString().split('T')[0] : '',
     };
     setFormValues(initialValues);
+
+    if (combo && combo.combo_items) {
+      setComboComponents(
+        combo.combo_items.map((item) => ({
+          _id: item.id
+            ? `db_${item.id}`  // prefijo para los que vienen de la BD
+            : `temp_${crypto.randomUUID()}`, // genera un UUID único
+          stock_id: item.stock_id,
+          product_name: item.stock?.name || '',
+          component_presentation_id: item.component_presentation_id,
+          presentation_name: item.component_presentation?.name || null,
+          quantity: item.quantity,
+        }))
+      );
+    } else {
+      setComboComponents([]);
+    }
+
     setOpenComboModal(true);
   };
 
   const handleCloseComboModal = () => {
+    console.log('handleCloseComboModal called');
+    if (isConfirmDialogOpen) {
+      console.log('Confirmation dialog is open, preventing modal close.');
+      return;
+    }
     setOpenComboModal(false);
     setCurrentCombo(null);
     setComboComponents([]);
+    setProductSearchTerm('');
     reset();
   };
 
@@ -148,6 +215,7 @@ const ComboManager = () => {
   };
 
   const handleComboSubmit = async (event) => {
+    console.log('handleComboSubmit called with formValues:', formValues);
     event.preventDefault();
 
     if (comboComponents.length === 0) {
@@ -155,9 +223,11 @@ const ComboManager = () => {
       return;
     }
 
+    console.log('handleComboSubmit - comboComponents:', comboComponents);
     const hasInvalidComponents = comboComponents.some(comp =>
       !comp.stock_id || !comp.quantity || comp.quantity < 1
     );
+    console.log('handleComboSubmit - hasInvalidComponents:', hasInvalidComponents);
 
     if (hasInvalidComponents) {
       alert('Todos los componentes del combo deben tener un producto seleccionado y una cantidad válida.');
@@ -167,7 +237,11 @@ const ComboManager = () => {
     const dataToSend = {
       ...formValues,
       is_active: formValues.is_active === 'true',
-      combo_items: comboComponents,
+      combo_items: comboComponents.map(item => ({
+        stock_id: item.stock_id,
+        quantity: item.quantity,
+        component_presentation_id: item.component_presentation_id
+      })), // Remover _id antes de enviar
     };
 
     mostrarCarga(currentCombo ? 'Actualizando combo...' : 'Creando combo...', theme); // Mostrar carga
@@ -191,7 +265,7 @@ const ComboManager = () => {
   };
 
   const handleDeleteCombo = async (id) => {
-    const result = await ConfirmDelete(() => {}, () => {}, '¿Estás seguro de eliminar este combo?', theme); // Pasar mensaje y theme
+    const result = await ConfirmDelete(() => { }, () => { }, '¿Estás seguro de eliminar este combo?', theme); // Pasar mensaje y theme
     if (result.isConfirmed) {
       mostrarCarga('Eliminando combo...', theme); // Mostrar carga
       try {
@@ -278,8 +352,20 @@ const ComboManager = () => {
     },
     { id: 'barcode', label: 'Código de Barras' },
     { id: 'price', label: 'Precio', valueGetter: ({ row }) => `${parseFloat(row.price).toFixed(2)}` },
-    { id: 'start_date', label: 'Fecha Inicio', valueGetter: ({ row }) => new Date(row.start_date).toLocaleDateString() },
-    { id: 'end_date', label: 'Fecha Fin', valueGetter: ({ row }) => new Date(row.end_date).toLocaleDateString() },
+    { id: 'start_date', label: 'Fecha Inicio', valueGetter: ({ row }) => {
+        const dateString = row.start_date;
+        if (!dateString) return '';
+        const [year, month, day] = dateString.split('-').map(Number);
+        const localDate = new Date(year, month - 1, day);
+        return localDate.toLocaleDateString();
+      } },
+    { id: 'end_date', label: 'Fecha Fin', valueGetter: ({ row }) => {
+        const dateString = row.end_date;
+        if (!dateString) return '';
+        const [year, month, day] = dateString.split('-').map(Number);
+        const localDate = new Date(year, month - 1, day);
+        return localDate.toLocaleDateString();
+      } },
     {
       id: 'actions',
       label: 'Acciones',
@@ -306,7 +392,32 @@ const ComboManager = () => {
     },
   ], [theme, tienePermiso, handleOpenComboModal, handleDeleteCombo]);
 
-  const isPageLoading = combosLoading || productsLoading;
+  const componentColumns = useMemo(() => [
+    { id: 'product_name', label: 'Producto', align: 'left' },
+    { id: 'presentation_name', label: 'Presentación', align: 'left', valueGetter: ({ row }) => row.presentation_name || 'N/A' },
+    { id: 'quantity', label: 'Cantidad', align: 'center' },
+    {
+      id: 'actions',
+      label: 'Acciones',
+      align: 'center',
+      valueGetter: ({ row }) => (
+        <Box>
+          <Tooltip title="Eliminar Componente">
+            <IconButton onClick={() => removeComboComponent(row._id)} size="small" color="error">
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ], []);
+
+  const isPageLoading = combosLoading;
+
+  console.log('--- RENDER ---');
+  console.log('Product Search Term:', productSearchTerm);
+  console.log('Products in options:', products.map(p => p.name));
+  console.log('Combo Components State:', comboComponents);
 
   if (isPageLoading) {
     return <ComboManagerSkeleton />;
@@ -370,7 +481,7 @@ const ComboManager = () => {
         open={openComboModal}
         onClose={handleCloseComboModal}
         fullWidth
-        maxWidth="md"
+        maxWidth="lg"
       >
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
           {currentCombo ? 'Editar Combo' : 'Crear Combo'}
@@ -389,7 +500,6 @@ const ComboManager = () => {
                   name="name"
                   value={formValues.name || ''}
                   onChange={handleInputChange}
-                  autoFocus
                   InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
                 />
               </Grid>
@@ -439,9 +549,15 @@ const ComboManager = () => {
                   label="Fecha de Inicio"
                   name="start_date"
                   value={formValues.start_date || ''}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    if (startDateRef.current) {
+                      startDateRef.current.blur();
+                    }
+                  }}
                   InputLabelProps={{ shrink: true }}
                   InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'start_date', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                  inputRef={startDateRef}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -452,15 +568,20 @@ const ComboManager = () => {
                   label="Fecha de Fin"
                   name="end_date"
                   value={formValues.end_date || ''}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    if (endDateRef.current) {
+                      endDateRef.current.blur();
+                    }
+                  }}
                   InputLabelProps={{ shrink: true }}
                   InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'end_date', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                  inputRef={endDateRef}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Autocomplete
                   fullWidth
-                  required
                   options={statusOptions}
                   getOptionLabel={(option) => option.label}
                   value={statusOptions.find(option => option.value === formValues.is_active) || null}
@@ -471,123 +592,115 @@ const ComboManager = () => {
                     <StyledTextField
                       {...params}
                       label="Estado"
+                      required
                     />
                   )}
                 />
               </Grid>
 
-              {/* SECCIÓN PARA COMPONENTES DEL COMBO */}
+              {/* SECCIÓN PARA AGREGAR COMPONENTES */}
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ mb: 2, mt: 2 }}>
+                  Agregar Componente
+                </Typography>
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item xs={12} sm={4}>
+                    <Autocomplete
+                      options={products || []}
+                      getOptionLabel={(option) => option.name || ""}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      value={newComponent.product}
+                      onChange={(event, newValue) => {
+                        setNewComponent(prev => ({ ...prev, product: newValue, presentation: null }));
+                      }}
+                      onInputChange={(event, newInputValue) => {
+                        debouncedSetProductSearchTerm(newInputValue);
+                      }}
+                      loading={productsLoading}
+                      filterOptions={(x) => x}
+                      renderInput={(params) => (
+                        <StyledTextField
+                          {...params}
+                          label="Producto"
+                          InputProps={{
+                            ...params.InputProps,
+                            endAdornment: (
+                              <React.Fragment>
+                                {productsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                {params.InputProps.endAdornment}
+                              </React.Fragment>
+                            ),
+                          }}
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <Autocomplete
+                      options={newComponent.product ? newComponent.product.presentations || [] : []}
+                      getOptionLabel={(option) => option.name}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      value={newComponent.presentation}
+                      onChange={(event, newValue) => {
+                        setNewComponent(prev => ({ ...prev, presentation: newValue }));
+                      }}
+                      disabled={!newComponent.product}
+                      renderInput={(params) => (
+                        <StyledTextField
+                          {...params}
+                          label="Presentación (Opcional)"
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={2}>
+                    <StyledTextField
+                      type="number"
+                      label="Cantidad"
+                      value={newComponent.quantity}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || value < 1) {
+                          setNewComponent(prev => ({ ...prev, quantity: '' }));
+                          return;
+                        }
+                        const intValue = parseInt(value, 10);
+                        if (!isNaN(intValue)) {
+                          setNewComponent(prev => ({ ...prev, quantity: intValue }));
+                        }
+                      }}
+                      inputProps={{ min: 1, step: 1 }}
+                      inputRef={quantityRef}
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={2} sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                    <StyledButton
+                      variant="outlined"
+                      startIcon={<AddIcon />}
+                      onClick={handleAddComponent}
+                    >
+                      Agregar
+                    </StyledButton>
+                  </Grid>
+                </Grid>
+              </Grid>
+
+              {/* TABLA DE COMPONENTES AGREGADOS */}
               <Grid item xs={12}>
                 <Typography variant="h6" sx={{ mb: 2, mt: 2 }}>
                   Componentes del Combo
                 </Typography>
-
                 {comboComponents.length === 0 && (
                   <Alert severity="info" sx={{ mb: 2 }}>
-                    Agregue al menos un producto o presentación al combo.
+                    No hay componentes agregados al combo.
                   </Alert>
                 )}
-
-                {comboComponents.map((component, index) => (
-                  <Box key={index} sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 2, p: 2, mb: 2 }}>
-                    <Grid container spacing={2} alignItems="center">
-                      <Grid item xs={12} sm={5}>
-                        <Autocomplete
-                          options={products || []}
-                          getOptionLabel={(option) => option.name || ""}
-                          getOptionKey={(option) => option.id}
-                          isOptionEqualToValue={(option, value) => option.id === value.id} // <-- Añadir esta línea
-                          value={products?.find(p => p.id === component.stock_id) || null}
-                          onChange={(event, newValue) => {
-                            const newComboComponents = [...comboComponents];
-                            newComboComponents[index] = {
-                              ...newComboComponents[index],
-                              stock_id: newValue?.id || null,
-                              component_presentation_id: null
-                            };
-                            setComboComponents(newComboComponents);
-                          }}
-                          onInputChange={(event, newInputValue) => {
-                            debouncedSetProductSearchTerm(newInputValue);
-                          }}
-                          loading={productsLoading}
-                          filterOptions={(x) => x}
-                          renderInput={(params) => (
-                            <StyledTextField
-                              {...params}
-                              label={`Producto ${index + 1}`}
-                              required
-                              InputProps={{
-                                ...params.InputProps,
-                                endAdornment: (
-                                  <React.Fragment>
-                                    {productsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                                    {params.InputProps.endAdornment}
-                                  </React.Fragment>
-                                ),
-                              }}
-                            />
-                          )}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={4}>
-                        <Autocomplete
-                          options={component.stock_id ? products?.products?.find(p => p.id === component.stock_id)?.presentations || [] : []}
-                          getOptionLabel={(option) => option.name}
-                          getOptionKey={(option) => option.id} // Añadir getOptionKey
-                          isOptionEqualToValue={(option, value) => option.id === value.id} // <-- Añadir esta línea
-                          value={component.stock_id ? products?.products?.find(p => p.id === component.stock_id)?.presentations?.find(pres => pres.id === component.component_presentation_id) || null : null}
-                          onChange={(event, newValue) => {
-                            updateComboComponent(index, 'component_presentation_id', newValue?.id || null);
-                          }}
-                          disabled={!component.stock_id}
-                          renderInput={(params) => (
-                            <StyledTextField
-                              {...params}
-                              label="Presentación (Opcional)"
-                            />
-                          )}
-                        />
-                      </Grid>
-                      <Grid item xs={6} sm={2}>
-                        <StyledTextField
-                          type="number"
-                          label="Cantidad"
-                          value={component.quantity}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === '' || value < 1) {
-                              updateComboComponent(index, 'quantity', '');
-                              return;
-                            }
-                            const intValue = parseInt(value, 10);
-                            if (!isNaN(intValue)) {
-                              updateComboComponent(index, 'quantity', intValue);
-                            }
-                          }}
-                          inputProps={{ min: 1, step: 1 }}
-                        />
-                      </Grid>
-                      <Grid item xs={6} sm={1}>
-                        <IconButton
-                          color="error"
-                          onClick={() => removeComboComponent(index)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Grid>
-                    </Grid>
-                  </Box>
-                ))}
-
-                <StyledButton
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={addComboComponent}
-                  sx={{ mt: 1 }}
-                >
-                  Agregar Componente
-                </StyledButton>
+                <EnhancedTable
+                  columns={componentColumns}
+                  data={comboComponents}
+                  pagination={false}
+                  loading={false}
+                />
               </Grid>
             </Grid>
           </DialogContent>
