@@ -8,6 +8,7 @@ import { useIsTauri } from '../hooks/useIsTauri';
 import { exit } from '@tauri-apps/plugin-process';
 import { debounce } from '../functions/Debounce'; // Importar debounce
 import { info, error } from '@tauri-apps/plugin-log';
+import { onlineManager } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 
 export const AuthContext = createContext({
@@ -58,6 +59,7 @@ export const AuthProvider = ({ children }) => {
           successCountRef.current += 1;
           if (successCountRef.current >= MIN_CONSECUTIVE_SUCCESS) {
             info(`[AuthContext] 🔄 Conexión restablecida. Cambiando a ONLINE.`);
+            onlineManager.setOnline(true); // 👈 SINCRONIZAR REACT QUERY
             setIsOnline(true);
             successCountRef.current = 0;
           }
@@ -77,6 +79,7 @@ export const AuthProvider = ({ children }) => {
 
       if (isOnline && errorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
         error(`[AuthContext] ⚠️ Conexión perdida. Cambiando a OFFLINE.`);
+        onlineManager.setOnline(false); // 👈 SINCRONIZAR REACT QUERY
         setIsOnline(false);
         errorCountRef.current = 0;
       }
@@ -99,12 +102,14 @@ export const AuthProvider = ({ children }) => {
     } else {
       info('[AuthContext] 💻 Modo Web/Dev: usando eventos navigator.onLine');
       const handleOnline = debounce(() => {
-        info('[AuthContext] 🌐 Evento: ONLINE');
+        info('[AuthContext] 🌐 Evento: ONLINE detectado, cambiando estado.');
+        onlineManager.setOnline(true); // 👈 SINCRONIZAR REACT QUERY
         setIsOnline(true);
         checkRealConnectivity();
       }, 300);
       const handleOffline = debounce(() => {
-        info('[AuthContext] 🔌 Evento: OFFLINE');
+        info('[AuthContext] 🔌 Evento: OFFLINE detectado, cambiando estado.');
+        onlineManager.setOnline(false); // 👈 SINCRONIZAR REACT QUERY
         setIsOnline(false);
       }, 300);
       window.addEventListener('online', handleOnline);

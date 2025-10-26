@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Api } from "../api/api";
-import { db } from "../db/offlineDB";
+import { db, OFFLINE_USER } from "../db/offlineDB";
 import { useOnlineStatus } from "./useOnlineStatus";
 
-// Mapeo de endpoints a tablas de Dexie
 const ENDPOINT_TO_TABLE = {
   '/stock': 'stock',
   '/category': 'categories',
@@ -16,15 +15,13 @@ const ENDPOINT_TO_TABLE = {
   '/units': 'units',
   '/pending-tickets': 'pending_tickets',
   '/elements': 'elements',
-  '/theme': 'theme_settings' // Asumiendo que tienes una tabla para esto
+  '/theme': 'theme_settings'
 };
 
 const handleOfflineQuery = async (url) => {
-  // Usamos el constructor de URL para parsear fácilmente la ruta y los parámetros
   const urlObject = new URL(url, window.location.origin);
   const baseUrl = urlObject.pathname;
 
-  // Lógica de coincidencia mejorada para manejar URLs dinámicas (ej: /path/id)
   const matchedKey = Object.keys(ENDPOINT_TO_TABLE).find(key => baseUrl.startsWith(key));
   const tableName = matchedKey ? ENDPOINT_TO_TABLE[matchedKey] : null;
 
@@ -53,36 +50,54 @@ const handleOfflineQuery = async (url) => {
         return { products: data };
       } catch (error) {
         console.error('[Offline Query] Error al consultar Dexie:', error);
-        return { products: [] }; // Devolver vacío en caso de error
+        return { products: [] };
       }
     }
 
-    // Lógica para la sesión de caja activa
     if (tableName === 'active_cash_session') {
       const sessions = await db.active_cash_session.toArray();
       console.log('[Offline Query - DEBUG] Contenido de la tabla active_cash_session:', sessions);
       if (sessions.length > 0) {
         console.log('[Offline Query] Sesión de caja activa encontrada localmente.');
-        return sessions[0]; // <--- Return the session object directly
+        // Mimic the online response structure
+        return { hasActiveSession: true, session: sessions[0] };
       } else {
         console.log('[Offline Query] No se encontró sesión de caja activa local.');
-        return null; // <--- Return null if no session
+        // Mimic the online response structure for no active session
+        return { hasActiveSession: false, session: null };
       }
     }
 
-    // Lógica para la configuración del tema
+    if (tableName === 'elements') {
+      console.log('[Offline Query] Modo offline detectado para /elements. Devolviendo solo la tarjeta de Ventas.');
+      const ventasCard = {
+        id: 5,
+        nombre: 'Ventas',
+        descripcion: 'Registrar ventas y gestionar el punto de venta.',
+        imagen: '/ventas.png',
+        navegar: '/ventas',
+        orden: 1,
+        permiso_requerido: 'ver_vista_ventas'
+      };
+      if (OFFLINE_USER.permisos.includes(ventasCard.permiso_requerido)) {
+        console.log('[Offline Query] ✅ Retornando datos para /elements:', [ventasCard]);
+        return [ventasCard];
+      }
+      console.log('[Offline Query] ❌ Usuario offline no tiene permiso, retornando array vacío.');
+      return [];
+    }
+
     if (tableName === 'theme_settings') {
-      const theme = await db.theme_settings.get(1); // Asumimos que siempre se guarda con id: 1
+      const theme = await db.theme_settings.get(1);
       if (theme) {
         console.log('[Offline Query] Configuración de tema encontrada localmente.');
         return theme;
       } else {
         console.log('[Offline Query] No se encontró configuración de tema local.');
-        return null; // O un objeto de tema por defecto si es necesario
+        return null;
       }
     }
 
-    // Lógica general para otras tablas (devolver todo)
     const data = await db[tableName].toArray();
     if (tableName === 'customers') {
       console.log(`[Offline Query - Customers] Data from Dexie:`, data);
@@ -96,16 +111,13 @@ const handleOfflineQuery = async (url) => {
 
 export const UseFetchQuery = (key, queryFnOrUrl, enable = true, stale = 0, options = {}) => {
   const { isOnline } = useOnlineStatus();
-  // Añadir isOnline a la queryKey para que React Query diferencie entre la caché online y la offline.
   const queryKey = Array.isArray(key) ? [...key, isOnline] : [key, isOnline];
-
-  const queryClient = useQueryClient();
 
   const result = useQuery({
     queryKey,
     queryFn: async () => {
       if (typeof queryFnOrUrl === 'function') {
-        return queryFnOrUrl(); // Ejecutar función personalizada si se provee
+        return queryFnOrUrl();
       }
 
       console.log(`[UseFetchQuery - queryFn] isOnline: ${isOnline}, URL: ${queryFnOrUrl}`);
@@ -114,14 +126,14 @@ export const UseFetchQuery = (key, queryFnOrUrl, enable = true, stale = 0, optio
         return handleOfflineQuery(queryFnOrUrl);
       }
 
-      // Comportamiento online normal
       const res = await Api.get(queryFnOrUrl);
       console.log(`[UseFetchQuery - API Response] URL: ${queryFnOrUrl}, Data:`, res.data);
       return res.data;
     },
     enabled: enable,
     staleTime: stale,
-    retry: isOnline ? 3 : 0, // No reintentar si estamos offline
+    retry: isOnline ? 3 : 0,
+    networkMode: 'offlineFirst', // 👈 Permite que queries funcionen offline
     ...options,
   });
   return result;
@@ -129,10 +141,7 @@ export const UseFetchQuery = (key, queryFnOrUrl, enable = true, stale = 0, optio
 
 export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale = 0, options = {}) => {
   const { isOnline } = useOnlineStatus();
-  // Añadir isOnline a la queryKey
   const queryKey = Array.isArray(key) ? [...key, isOnline] : [key, isOnline];
-
-  const queryClient = useQueryClient();
 
   const result = useQuery({
     queryKey,
@@ -146,12 +155,13 @@ export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale
       }
 
       const res = await Api.get(queryFnOrUrl);
-      console.log(`[API Response - ${queryFnOrUrl}]`, res.data); // Log the response
+      console.log(`[API Response - ${queryFnOrUrl}]`, res.data);
       return res.data;
     } : undefined,
     enabled: enable,
     staleTime: stale,
-    retry: isOnline ? 3 : 0, // No reintentar si estamos offline
+    retry: isOnline ? 3 : 0,
+    networkMode: 'offlineFirst', // 👈 CORRECCIÓN: También aquí
     ...options,
   });
   return result;

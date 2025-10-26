@@ -276,19 +276,26 @@ const Landing = () => {
     const screenSize = isXs ? 'xs' : isSm ? 'sm' : isMd ? 'md' : 'lg';
 
     useEffect(() => {
-        if (isLoading || permLoading || !data) {
+        // No renderizar si los datos de elementos están cargando, o si estamos online y los permisos aún están cargando.
+        if (isLoading || (isOnline && permLoading) || !data) {
+            console.log('[Landing.jsx useEffect] 🛑 Bloqueado por carga. No se renderizan items.');
             setItems([]);
             return;
         }
 
-        let visibles = data
+        // Si estamos offline, la data ya viene filtrada desde useQuery con solo "Ventas".
+        // Nos saltamos el filtro de permisos que puede no ser fiable sin conexión.
+        if (!isOnline) {
+            console.log('[Landing.jsx useEffect] 🔌 MODO OFFLINE: Seteando items con data recibida.', data);
+            setItems(data);
+            return;
+        }
+
+        // Si estamos ONLINE, aplicamos el filtro de permisos como siempre.
+        console.log('[Landing.jsx useEffect] 🌐 MODO ONLINE: Filtrando y seteando items.');
+        const visibles = data
             .filter(el => !el.permiso_requerido || tienePermiso(el.permiso_requerido))
             .sort((a, b) => a.orden - b.orden);
-
-        // Si estamos offline, filtramos para mostrar solo Ventas
-        if (!isOnline) {
-            visibles = visibles.filter(el => el.nombre === 'Ventas');
-        }
 
         setItems(visibles);
     }, [data, tienePermiso, isLoading, permLoading, isOnline]);
