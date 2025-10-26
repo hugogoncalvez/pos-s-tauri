@@ -11,6 +11,18 @@ import sessionHeaderMiddleware from './middleware/sessionHeaderMiddleware.js';
 // Cargar variables de entorno
 dotenv.config();
 
+// Manejadores de errores globales para evitar que la aplicación se caiga
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Aquí podrías añadir un sistema de logging más robusto
+});
+
+process.on('uncaughtException', (err, origin) => {
+  console.error(`❌ Caught exception: ${err}\n` + `Exception origin: ${origin}`);
+  // Aquí podrías añadir un sistema de logging más robusto
+});
+
+
 // Importar la base de datos
 import db from './database/db.js';
 import './database/associations.js';

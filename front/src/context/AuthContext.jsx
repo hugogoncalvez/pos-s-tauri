@@ -8,6 +8,7 @@ import { useIsTauri } from '../hooks/useIsTauri';
 import { exit } from '@tauri-apps/plugin-process';
 import { debounce } from '../functions/Debounce'; // Importar debounce
 import { info, error } from '@tauri-apps/plugin-log';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const AuthContext = createContext({
   usuario: null,
@@ -28,6 +29,7 @@ const MIN_CONSECUTIVE_SUCCESS = 2; // Requerir 2 éxitos para volver a ONLINE
 
 export const AuthProvider = ({ children }) => {
   const { isTauri, isLoading: isTauriLoading } = useIsTauri();
+  const queryClient = useQueryClient();
 
   info('[DEBUG] AuthProvider render START');
   const [usuario, setUsuario] = useState(null);
@@ -177,14 +179,21 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       error(`[AuthContext] Error al notificar al backend sobre el logout. Procediendo con limpieza local: ${err}`);
     } finally {
+      // Limpieza profunda del estado de la aplicación
       setUsuario(null);
       setIsAuthenticated(false);
       setPermisos([]);
       localStorage.removeItem('sessionID');
-      // Al cambiar el estado a no autenticado, el Router se encargará de redirigir a /login
-      // No es necesario un reload forzado.
+
+      // Limpiar la caché de React Query para eliminar todos los datos del usuario anterior
+      queryClient.clear();
+
+      info('[AuthContext] ✅ Limpieza de sesión completa. Redirigiendo a login.');
+
+      // Forzar recarga a la página de login para un estado 100% limpio.
+      window.location.href = '/auth';
     }
-  }, [isOnline]);
+  }, [isOnline, queryClient]);
 
   const logoutAndExit = useCallback(async () => {
     info('[AuthContext] 🚪 Ejecutando logoutAndExit...');
@@ -202,6 +211,9 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       error(`[AuthContext] Error al notificar al backend sobre el logout: ${err}`);
     } finally {
+      // Limpiar la caché de React Query primero
+      queryClient.clear();
+
       localStorage.clear();
       sessionStorage.clear();
       info('[AuthContext] ✅ Limpieza de storage completada. Cerrando aplicación en 300ms.');
@@ -209,7 +221,7 @@ export const AuthProvider = ({ children }) => {
         exit(0);
       }, 300);
     }
-  }, [isOnline]);
+  }, [isOnline, queryClient]);
 
   const login = async (username, password) => {
     if (isOnline) {

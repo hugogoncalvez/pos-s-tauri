@@ -14,12 +14,12 @@ import { attachConsole } from '@tauri-apps/plugin-log';
 const client = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <AuthProvider> {/* 1. AuthProvider envuelve todo */}
-    <QueryClientProvider client={client}>
-      <ThemeContextProvider> {/* 2. ThemeProvider adentro */}
+  <QueryClientProvider client={client}>
+    <AuthProvider>
+      <ThemeContextProvider>
         <RouterProvider router={router} future={{ v7_startTransition: true, v7_relativeSplatPath: true }} />
         <ReactQueryDevtools />
       </ThemeContextProvider>
-    </QueryClientProvider>
-  </AuthProvider>
+    </AuthProvider>
+  </QueryClientProvider>
 );
