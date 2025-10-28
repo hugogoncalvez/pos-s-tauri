@@ -4609,7 +4609,7 @@ export const createCashMovement = async (req, res) => {
             details: `Movimiento de caja registrado: ${type} de ${amount} en sesión ${cash_session_id}.`
         }, req);
 
-        res.status(201).json({ message: 'Movimiento de caja registrado correctamente', movement: newMovement });
+        res.status(201).json({ message: 'Movimiento de caja registrado correctamente', id: newMovement.id, movement: newMovement });
     } catch (error) {
         console.error("Error al crear movimiento de caja:", error);
         res.status(500).json({ message: error.message });

@@ -16,11 +16,11 @@ export const AuthContext = createContext({
   isAuthenticated: false,
   isLoading: true,
   permisos: [],
-  login: async () => {},
-  logout: async () => {},
-  logoutAndExit: async () => {},
-  verificarSesion: async () => {},
-  updateUserTheme: () => {},
+  login: async () => { },
+  logout: async () => { },
+  logoutAndExit: async () => { },
+  verificarSesion: async () => { },
+  updateUserTheme: () => { },
   isOnline: navigator.onLine,
 });
 export const useAuth = () => useContext(AuthContext);
@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [permisos, setPermisos] = useState([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  
+
   // Usar useRef para los contadores para no disparar re-renders
   const errorCountRef = useRef(0);
   const successCountRef = useRef(0);
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
     await info(`[AuthContext] Verificando conexión a: ${healthCheckUrl} (Errores: ${errorCountRef.current}, Éxitos: ${successCountRef.current})`);
 
     try {
-      const response = await Api.get('/health', { timeout: 15000 });
+      const response = await Api.get('/health', { timeout: 10000 });
       const data = response.data;
 
       if (data && data.db === true) {
@@ -93,7 +93,7 @@ export const AuthProvider = ({ children }) => {
     if (isTauri) {
       info('[AuthContext] 🌐 Modo Tauri: verificación activa de conectividad habilitada.');
       checkRealConnectivity(); // chequeo inicial
-      checkIntervalRef.current = setInterval(checkRealConnectivity, 30000); // Intervalo de 30 segundos
+      checkIntervalRef.current = setInterval(checkRealConnectivity, 20000); // Intervalo de 20 segundos
       return () => {
         if (checkIntervalRef.current) {
           clearInterval(checkIntervalRef.current);

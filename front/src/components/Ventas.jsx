@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, useContext } from 'react';
 import validator from 'validator';
 import Grid from '@mui/material/Unstable_Grid2';
@@ -33,6 +34,7 @@ import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
 import { mostrarInput } from '../functions/mostrarInput'; // <-- AÑADIDO
 import { mostrarCarga } from '../functions/mostrarCarga';
 import { Api } from '../api/api'; // Importar la instancia de axios
+import { db, syncServerTicketsToLocal } from '../db/offlineDB'; // Importar la instancia de Dexie
 import { syncService } from '../services/syncService'; // Importar el servicio de sincronización
 
 import { AuthContext } from '../context/AuthContext';
@@ -113,6 +115,7 @@ const Ventas = () => {
   //const screenSize = { width: window.innerWidth };
 
   const { usuario } = useContext(AuthContext);
+  const queryClient = useQueryClient();
 
   // Hook para verificar la sesión de caja activa
   const {
@@ -221,7 +224,6 @@ const Ventas = () => {
 
   const [formValues, handleInputChange, reset, resetArray, setFormValues] = useForm()
   const [isSavingSale, setIsSavingSale] = useState(false); // <--- REEMPLAZAR loadingSale
-  const { mutateAsync: createPendingTicket, isLoading: isCreatingTicket } = useSubmit();
   const { mutateAsync: deleteItem, isLoading: isDeletingTicket } = useDelete();
 
   const processedTempTable = useMemo(() => applyPromotions(tempTable, promotions), [tempTable, promotions]);
@@ -435,12 +437,17 @@ const handlePresentationModalClose = () => {
 
       if (response.success) {
         if (ticketIdToDelete) {
-          try {
-            await deleteItem({ url: '/pending-tickets', id: ticketIdToDelete });
-            refetchPendingTickets();
-          } catch (deleteError) {
-            console.error("Error al eliminar el ticket pendiente después de la venta:", deleteError);
-            mostrarError('La venta se completó, pero no se pudo eliminar el ticket pendiente.', theme);
+          const ticketToDeleteObject = pendingTickets.find(t => t.local_id === ticketIdToDelete);
+          if (ticketToDeleteObject) {
+            try {
+              await syncService.deletePendingTicket(ticketToDeleteObject, isOnline);
+              refetchPendingTickets(); // This will trigger a refetch and sync
+            } catch (deleteError) {
+              console.error("Error al eliminar el ticket pendiente después de la venta:", deleteError);
+              mostrarError('La venta se completó, pero no se pudo eliminar el ticket pendiente.', theme);
+            }
+          } else {
+            console.warn(`No se encontró el objeto del ticket pendiente con local_id: ${ticketIdToDelete} para eliminar.`);
           }
         }
 
@@ -510,8 +517,6 @@ const handlePresentationModalClose = () => {
       }, theme);
 
       if (result.isConfirmed && result.value) {
-        mostrarCarga('Guardando Ticket', theme);
-
         const ticketName = result.value;
         const { subtotal, impuesto, descuento: descuentoAplicado, totalFinal } = calcularTotal();
 
@@ -526,25 +531,29 @@ const handlePresentationModalClose = () => {
           descuento: descuentoAplicado,
           totalFinal,
           ivaActivo,
+          usuario: { nombre: usuario.nombre } // <-- AÑADIR INFO DEL USUARIO
         };
 
         const dataToSend = {
           name: ticketName.trim(),
           ticket_data,
-          user_id: usuario?.id,
-          cash_session_id: activeSessionData?.id,
+          cash_session_id: activeSessionData.id // <-- AÑADIR ID DE SESIÓN
         };
 
-        await createPendingTicket({
-          url: '/pending-tickets',
-          values: dataToSend,
-          showSuccessAlert: true,
-          successMessage: 'Ticket guardado correctamente'
-        });
+        const response = await syncService.savePendingTicket(dataToSend, isOnline); // ⭐ CAMBIO AQUÍ: Pasar isOnline
 
-        clearSaleState();
-        refetchPendingTickets();
-        // The modal is already closed if fromSummaryModal was true
+        if (response.success) {
+          if (response.synced) {
+            mostrarExito('Ticket guardado correctamente.', theme);
+          } else {
+            mostrarInfo('Ticket guardado localmente. Se sincronizará al recuperar la conexión.', theme);
+          }
+          clearSaleState();
+          refetchPendingTickets();
+        } else {
+          mostrarError('Error al guardar el ticket pendiente localmente.', theme);
+        }
+
       } else {
         if (fromSummaryModal) {
           setIsSummaryModalOpen(true);
@@ -552,15 +561,16 @@ const handlePresentationModalClose = () => {
       }
     } catch (error) {
       console.error('Error al guardar ticket pendiente:', error);
+      mostrarError('Error al guardar ticket pendiente: ' + (error.message || 'Error desconocido'), theme);
       if (fromSummaryModal) {
         setIsSummaryModalOpen(true);
       }
     }
   }, [
-    tempTable, usuario, activeSessionData, isLoadingActiveSession, theme,
-    createPendingTicket, clearSaleState, refetchPendingTickets, calcularTotal, 
+    tempTable, activeSessionData, isLoadingActiveSession, theme,
+    clearSaleState, refetchPendingTickets, calcularTotal, 
     selectedCustomer, selectedSinglePaymentType, paymentOption, mixedPayments, 
-    ivaActivo, setIsSummaryModalOpen
+    ivaActivo, setIsSummaryModalOpen, isOnline // ⭐ Agregar isOnline a las dependencias
   ]);
 
 
@@ -1146,8 +1156,8 @@ const handlePresentationModalClose = () => {
 
   // Función para cargar ticket pendiente
   const handleLoadPendingTicket = (ticket) => {
-    // El ticket ahora viene de la DB, los datos están en `ticket_data`
-    const data = ticket.ticket_data;
+    // El ticket viene de Dexie, los datos de la venta están en ticket.data.ticket_data
+    const data = ticket.data.ticket_data;
 
     setTempTable(data.tempTable);
     setSelectedCustomer(data.customer);
@@ -1156,7 +1166,7 @@ const handlePresentationModalClose = () => {
     setMixedPayments(data.mixedPayments || [{ payment_method_id: null, amount: '' }, { payment_method_id: null, amount: '' }]);
     setIvaActivo(data.ivaActivo);
     setDescuento(data.descuento);
-    setCurrentTicketId(ticket.id); // El ID es el del registro en la DB
+    setCurrentTicketId(ticket.local_id); // Usar el ID local para la gestión interna
     setShowPendingTickets(false);
 
     // Guardar en localStorage para persistencia local mientras se edita
@@ -1165,6 +1175,12 @@ const handlePresentationModalClose = () => {
 
   // Función para eliminar ticket pendiente
   const handleDeletePendingTicket = (ticketId) => {
+    const ticketToDelete = pendingTickets.find(t => t.local_id === ticketId);
+    if (!ticketToDelete) {
+      mostrarError('No se pudo encontrar el ticket para eliminar.', theme);
+      return;
+    }
+
     mostrarConfirmacion(
       {
         title: '¿Estás seguro?',
@@ -1176,18 +1192,20 @@ const handlePresentationModalClose = () => {
         mostrarCarga('Eliminando Ticket...', theme);
 
         try {
-          // The useDelete hook will show the success alert on its own.
-          await deleteItem({ url: `/pending-tickets`, id: ticketId });
+          const response = await syncService.deletePendingTicket(ticketToDelete, isOnline);
 
-          if (currentTicketId === ticketId) {
-            // If we were editing this ticket, clear the sale state
-            clearSaleState();
+          if (response.success) {
+            mostrarExito('Ticket eliminado correctamente.', theme);
+            if (currentTicketId === ticketId) {
+              clearSaleState();
+            }
+            queryClient.invalidateQueries({ queryKey: ['pendingTickets'] });
+          } else {
+            mostrarError('No se pudo eliminar el ticket.', theme);
           }
-
-          refetchPendingTickets(); // Refresh the list in the background
         } catch (error) {
-          // Error is handled by useDelete's onError callback
           console.error("Error al eliminar ticket:", error);
+          mostrarError('Ocurrió un error al eliminar el ticket.', theme);
         }
       }
     );

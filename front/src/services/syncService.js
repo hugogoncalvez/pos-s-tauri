@@ -1,4 +1,4 @@
-import { db, setLastSyncTime } from '../db/offlineDB';
+import { db, setLastSyncTime, addLocalPendingTicket, closeLocalPendingTicket } from '../db/offlineDB';
 import { Api } from '../api/api';
 
 class SyncService {
@@ -140,7 +140,7 @@ class SyncService {
       await setLastSyncTime(Date.now());
 
       // Limpiar cualquier venta pendiente ya sincronizada después de una carga exitosa de datos de referencia
-      await this.clearPendingSales();
+      await this.clearPendingSales(userId);
 
       console.log('✅ Datos de referencia cargados exitosamente.');
       this.notifyListeners({ status: 'success', message: 'Datos actualizados.' });
@@ -222,12 +222,12 @@ class SyncService {
         
         console.log(`[SyncService] ✅ Venta ${localId} sincronizada inmediatamente (ID Servidor: ${response.data.id})`);
         
-        this.triggerSyncStatusUpdate();
+        this.triggerSyncStatusUpdate(saleData.user_id);
         return { success: true, id: response.data.id, localId, synced: true };
       } catch (error) {
         console.error(`[SyncService] ⚠️ Error en la sincronización inmediata de la venta ${localId}. Queda pendiente.`, error);
         
-        this.triggerSyncStatusUpdate();
+        this.triggerSyncStatusUpdate(saleData.user_id);
         return { success: true, localId, synced: false, error: 'Error en la sincronización inmediata' };
       }
     }
@@ -235,7 +235,85 @@ class SyncService {
     // Si estamos offline, la operación ya es un éxito a nivel local
     console.log(`[SyncService] 💾 Venta ${localId} guardada localmente, pendiente de sincronización.`);
     
-    this.triggerSyncStatusUpdate();
+    this.triggerSyncStatusUpdate(saleData.user_id);
+    return { success: true, localId, synced: false };
+  }
+
+  async savePendingTicket(ticketData, isOnline) {
+    if (isOnline) {
+      try {
+        // When online, just send to the server. The onSuccess in the component will handle local sync.
+        const response = await Api.post('/pending-tickets', ticketData);
+        console.log(`[SyncService] 🎫 Ticket pendiente enviado al servidor (ID: ${response.data.ticket.id})`);
+        return { success: true, synced: true, id: response.data.ticket.id };
+      } catch (error) {
+        console.error('[SyncService] ⚠️ Error enviando el ticket pendiente al servidor.', error);
+        // Even if online fails, we save it locally to not lose data.
+        const localId = await addLocalPendingTicket(ticketData);
+        return { success: true, synced: false, localId, error: 'Error en la sincronización' };
+      }
+    } else {
+      // When offline, save it locally with 'created' status.
+      const localId = await addLocalPendingTicket(ticketData);
+      console.log(`[SyncService] 💾 Ticket pendiente guardado localmente con ID: ${localId}.`);
+      this.triggerSyncStatusUpdate(ticketData.user_id);
+      return { success: true, synced: false, localId };
+    }
+  }
+
+  async deletePendingTicket(ticket, isOnline) {
+    if (isOnline) {
+      try {
+        // If the ticket has a server_id, delete it from the server.
+        if (ticket.server_id) {
+          await Api.delete(`/pending-tickets/${ticket.server_id}`);
+        }
+        // Regardless, we remove it from the local DB immediately for UI consistency.
+        await db.pending_tickets.delete(ticket.local_id);
+        console.log(`[SyncService] 🗑️ Ticket ${ticket.local_id} eliminado del servidor y localmente.`);
+        return { success: true, synced: true };
+      } catch (error) {
+        console.error('[SyncService] ⚠️ Error eliminando ticket en modo online. Marcando para eliminación local.', error);
+        await closeLocalPendingTicket(ticket.local_id);
+        return { success: true, synced: false, error: 'Error en la sincronización' };
+      }
+    } else {
+      // If offline, just mark for deletion.
+      await closeLocalPendingTicket(ticket.local_id);
+      console.log(`[SyncService] 标记 Ticket ${ticket.local_id} para eliminación.`);
+      return { success: true, synced: false };
+    }
+  }
+
+  async saveCashMovement(movementData, isOnline) {
+    const timestamp = Date.now();
+    let localSession = null;
+    try {
+      localSession = await db.active_cash_session.toCollection().first();
+    } catch (e) {
+      console.warn('[SyncService] No se pudo leer la sesión de caja local.', e);
+      throw new Error('No hay una sesión de caja activa localmente para registrar el movimiento.');
+    }
+
+    if (!localSession || !localSession.id) {
+      throw new Error('No hay una sesión de caja activa para registrar el movimiento.');
+    }
+
+    const movementToQueue = {
+      ...movementData,
+      timestamp,
+      cash_session_id: localSession.id,
+      user_id: localSession.user_id, // Or get from movementData if available
+      synced: 0,
+      server_id: null,
+      retryCount: 0,
+      lastError: null,
+    };
+
+    const localId = await db.pending_cash_movements.add(movementToQueue);
+    console.log(`[SyncService] 💸 Movimiento de caja guardado localmente con ID: ${localId}.`);
+    
+    this.triggerSyncStatusUpdate(localSession.user_id);
     return { success: true, localId, synced: false };
   }
 
@@ -406,7 +484,162 @@ class SyncService {
     }
 
     const permanentlyFailedCount = await db.pending_sales.where('synced').equals(-1).count();
+
+    this.triggerSyncStatusUpdate(); // Notificar a los listeners para que la UI se actualice
+    await this.clearPendingSales(); // Limpiar ventas ya sincronizadas
+
     return { synced: syncedCount, failed: failedCount, permanentlyFailed: permanentlyFailedCount };
+  }
+
+  async syncPendingCashMovements(userId, onProgress) {
+    if (this.isSyncing) {
+      console.warn('[SyncService] Sync already in progress, skipping cash movements sync.');
+      return { synced: 0, failed: 0, alreadySyncing: true };
+    }
+    
+    try {
+      this.isSyncing = true;
+      const pendingMovements = await db.pending_cash_movements
+        .where('synced').equals(0)
+        .and(mov => mov.user_id === userId)
+        .filter(mov => (mov.retryCount || 0) < this.MAX_RETRIES)
+        .toArray();
+
+      const total = pendingMovements.length;
+      if (total === 0) {
+        return { synced: 0, failed: 0 };
+      }
+
+      console.log(`[SyncService] 📤 Sincronizando ${total} movimiento(s) de caja pendientes...`);
+      let syncedCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < total; i++) {
+        const movement = pendingMovements[i];
+        if(onProgress) onProgress({ current: i + 1, total });
+
+        try {
+          const { local_id, synced, server_id, retryCount, lastError, ...movementData } = movement;
+          
+          const response = await Api.post('/cash-sessions/movement', movementData);
+          
+          await db.pending_cash_movements.update(local_id, {
+            synced: 1,
+            server_id: response.data.id,
+            lastError: null,
+          });
+          
+          syncedCount++;
+          console.log(`[SyncService] ✅ Movimiento de caja local ${local_id} sincronizado (ID Servidor: ${response.data.id})`);
+        } catch (error) {
+          failedCount++;
+          const newRetryCount = (movement.retryCount || 0) + 1;
+          const errorMessage = error.response?.data?.error || error.message;
+
+          if (newRetryCount >= this.MAX_RETRIES) {
+            await db.pending_cash_movements.update(movement.local_id, {
+              synced: -1,
+              lastError: `Fallo permanente: ${errorMessage}`,
+              retryCount: newRetryCount,
+            });
+            console.error(`❌ Movimiento de caja local ${movement.local_id} marcado como fallido permanentemente.`);
+          } else {
+            await db.pending_cash_movements.update(movement.local_id, {
+              retryCount: newRetryCount,
+              lastError: errorMessage,
+            });
+            console.error(`❌ Error sincronizando movimiento de caja local ${movement.local_id}. Intento ${newRetryCount}/${this.MAX_RETRIES}.`);
+          }
+        }
+      }
+      
+      this.triggerSyncStatusUpdate(userId);
+      await this.clearPendingCashMovements(userId);
+
+      return { synced: syncedCount, failed: failedCount };
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  async syncPendingTickets(userId, onProgress) {
+    if (this.isSyncing) {
+      console.warn('[SyncService] Sync already in progress, skipping pending tickets sync.');
+      return { synced: 0, failed: 0, alreadySyncing: true };
+    }
+
+    try {
+      this.isSyncing = true;
+      const ticketsToSync = await db.pending_tickets
+        .where('sync_status').notEqual('synced')
+        .toArray();
+
+      const total = ticketsToSync.length;
+      if (total === 0) {
+        return { synced: 0, failed: 0 };
+      }
+
+      console.log(`[SyncService] 📤 Sincronizando ${total} ticket(s) pendiente(s) con cambios locales...`);
+      let syncedCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < total; i++) {
+        const ticket = ticketsToSync[i];
+        if (onProgress) onProgress({ current: i + 1, total });
+
+        try {
+          let response;
+          switch (ticket.sync_status) {
+            case 'created':
+              console.log(`[SyncService]   - POSTing ticket local_id: ${ticket.local_id}`);
+              response = await Api.post('/pending-tickets', ticket.data);
+              await db.pending_tickets.update(ticket.local_id, {
+                server_id: response.data.ticket.id,
+                sync_status: 'synced'
+              });
+              break;
+
+            case 'updated': // Future use
+              console.log(`[SyncService]   - PUTing ticket server_id: ${ticket.server_id}`);
+              await Api.put(`/pending-tickets/${ticket.server_id}`, ticket.data);
+              await db.pending_tickets.update(ticket.local_id, { sync_status: 'synced' });
+              break;
+
+            case 'deleted':
+              console.log(`[SyncService]   - DELETing ticket server_id: ${ticket.server_id}`);
+              await Api.delete(`/pending-tickets/${ticket.server_id}`);
+              // On successful deletion from server, remove from local DB.
+              await db.pending_tickets.delete(ticket.local_id);
+              break;
+          }
+          syncedCount++;
+        } catch (error) {
+          failedCount++;
+          console.error(`❌ Error sincronizando ticket local ${ticket.local_id}.`, error);
+          // Optional: Implement retry logic here if needed
+        }
+      }
+
+      this.triggerSyncStatusUpdate(userId);
+      console.log(`[SyncService] ✅ Sincronización de tickets completada. ${syncedCount} exitosos, ${failedCount} fallidos.`);
+      return { synced: syncedCount, failed: failedCount };
+
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+
+  async clearPendingCashMovements(userId) {
+    try {
+      const count = await db.pending_cash_movements.where('synced').anyOf(1, -1).delete();
+      console.log(`🗑️ ${count} movimientos de caja sincronizados o fallidos eliminados de la cola local.`);
+      this.triggerSyncStatusUpdate(userId);
+      return { success: true, count };
+    } catch (error) {
+      console.error('❌ Error al limpiar movimientos de caja pendientes:', error);
+      return { success: false, error };
+    }
   }
 
   /**
@@ -426,14 +659,20 @@ class SyncService {
 
     // Add pending tickets count
     const pendingTicketsCount = await db.pending_tickets
-      .where('synced').equals(0)
-      .and(ticket => ticket.user_id === userId) // Filter by user_id
+      .where('sync_status').notEqual('synced')
+      .and(ticket => ticket.data.user_id === userId)
       .count();
 
-    console.log(`[SyncService] 📊 Ventas pendientes detectadas para el usuario ${userId}: ${pendingSalesCount}, Tickets pendientes: ${pendingTicketsCount}, Fallidas permanentemente: ${permanentlyFailedSalesCount}`);
+    const pendingCashMovementsCount = await db.pending_cash_movements
+      .where('synced').equals(0)
+      .and(movement => movement.user_id === userId)
+      .count();
+
+    console.log(`[SyncService] 📊 Ventas pendientes detectadas para el usuario ${userId}: ${pendingSalesCount}, Tickets pendientes: ${pendingTicketsCount}, Movimientos de caja pendientes: ${pendingCashMovementsCount}, Fallidas permanentemente: ${permanentlyFailedSalesCount}`);
     return {
       pendingSales: pendingSalesCount,
-      pendingTickets: pendingTicketsCount, // Add pendingTickets
+      pendingTickets: pendingTicketsCount,
+      pendingCashMovements: pendingCashMovementsCount, // Add pendingCashMovements
       permanentlyFailedSales: permanentlyFailedSalesCount
     };
   }
@@ -442,9 +681,9 @@ class SyncService {
    * Obtiene las estadísticas de sincronización y notifica a los listeners.
    * Útil para forzar una actualización de la UI desde fuera del servicio.
    */
-  async triggerSyncStatusUpdate() {
-    console.log('[SyncService] 🔄 Forzando actualización del estado de sincronización...');
-    const stats = await this.getSyncStats();
+  async triggerSyncStatusUpdate(userId) {
+    console.log(`[SyncService] 🔄 Forzando actualización del estado de sincronización para el usuario ${userId}...`);
+    const stats = await this.getSyncStats(userId);
     this.notifyListeners(stats);
   }
 

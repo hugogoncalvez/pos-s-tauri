@@ -45,7 +45,7 @@ const PendingTicketsModal = ({
       open={showPendingTickets}
       onClose={() => setShowPendingTickets(false)}
       aria-labelledby="pending-tickets-dialog-title"
-      maxWidth="md"
+      maxWidth="lg"
       fullWidth
     >
       <DialogTitle 
@@ -112,17 +112,17 @@ const PendingTicketsModal = ({
               </TableHead>
               <TableBody>
                 {pendingTickets.map((row) => (
-                  <Tooltip title={allowLoading ? "Hacer clic para cargar este ticket" : ""} placement="top" arrow key={row.id}>
+                  <Tooltip key={row.local_id} title={allowLoading ? "Hacer clic para cargar este ticket" : ""} placement="top" arrow>
                     <StyledTableRow
                       hover
                       onClick={() => allowLoading && handleLoadPendingTicket(row)}
                       sx={{ cursor: allowLoading ? 'pointer' : 'default' }}
                     >
-                      <StyledTableCell component="th" scope="row">{row.name}</StyledTableCell>
-                      <StyledTableCell align="center">{row.ticket_data.customer?.name || 'Consumidor Final'}</StyledTableCell>
-                      <StyledTableCell align="center">${row.ticket_data.totalFinal?.toFixed(2)}</StyledTableCell>
-                      <StyledTableCell align="center">{row.usuario?.nombre || 'N/A'}</StyledTableCell>
-                      <StyledTableCell align="center">{moment(row.createdAt).format('DD/MM/YYYY HH:mm')}</StyledTableCell>
+                      <StyledTableCell component="th" scope="row">{row.data.name}</StyledTableCell>
+                      <StyledTableCell align="center">{row.data.ticket_data.customer?.name || 'Consumidor Final'}</StyledTableCell>
+                      <StyledTableCell align="center">${row.data.ticket_data.totalFinal?.toFixed(2)}</StyledTableCell>
+                      <StyledTableCell align="center">{row.data.usuario?.nombre || 'N/A'}</StyledTableCell>
+                      <StyledTableCell align="center">{moment(row.data.createdAt).format('DD/MM/YYYY HH:mm')}</StyledTableCell>
                       <StyledTableCell align="center">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', alignItems: 'center' }}>
                           {allowLoading && (
@@ -134,7 +134,7 @@ const PendingTicketsModal = ({
                               size="small"
                               onClick={(e) => {
                                 e.stopPropagation(); // Previene que el clic se propague a la fila
-                                handleDeletePendingTicket(row.id);
+                                handleDeletePendingTicket(row.local_id);
                               }}
                             >
                               <DeleteForeverIcon />

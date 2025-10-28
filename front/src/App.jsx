@@ -22,7 +22,7 @@ function App() {
     handleSyncComplete,
   } = useSyncManager();
 
-  const totalPendingCount = pendingSync.pendingSales + pendingSync.pendingTickets;
+  const totalPendingCount = (pendingSync.pendingSales || 0) + (pendingSync.pendingTickets || 0) + (pendingSync.pendingCashMovements || 0);
 
   const { activeSession, isLoadingActiveSession } = useCashRegister();
 
@@ -30,7 +30,7 @@ function App() {
     const initUser = async () => {
       if (isAuthenticated && user) {
         await initializeOfflineUser(user.id.toString());
-        await syncService.loadReferenceData(user.id);
+        // await syncService.loadReferenceData(user.id);
       }
     };
     initUser();

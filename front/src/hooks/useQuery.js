@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Api } from "../api/api";
-import { db, OFFLINE_USER } from "../db/offlineDB";
+import { db, OFFLINE_USER, getVisiblePendingTickets, syncServerTicketsToLocal } from "../db/offlineDB";
 import { useOnlineStatus } from "./useOnlineStatus";
 
 const ENDPOINT_TO_TABLE = {
@@ -98,6 +98,11 @@ const handleOfflineQuery = async (url) => {
       }
     }
 
+    if (tableName === 'pending_tickets') {
+      console.log('[Offline Query] Consultando tickets pendientes visibles.');
+      return getVisiblePendingTickets();
+    }
+
     const data = await db[tableName].toArray();
     if (tableName === 'customers') {
       console.log(`[Offline Query - Customers] Data from Dexie:`, data);
@@ -152,6 +157,15 @@ export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale
 
       if (!isOnline) {
         return handleOfflineQuery(queryFnOrUrl);
+      }
+
+      // Special handling for pending tickets to ensure data consistency
+      if (queryFnOrUrl === '/pending-tickets') {
+        console.log("🔄 Fetching and syncing pending tickets...");
+        const res = await Api.get(queryFnOrUrl);
+        const serverData = res.data || [];
+        await syncServerTicketsToLocal(serverData);
+        return getVisiblePendingTickets(); // Always return data from Dexie in the correct format
       }
 
       const res = await Api.get(queryFnOrUrl);

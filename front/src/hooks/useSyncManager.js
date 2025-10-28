@@ -9,43 +9,12 @@ export const useSyncManager = () => {
   const { isOnline } = useOnlineStatus();
   const { isAuthenticated, usuario } = useContext(AuthContext);
   const queryClient = useQueryClient(); // Get queryClient
-  const [pendingSync, setPendingSync] = useState({ pendingSales: 0, pendingTickets: 0, permanentlyFailedSales: 0 });
+  const [pendingSync, setPendingSync] = useState({ pendingSales: 0, pendingTickets: 0, pendingCashMovements: 0, permanentlyFailedSales: 0 });
   const [showSyncModal, setShowSyncModal] = useState(false);
 
-  const handleSyncClick = useCallback(async () => {
-    if (!isOnline) {
-      console.warn('[SyncManager] No hay conexión, saltando sincronización manual.');
-      return;
-    }
-    if (!usuario?.id) {
-      console.warn('[SyncManager] No hay usuario logueado, saltando sincronización manual.');
-      return;
-    }
-
-    setShowSyncModal(true); // Show modal while syncing
-
-    try {
-      // recargar referencia (repoblar Dexie)
-      await syncService.loadReferenceData(usuario.id);
-      
-      // si existen ventas pendientes, sincronizarlas
-      const activeSession = await db.active_cash_session.toCollection().first();
-      if (activeSession && activeSession.id) {
-        await syncService.syncPendingSalesWithSession(activeSession.id, usuario.id, (p)=>console.log('sync progress', p));
-      } else {
-        await syncService.syncPendingSales(usuario.id);
-      }
-      
-      // Invalidar queries para refrescar la UI después de la sincronización
-      queryClient.invalidateQueries(); // Invalidate all queries for a full refresh
-      
-    } catch (err) {
-      console.error('Error en sincronización manual:', err);
-      // Optionally show a Swal error here
-    } finally {
-      // setShowSyncModal(false); // Modal will be closed by handleSyncComplete
-    }
-  }, [isOnline, usuario, queryClient]);
+  const handleSyncClick = useCallback(() => {
+    setShowSyncModal(true);
+  }, []);
 
   const handleSyncComplete = useCallback(() => {
     setShowSyncModal(false);
@@ -58,7 +27,7 @@ export const useSyncManager = () => {
         const stats = await syncService.getSyncStats(usuario.id);
         setPendingSync(stats);
       } else {
-        setPendingSync({ pendingSales: 0, permanentlyFailedSales: 0 }); // Clear stats if no user
+        setPendingSync({ pendingSales: 0, pendingTickets: 0, pendingCashMovements: 0, permanentlyFailedSales: 0 }); // Clear stats if no user
       }
     };
 

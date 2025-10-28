@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useContext } from 'react';
+import { useTheme } from '@mui/material/styles';
 import { AuthContext } from '../context/AuthContext'; // Asumo que AuthContext proporciona el usuario
-import { Api } from '../api/api'; // Asumo que tienes una instancia de Axios configurada
 import { UseFetchQuery } from './useQuery'; // Para obtener la sesión activa
-import { useSubmit } from './useSubmit'; // Para enviar el movimiento
-import Swal from 'sweetalert2';
-import { info } from '@tauri-apps/plugin-log';
+import { syncService } from '../services/syncService';
+import { useOnlineStatus } from './useOnlineStatus';
+import { mostrarExito } from '../functions/mostrarExito';
+import { mostrarError } from '../functions/MostrarError';
+
 
 /**
  * @typedef {object} CashSession
@@ -27,6 +29,9 @@ export const useCashRegister = () => {
     const { usuario: user, isLoading: authLoading } = useContext(AuthContext); // Obtener el usuario autenticado y el estado de carga de AuthContext
     const userId = user?.id; // ID del usuario
     const userName = user?.username; // Nombre del usuario
+    const { isOnline } = useOnlineStatus();
+    const [isSavingMovement, setIsSavingMovement] = useState(false);
+    const theme = useTheme();
 
     console.log(`[useCashRegister] Query enabled condition: !authLoading (${!authLoading}) && !!userId (${!!userId}) = ${!authLoading && !!userId}`);
 
@@ -38,51 +43,39 @@ export const useCashRegister = () => {
         0 // staleTime: 0 para que siempre se considere stale y se intente refetch al backend cuando isOnline es true
     );
 
-    info(`[useCashRegister DEBUG] rawActiveSessionData recibido: ${JSON.stringify(rawActiveSessionData)}`);
-
     /** @type {CashSession | null} */
     const activeSession = rawActiveSessionData?.hasActiveSession ? rawActiveSessionData.session : null;
-
-    info(`[useCashRegister DEBUG] activeSession procesado: ${JSON.stringify(activeSession)}`);
-
-    // Hook para enviar datos al backend (para crear movimientos)
-    const { mutateAsync: submitMovement, isLoading: isSavingMovement } = useSubmit();
 
     /**
      * @function createCashMovement
      * @description Registra un nuevo movimiento de efectivo (ingreso/egreso) en la sesión activa.
-     * @param {'ingreso' | 'egreso'} type - Tipo de movimiento.
-     * @param {number} amount - Monto del movimiento.
-     * @param {string} description - Descripción del movimiento.
+     * @param {object} movementData - Objeto con { amount, type, description }.
      * @returns {Promise<boolean>} True si el movimiento se registró con éxito, false en caso contrario.
      */
-    const createCashMovement = useCallback(async (movementData) => { // Changed arguments to a single object
-        const { amount, type, description } = movementData; // Destructure movementData
-        if (!activeSession?.id) {
-            Swal.fire('Error', 'No hay una sesión de caja activa para registrar movimientos.', 'error');
-            return false;
-        }
-
+    const createCashMovement = useCallback(async (movementData) => {
+        setIsSavingMovement(true);
         try {
-            await submitMovement({
-                url: '/cash-sessions/movement',
-                values: {
-                    cash_session_id: activeSession.id,
-                    amount,
-                    type,
-                    description
-                },
-                method: 'post' // Asegurarse de que sea un POST
-            });
-            refetchActiveSession(); // Refrescar la sesión activa para actualizar el monto actual
-            return true;
+            const result = await syncService.saveCashMovement(movementData);
+
+            if (result.success) {
+                mostrarExito('Movimiento guardado localmente. Se sincronizará más tarde.', theme);
+                
+                // Si estamos online, refrescamos la sesión para que el usuario vea el cambio,
+                // aunque el dato real se actualizará tras la sincronización.
+                if (isOnline) {
+                    refetchActiveSession();
+                }
+                return true;
+            }
+            return false; // Should not be reached if saveCashMovement throws on failure
         } catch (error) {
             console.error('Error al crear movimiento de caja:', error);
-            const errorMessage = error.response?.data?.message || 'Error al registrar el movimiento.';
-            Swal.fire('Error', errorMessage, 'error');
+            mostrarError(error.message || 'Error al registrar el movimiento.', theme);
             return false;
+        } finally {
+            setIsSavingMovement(false);
         }
-    }, [activeSession, submitMovement, refetchActiveSession]);
+    }, [isOnline, refetchActiveSession, theme]);
 
     return {
         activeSession,

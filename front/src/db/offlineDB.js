@@ -2,7 +2,7 @@ import Dexie from 'dexie';
 
 export const db = new Dexie('POSOfflineDB');
 
-db.version(3).stores({
+db.version(5).stores({
   // --- Datos Maestros (Caché del servidor) ---
   stock: '++id, name, barcode, price, stock, tipo_venta, category_id',
   presentations: '++id, stock_id, barcode, name, price',
@@ -20,16 +20,12 @@ db.version(3).stores({
 
   // --- Colas de Sincronización ---
   pending_sales: '++local_id, timestamp, synced, server_id, cash_session_id, user_id',
-  pending_tickets: '++local_id, id, name, ticket_data, synced, server_id',
+  pending_tickets: '++local_id, server_id, sync_status',
+  pending_cash_movements: '++local_id, synced, user_id, cash_session_id', // <--- NUEVA TABLA
   
   // --- Configuración y Metadatos Offline ---
   sync_metadata: 'key, value, updated_at', // 'key' será 'last_sync'
   offline_config: 'key, value' // Para guardar configuraciones como el usuario offline
-}).upgrade(async (tx) => {
-  // Add user_id to existing pending_sales entries
-  await tx.pending_sales.toCollection().modify(sale => {
-    sale.user_id = null; // Set to null for existing sales
-  });
 });
 
 // --- Definición del Usuario Offline ---
@@ -86,6 +82,102 @@ export const setLastSyncTime = async (timestamp) => {
     value: timestamp,
     updated_at: Date.now()
   });
+};
+
+// --- Pending Tickets Sync Functions ---
+
+/**
+ * Retrieves all pending tickets that should be visible to the user.
+ * Filters out tickets marked as 'deleted'.
+ * @returns {Promise<Array>}
+ */
+export const getVisiblePendingTickets = async () => {
+  return await db.pending_tickets.where('sync_status').notEqual('deleted').toArray();
+};
+
+/**
+ * Proactively syncs tickets from the server to the local Dexie DB.
+ * This function preserves local changes (created, updated, deleted tickets).
+ * @param {Array} serverTickets - The array of tickets from the server.
+ */
+export const syncServerTicketsToLocal = async (serverTickets) => {
+  try {
+    const localTickets = await db.pending_tickets.toArray();
+    const localTicketsByServerId = new Map(localTickets.filter(t => t.server_id).map(t => [t.server_id, t]));
+    const serverTicketIds = new Set(serverTickets.map(t => t.id));
+
+    const ticketsToAdd = [];
+    const ticketsToDelete = [];
+
+    // 1. Find tickets that are on the server but not locally
+    for (const serverTicket of serverTickets) {
+      if (!localTicketsByServerId.has(serverTicket.id)) {
+        ticketsToAdd.push({
+          server_id: serverTicket.id,
+          data: serverTicket,
+          sync_status: 'synced'
+        });
+      }
+    }
+
+    // 2. Find local tickets that are no longer on the server (and shouldn't be kept)
+    for (const localTicket of localTickets) {
+      if (localTicket.server_id && localTicket.sync_status === 'synced' && !serverTicketIds.has(localTicket.server_id)) {
+        ticketsToDelete.push(localTicket.local_id);
+      }
+    }
+
+    // 3. Perform DB operations in a transaction
+    if (ticketsToAdd.length > 0 || ticketsToDelete.length > 0) {
+      await db.transaction('rw', db.pending_tickets, async () => {
+        if (ticketsToAdd.length > 0) {
+          await db.pending_tickets.bulkAdd(ticketsToAdd);
+        }
+        if (ticketsToDelete.length > 0) {
+          await db.pending_tickets.bulkDelete(ticketsToDelete);
+        }
+      });
+      console.log(`🔄 Tickets pendientes sincronizados. Añadidos: ${ticketsToAdd.length}, Eliminados: ${ticketsToDelete.length}`);
+    } else {
+      console.log('🔄 Tickets pendientes ya estaban sincronizados.');
+    }
+
+  } catch (error) {
+    console.error('Error durante la sincronización proactiva de tickets:', error);
+  }
+};
+
+/**
+ * Adds a new pending ticket created while offline.
+ * @param {Object} ticketData - The data for the new ticket.
+ * @returns {Promise<number>} The local_id of the new ticket.
+ */
+export const addLocalPendingTicket = async (ticketData) => {
+  const newTicket = {
+    server_id: null,
+    data: ticketData,
+    sync_status: 'created'
+  };
+  return await db.pending_tickets.add(newTicket);
+};
+
+/**
+ * Handles closing a pending ticket while offline.
+ * If the ticket was from the server, it's marked as 'deleted' for later sync.
+ * If the ticket was created locally, it's deleted immediately.
+ * @param {number} localId - The local_id of the ticket to close.
+ */
+export const closeLocalPendingTicket = async (localId) => {
+  const ticket = await db.pending_tickets.get(localId);
+  if (!ticket) return;
+
+  if (ticket.sync_status === 'created') {
+    // Created offline and closed offline, just delete it.
+    await db.pending_tickets.delete(localId);
+  } else {
+    // Synced from server or updated locally, mark for deletion.
+    await db.pending_tickets.update(localId, { sync_status: 'deleted' });
+  }
 };
 
 // Auto-inicializar el usuario offline al cargar el módulo
