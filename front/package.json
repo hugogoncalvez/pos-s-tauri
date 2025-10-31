@@ -28,6 +28,7 @@
     "@tauri-apps/plugin-shell": "^2.3.1",
     "axios": "^1.7.4",
     "dexie": "^4.2.0",
+    "dexie-react-hooks": "^4.2.0",
     "framer-motion": "^11.3.29",
     "jsbarcode": "^3.12.1",
     "moment": "^2.30.1",

@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import {
   DialogTitle,
   DialogContent,
@@ -22,6 +23,7 @@ import UserPermissionOverrideManager from './UserPermissionOverrideManager.jsx';
 import modulePermissions from '../../../back/config/modulePermissions';
 
 const PermissionManager = ({ open, onClose, user }) => {
+  const queryClient = useQueryClient();
   const [openGranularModal, setOpenGranularModal] = useState(false);
   const [selectedModule, setSelectedModule] = useState(null);
 
@@ -44,6 +46,8 @@ const PermissionManager = ({ open, onClose, user }) => {
     open
   );
 
+  console.log('[PermissionManager] userPermissions:', userPermissions);
+
   const updateModule = useSubmit('updateUserModule');
 
   useEffect(() => {
@@ -52,23 +56,25 @@ const PermissionManager = ({ open, onClose, user }) => {
     }
   }, [open, user, refetchUserPermissions]);
 
-
-
   // 2. MANEJAR CAMBIOS
   const handleModuleChange = async (moduleName, isActive) => {
+    console.log(`[PermissionManager] handleModuleChange: Módulo: ${moduleName}, IsActive: ${isActive}`);
     await updateModule.mutateAsync({
       url: `/users/${user.id}/modules`,
       values: { module: moduleName, active: isActive },
       showSuccessAlert: true,
       toastSuccess: true,
       successMessage: `Módulo '${moduleName}' ${isActive ? 'concedido' : 'revocado'} para ${user.nombre}.`
+    }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['userPermissions', user?.id]);
+      }
     });
-    refetchUserPermissions();
   };
 
   // 3. LÓGICA PARA DETERMINAR PERMISOS
-  const hasPermission = useMemo(() => {
-    if (!userPermissions || !allPermissions) return () => false;
+  const hasPermission = (permissionName) => {
+    if (!userPermissions || !allPermissions) return false;
 
     const rolePermissionIds = new Set(userPermissions.rolePermissions?.map(p => p.id) || []);
     const finalPermissionIds = new Set(rolePermissionIds);
@@ -81,13 +87,11 @@ const PermissionManager = ({ open, onClose, user }) => {
       }
     });
 
-    return (permissionName) => {
-      if (!permissionName) return false; // Modules without a required permission should be visible
-      const permission = allPermissions.find(p => p.nombre === permissionName);
-      if (!permission) return false;
-      return finalPermissionIds.has(permission.id);
-    };
-  }, [userPermissions, allPermissions]);
+    if (!permissionName) return false;
+    const permission = allPermissions.find(p => p.nombre === permissionName);
+    if (!permission) return false;
+    return finalPermissionIds.has(permission.id);
+  };
 
   const isLoading = isLoadingElements || isLoadingUserPerms || isLoadingAllPerms;
   const isError = isErrorElements || isErrorUserPerms || isErrorAllPerms;
@@ -111,39 +115,44 @@ const PermissionManager = ({ open, onClose, user }) => {
 
           {!isLoading && !isError && landingElements && (
             <FormGroup>
-              {landingElements.sort((a, b) => a.orden - b.orden).map((element) => (
-                <Tooltip key={element.id} title={`Activa o desactiva el acceso a ${element.nombre} y todos sus permisos asociados.`} placement="right">
-                  <FormControlLabel
-                    control={<Switch checked={hasPermission(modulePermissions[element.nombre]?.vista)} onChange={(e) => handleModuleChange(element.nombre, e.target.checked)} />}
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ fontWeight: 500, fontSize: '1.1rem' }}>
-                          {element.nombre}
-                        </Typography>
-                        {modulePermissions[element.nombre] && (
-                          <Tooltip title="Ver y gestionar permisos detallados">
-                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); setSelectedModule(element.nombre); setOpenGranularModal(true); }}>
-                              <VpnKeyIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    }
-                    sx={{
-                      borderBottom: 1,
-                      borderColor: 'divider',
-                      py: 1,
-                      mx: 0,
-                      width: '100%',
-                      justifyContent: 'space-between',
-                      '& .MuiFormControlLabel-label': {
-                        fontWeight: 500,
-                        fontSize: '1.1rem'
+              {landingElements.sort((a, b) => a.orden - b.orden).map((element) => {
+                const viewPermission = modulePermissions[element.nombre]?.vista;
+                const isChecked = hasPermission(viewPermission);
+                console.log(`[PermissionManager] Módulo: ${element.nombre}, Permiso: ${viewPermission}, Checked: ${isChecked}`);
+                return (
+                  <Tooltip key={element.id} title={`Activa o desactiva el acceso a ${element.nombre} y todos sus permisos asociados.`} placement="right">
+                    <FormControlLabel
+                      control={<Switch checked={isChecked} onChange={(e) => handleModuleChange(element.nombre, e.target.checked)} />}
+                      label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography sx={{ fontWeight: 500, fontSize: '1.1rem' }}>
+                            {element.nombre}
+                          </Typography>
+                          {modulePermissions[element.nombre] && (
+                            <Tooltip title="Ver y gestionar permisos detallados">
+                              <IconButton size="small" onClick={(e) => { e.stopPropagation(); setSelectedModule(element.nombre); setOpenGranularModal(true); }}>
+                                <VpnKeyIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
                       }
-                    }}
-                  />
-                </Tooltip>
-              ))}
+                      sx={{
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                        py: 1,
+                        mx: 0,
+                        width: '100%',
+                        justifyContent: 'space-between',
+                        '& .MuiFormControlLabel-label': {
+                          fontWeight: 500,
+                          fontSize: '1.1rem'
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                );
+              })}
             </FormGroup>
           )}
         </DialogContent>

@@ -10,8 +10,17 @@ import './styles/global.css'; // Importar estilos globales
 import moment from 'moment';
 import 'moment/locale/es';
 import { attachConsole } from '@tauri-apps/plugin-log';
+import { db } from './db/offlineDB'; // Importar la instancia de Dexie
+import { syncService } from './services/syncService'; // Importar el servicio de sincronización
 
 const client = new QueryClient();
+
+// Inyectar el cliente de React Query en el servicio de sincronización
+syncService.setQueryClient(client);
+
+db.open().catch(err => {
+  console.error("Failed to open Dexie DB:", err);
+});
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <QueryClientProvider client={client}>

@@ -120,26 +120,31 @@ export const ProductModalContent = React.memo(({
                 }
             } else {
                 // Producto, presentación o combo encontrado: el código de barras ya está en uso
-                setBarcodeSuccess(''); // Limpiar mensaje de éxito
-                if (barcodeCheckData.type === 'product') {
-                    setBarcodeError('Código de barras ya en uso por otro producto.');
-                    console.info('Setting product values:', barcodeCheckData);
-                    setValues(barcodeCheckData);
-                    setPresentations(barcodeCheckData.presentations || []);
-                } else if (barcodeCheckData.type === 'presentation') {
-                    setBarcodeError('Código de barras ya en uso por una presentación de otro producto.');
-                    console.info('Setting presentation stock values:', barcodeCheckData.stock);
-                    setValues(barcodeCheckData.stock);
-                    setPresentations([barcodeCheckData]);
-                } else if (barcodeCheckData.type === 'combo') {
-                    setBarcodeError('Código de barras ya en uso por un combo. Los combos no se pueden editar desde aquí.');
-                    resetForm();
-                    setPresentations([]);
+                if (updating && barcodeCheckData.id === values.id) {
+                    setBarcodeError('');
+                    setBarcodeSuccess('Código de barras válido para este producto.');
+                } else {
+                    setBarcodeSuccess(''); // Limpiar mensaje de éxito
+                    if (barcodeCheckData.type === 'product') {
+                        setBarcodeError('Código de barras ya en uso por otro producto.');
+                        console.info('Setting product values:', barcodeCheckData);
+                        setValues(barcodeCheckData);
+                        setPresentations(barcodeCheckData.presentations || []);
+                    } else if (barcodeCheckData.type === 'presentation') {
+                        setBarcodeError('Código de barras ya en uso por una presentación de otro producto.');
+                        console.info('Setting presentation stock values:', barcodeCheckData.stock);
+                        setValues(barcodeCheckData.stock);
+                        setPresentations([barcodeCheckData]);
+                    } else if (barcodeCheckData.type === 'combo') {
+                        setBarcodeError('Código de barras ya en uso por un combo. Los combos no se pueden editar desde aquí.');
+                        resetForm();
+                        setPresentations([]);
+                    }
                 }
             }
             setIsBarcodeValidated(true);
         }
-    }, [barcodeCheckData, values.id]); // Agregamos values.id a las dependencias para que el efecto se re-ejecute correctamente
+    }, [barcodeCheckData, values.id, updating]); // Agregamos values.id a las dependencias para que el efecto se re-ejecute correctamente
 
     // Efecto para manejar errores en la verificación del código de barras
     useEffect(() => {

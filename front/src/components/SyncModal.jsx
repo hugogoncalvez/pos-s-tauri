@@ -39,6 +39,7 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
   const pendingSalesCount = pendingSync?.pendingSales || 0;
   const pendingCashMovementsCount = pendingSync?.pendingCashMovements || 0;
   const pendingTicketsCount = pendingSync?.pendingTickets || 0; // NEW
+  const pendingSessionsCount = pendingSync?.pendingSessions || 0; // <-- NUEVO
   const queryClient = useQueryClient(); // NEW
 
   // Derive activeCashSessionId from props
@@ -67,100 +68,61 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
     }
   };
 
-  const performSalesSync = async () => {
+  const handleSyncAll = async () => {
     setIsSyncing(true);
-    setSyncType('sales');
     setError('');
+
     try {
-      // Cargar datos de referencia frescos antes de sincronizar
+      let sessionId = activeCashSessionId;
+
+      // 1. Sincronizar la sesión si está pendiente
+      if (pendingSessionsCount > 0) {
+        setSyncType('session');
+        const syncResult = await syncService.syncPendingCashSession(usuario.id);
+        sessionId = syncResult.session.id;
+        // No need to refetch query here, as we get the ID directly.
+        // The main query will be refetched at the end.
+      }
+
+      if (!sessionId) {
+        throw new Error('No se pudo obtener un ID de sesión de caja activa para la sincronización.');
+      }
+
+      // Cargar datos de referencia frescos antes de sincronizar el resto
       await syncService.loadReferenceData(usuario.id);
 
-      setSyncProgress({ current: 0, total: pendingSalesCount });
-
-      const result = await syncService.syncPendingSalesWithSession(
-        activeCashSessionId,
-        usuario.id,
-        (progress) => setSyncProgress(progress)
-      );
-
-      if (result.failed > 0) {
-        mostrarError(`${result.failed} venta(s) no pudieron ser sincronizadas. Revise la consola.`, theme);
+      // 2. Sincronizar Ventas
+      if (pendingSalesCount > 0) {
+        setSyncType('sales');
+        setSyncProgress({ current: 0, total: pendingSalesCount });
+        await syncService.syncPendingSalesWithSession(sessionId, usuario.id, (p) => setSyncProgress(p));
       }
-      mostrarExito(`¡Sincronización de ventas completada! ${result.synced} venta(s) procesada(s).`, theme);
+
+      // 3. Sincronizar Movimientos de Caja
+      if (pendingCashMovementsCount > 0) {
+        setSyncType('movements');
+        setSyncProgress({ current: 0, total: pendingCashMovementsCount });
+        await syncService.syncPendingCashMovements(usuario.id, (p) => setSyncProgress(p));
+      }
+
+      // 4. Sincronizar Tickets Pendientes
+      if (pendingTicketsCount > 0) {
+        setSyncType('tickets');
+        setSyncProgress({ current: 0, total: pendingTicketsCount });
+        await syncService.syncPendingTickets(usuario.id, (p) => setSyncProgress(p));
+      }
+
+      mostrarExito('¡Sincronización completa!', theme);
+      onSyncComplete(); // This will trigger the final refetches and close the modal
 
     } catch (err) {
-      setError('Ocurrió un error crítico durante la sincronización de ventas: ' + err.message);
-    } finally {
-      setIsSyncing(false);
+      setError('Ocurrió un error crítico durante la sincronización: ' + err.message);
+      setIsSyncing(false); // Stop syncing on error
       setSyncType(null);
-      onSyncComplete(); // Close modal after sync
-    }
-  };
-
-  const performMovementsSync = async () => {
-    setIsSyncing(true);
-    setSyncType('movements');
-    setError('');
-    try {
-      setSyncProgress({ current: 0, total: pendingCashMovementsCount });
-
-      const result = await syncService.syncPendingCashMovements(
-        usuario.id,
-        (progress) => setSyncProgress(progress)
-      );
-
-      if (result.failed > 0) {
-        mostrarError(`${result.failed} movimiento(s) no pudieron ser sincronizados.`, theme);
-      }
-      mostrarExito(`¡Sincronización de movimientos completada! ${result.synced} movimiento(s) procesado(s).`, theme);
-
-    } catch (err) {
-      setError('Ocurrió un error crítico durante la sincronización de movimientos: ' + err.message);
-    } finally {
-      setIsSyncing(false);
-      setSyncType(null);
-      onSyncComplete(); // Close modal after sync
-    }
-  };
-
-  const performTicketsSync = async () => {
-    setIsSyncing(true);
-    setSyncType('tickets');
-    setError('');
-    try {
-      setSyncProgress({ current: 0, total: pendingTicketsCount });
-
-      const result = await syncService.syncPendingTickets(
-        usuario.id,
-        (progress) => setSyncProgress(progress)
-      );
-
-      if (result.failed > 0) {
-        mostrarError(`${result.failed} ticket(s) pendiente(s) no pudieron ser sincronizados.`, theme);
-      }
-      mostrarExito(`¡Sincronización de tickets pendientes completada! ${result.synced} ticket(s) procesado(s).`, theme);
-
-    } catch (err) {
-      setError('Ocurrió un error crítico durante la sincronización de tickets pendientes: ' + err.message);
-    } finally {
-      setIsSyncing(false);
-      setSyncType(null);
-      onSyncComplete(); // Close modal after sync
-      queryClient.invalidateQueries({ queryKey: ['pendingTickets'], exact: false }); // NEW: Invalidate pendingTickets query
     }
   };
 
   const renderContent = () => {
-    console.log('[SyncModal - renderContent] isAuthenticated:', isAuthenticated);
-    console.log('[SyncModal - renderContent] usuario (isOfflineUser):', usuario?.isOfflineUser);
-    console.log('[SyncModal - renderContent] activeCashSessionId:', activeCashSessionId);
-    console.log('[SyncModal - renderContent] isCheckingSession:', isCheckingSession);
-    console.log('[SyncModal - renderContent] isSyncing:', isSyncing);
-    console.log('[SyncModal - renderContent] pendingSalesCount:', pendingSalesCount);
-    console.log('[SyncModal - renderContent] pendingCashMovementsCount:', pendingCashMovementsCount);
-    console.log('[SyncModal - renderContent] pendingTicketsCount:', pendingTicketsCount);
-
-
     if (isCheckingSession) {
       return (
         <Box sx={{ textAlign: 'center', py: 5 }}>
@@ -171,20 +133,23 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
     }
 
     if (isSyncing) {
-      const syncItem = syncType === 'sales' ? 'venta(s)' : syncType === 'movements' ? 'movimiento(s)' : 'ticket(s) pendiente(s)';
+      const syncItem = syncType === 'session' ? 'sesión de caja' : syncType === 'sales' ? 'venta(s)' : syncType === 'movements' ? 'movimiento(s)' : 'ticket(s) pendiente(s)';
       return (
         <Box sx={{ textAlign: 'center', py: 5 }}>
           <CircularProgress size={60} sx={{ mb: 3 }} />
           <Typography variant="h6" gutterBottom>Sincronizando {syncItem}...</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {syncProgress.current} de {syncProgress.total} {syncItem} procesados
-          </Typography>
+          {syncType !== 'session' && (
+            <Typography variant="body2" color="text.secondary">
+              {syncProgress.current} de {syncProgress.total} {syncItem} procesados
+            </Typography>
+          )}
         </Box>
       );
     }
 
+    const totalPending = pendingSalesCount + pendingCashMovementsCount + pendingTicketsCount + pendingSessionsCount;
+
     if (!isAuthenticated || (usuario && usuario.isOfflineUser)) {
-      const totalPending = pendingSalesCount + pendingCashMovementsCount + pendingTicketsCount;
       return (
         <Box component="form" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
           <Alert severity="info" sx={{ mb: 3 }}>
@@ -214,43 +179,40 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
       );
     }
 
-    if (isAuthenticated && !activeCashSessionId) {
-        return (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Alert severity="error">No se ha encontrado una sesión de caja activa. Por favor, cierre este diálogo y abra una sesión de caja primero.</Alert>
-            </Box>
-        );
+    if (totalPending === 0) {
+      return <Typography sx={{ textAlign: 'center', py: 4 }}>No hay operaciones pendientes para sincronizar.</Typography>;
     }
 
-    if (isAuthenticated && activeCashSessionId) {
-      return (
-        <Box sx={{ width: '100%' }}>
-          {pendingSalesCount > 0 && (
-            <Paper variant="outlined" sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography><strong>{pendingSalesCount}</strong> venta(s) pendiente(s).</Typography>
-              <StyledButton onClick={performSalesSync} disabled={isSyncing}>Sincronizar Ventas</StyledButton>
-            </Paper>
-          )}
-          {pendingCashMovementsCount > 0 && (
-            <Paper variant="outlined" sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography><strong>{pendingCashMovementsCount}</strong> movimiento(s) de caja pendiente(s).</Typography>
-              <StyledButton onClick={performMovementsSync} disabled={isSyncing}>Sincronizar Movimientos</StyledButton>
-            </Paper>
-          )}
-          {pendingTicketsCount > 0 && (
-            <Paper variant="outlined" sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography><strong>{pendingTicketsCount}</strong> ticket(s) pendiente(s).</Typography>
-              <StyledButton onClick={performTicketsSync} disabled={isSyncing}>Sincronizar Tickets</StyledButton>
-            </Paper>
-          )}
-          {(pendingSalesCount === 0 && pendingCashMovementsCount === 0 && pendingTicketsCount === 0) && (
-            <Typography sx={{ textAlign: 'center', py: 4 }}>No hay operaciones pendientes para sincronizar.</Typography>
-          )}
+    return (
+      <Box sx={{ width: '100%' }}>
+        <Typography sx={{ mb: 2 }}>Se encontraron los siguientes elementos pendientes:</Typography>
+        {pendingSessionsCount > 0 && (
+          <Paper variant="outlined" sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: `5px solid ${theme.palette.warning.main}` }}>
+            <Typography><strong>{pendingSessionsCount}</strong> apertura de caja local.</Typography>
+          </Paper>
+        )}
+        {pendingSalesCount > 0 && (
+          <Paper variant="outlined" sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography><strong>{pendingSalesCount}</strong> venta(s).</Typography>
+          </Paper>
+        )}
+        {pendingCashMovementsCount > 0 && (
+          <Paper variant="outlined" sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography><strong>{pendingCashMovementsCount}</strong> movimiento(s) de caja.</Typography>
+          </Paper>
+        )}
+        {pendingTicketsCount > 0 && (
+          <Paper variant="outlined" sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography><strong>{pendingTicketsCount}</strong> ticket(s) pendiente(s).</Typography>
+          </Paper>
+        )}
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+          <StyledButton onClick={handleSyncAll} disabled={isSyncing} variant="contained" size="large">
+            Sincronizar Todo
+          </StyledButton>
         </Box>
-      );
-    }
-
-    return null;
+      </Box>
+    );
   };
 
   const renderActions = () => {

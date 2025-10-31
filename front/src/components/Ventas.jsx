@@ -15,6 +15,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import LockClockIcon from '@mui/icons-material/LockClock';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
+import SyncProblemIcon from '@mui/icons-material/SyncProblem';
 import { useTheme } from '@mui/material/styles'; // Importar useTheme
 
 import { useForm } from '../hooks/useForm';
@@ -23,6 +24,7 @@ import { useSubmit } from '../hooks/useSubmit';
 import { useDelete } from '../hooks/useDelete';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useCashRegister } from '../hooks/useCashRegister'; // Importar useCashRegister
+import { useSyncManager } from '../hooks/useSyncManager'; // Importar useSyncManager
 import { confirmAction } from '../functions/ConfirmDelete';
 import { debounce } from '../functions/Debounce';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
@@ -33,6 +35,7 @@ import { mostrarInfo } from '../functions/mostrarInfo';
 import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
 import { mostrarInput } from '../functions/mostrarInput'; // <-- AÑADIDO
 import { mostrarCarga } from '../functions/mostrarCarga';
+import Swal from 'sweetalert2'; // Import Swal for closing loading messages
 import { Api } from '../api/api'; // Importar la instancia de axios
 import { db, syncServerTicketsToLocal } from '../db/offlineDB'; // Importar la instancia de Dexie
 import { syncService } from '../services/syncService'; // Importar el servicio de sincronización
@@ -122,7 +125,10 @@ const Ventas = () => {
     activeSession, // El objeto de sesión activa o null
     isLoadingActiveSession, // Estado de carga
     refreshActiveSession: refetchSession, // Función para refrescar la sesión
-  } = useCashRegister(usuario?.id);
+  } = useCashRegister();
+
+  const { isOnline } = useOnlineStatus();
+  const { pendingSync } = useSyncManager();
 
   // Derivar el estado de la sesión a partir de los datos del hook
   const isSessionActive = !!activeSession; // true si hay una sesión activa, false si es null
@@ -202,6 +208,7 @@ const Ventas = () => {
   const weightInputRef = useRef(null); // Nueva referencia para el campo de peso
   const manualProductNameRef = useRef(null); // Referencia para el campo de nombre en el modal manual
   const confirmSaleButtonRef = useRef(null); // <-- Nueva referencia para el botón de confirmar venta
+  const confirmButtonRef = useRef(null); // <-- Nueva referencia para el botón de confirmar venta
 
   // Hooks
   const { data: stockData, refetch: reStock, isLoading: stockLoading } = UseFetchQuery(
@@ -220,7 +227,7 @@ const Ventas = () => {
   const { data: pendingTickets = [], refetch: refetchPendingTickets, isLoading: pendingTicketsLoading } = UseQueryWithCache('pendingTickets', '/pending-tickets');
   const { data: promotions, isLoading: promotionsLoading } = UseQueryWithCache('promotions', '/promotions?is_active=true',);
   const { data: combos, isLoading: combosLoading } = UseQueryWithCache('combos', '/combos?is_active=true');
-  const { isOnline } = useOnlineStatus(); // <--- AÑADIR HOOK DE ESTADO DE CONEXIÓN
+  // const { isOnline } = useOnlineStatus(); // <--- AÑADIR HOOK DE ESTADO DE CONEXIÓN
 
   const [formValues, handleInputChange, reset, resetArray, setFormValues] = useForm()
   const [isSavingSale, setIsSavingSale] = useState(false); // <--- REEMPLAZAR loadingSale
@@ -228,28 +235,28 @@ const Ventas = () => {
 
   const processedTempTable = useMemo(() => applyPromotions(tempTable, promotions), [tempTable, promotions]);
 
-// Función helper para enfocar el campo de código de barras (NO es useCallback)
-const focusBarcodeInput = () => {
-  setTimeout(() => {
-    if (autocompleteInputRef.current) {
-      autocompleteInputRef.current.blur();
-    }
+  // Función helper para enfocar el campo de código de barras (NO es useCallback)
+  const focusBarcodeInput = () => {
     setTimeout(() => {
-      if (inputRefCodigoBarra.current) {
-        inputRefCodigoBarra.current.focus();
+      if (autocompleteInputRef.current) {
+        autocompleteInputRef.current.blur();
       }
-    }, 50);
-  }, 200);
-};
+      setTimeout(() => {
+        if (inputRefCodigoBarra.current) {
+          inputRefCodigoBarra.current.focus();
+        }
+      }, 50);
+    }, 200);
+  };
 
-const handlePresentationModalClose = () => {
-  setIsPresentationModalOpen(false);
-  setProductWithPresentations(null);
-  setPendingQuantity(null);
-  setCustomQuantityMode(false);
-  setCustomQuantity('');
-  focusBarcodeInput();
-};
+  const handlePresentationModalClose = () => {
+    setIsPresentationModalOpen(false);
+    setProductWithPresentations(null);
+    setPendingQuantity(null);
+    setCustomQuantityMode(false);
+    setCustomQuantity('');
+    focusBarcodeInput();
+  };
 
   // Función centralizada para limpiar el estado de la venta
   const clearSaleState = useCallback(() => {
@@ -484,7 +491,7 @@ const handlePresentationModalClose = () => {
     mostrarError, mostrarInfo, inputRefCodigoBarra
   ]);
 
-  // Función para guardar ticket pendiente
+  // Función para guardar/actualizar ticket pendiente
   const handleSavePendingTicket = useCallback(async (fromSummaryModal = false) => {
     if (isLoadingActiveSession) {
       mostrarInfo('Verificando estado de la sesión de caja. Por favor, espere.', theme);
@@ -505,72 +512,108 @@ const handlePresentationModalClose = () => {
       setIsSummaryModalOpen(false);
     }
 
-    try {
-      const result = await mostrarInput({
-        title: 'Guardar Ticket Pendiente',
-        inputLabel: 'Por favor, ingrese un nombre para el ticket pendiente (ej: Pedido de Ana):',
-        inputValidator: (value) => {
-          if (!value) {
-            return '¡Necesitas escribir algo!';
-          }
-        }
-      }, theme);
+    const { subtotal, impuesto, descuento: descuentoAplicado, totalFinal } = calcularTotal();
 
-      if (result.isConfirmed && result.value) {
-        const ticketName = result.value;
-        const { subtotal, impuesto, descuento: descuentoAplicado, totalFinal } = calcularTotal();
+    const ticket_data = {
+      tempTable: [...tempTable],
+      customer: selectedCustomer,
+      paymentType: selectedSinglePaymentType,
+      paymentOption,
+      mixedPayments,
+      subtotal,
+      impuesto,
+      descuento: descuentoAplicado,
+      totalFinal,
+      ivaActivo,
+      usuario: { nombre: usuario.nombre } // <-- AÑADIR INFO DEL USUARIO
+    };
 
-        const ticket_data = {
-          tempTable: [...tempTable],
-          customer: selectedCustomer,
-          paymentType: selectedSinglePaymentType,
-          paymentOption,
-          mixedPayments,
-          subtotal,
-          impuesto,
-          descuento: descuentoAplicado,
-          totalFinal,
-          ivaActivo,
-          usuario: { nombre: usuario.nombre } // <-- AÑADIR INFO DEL USUARIO
-        };
-
+    // Determine if it's an update or a new creation
+    if (currentTicketId) { // It's an update
+      mostrarCarga('Actualizando Ticket...', theme); // Show loading message
+      try {
         const dataToSend = {
-          name: ticketName.trim(),
+          name: pendingTickets.find(t => t.local_id === currentTicketId)?.data?.name || 'Ticket Actualizado', // Keep original name or default
           ticket_data,
-          cash_session_id: activeSessionData.id // <-- AÑADIR ID DE SESIÓN
+          cash_session_id: activeSessionData.id,
+          user_id: usuario.id
         };
 
-        const response = await syncService.savePendingTicket(dataToSend, isOnline); // ⭐ CAMBIO AQUÍ: Pasar isOnline
+        const response = await syncService.savePendingTicket(dataToSend, isOnline, currentTicketId); // Pass currentTicketId for update
 
         if (response.success) {
           if (response.synced) {
-            mostrarExito('Ticket guardado correctamente.', theme);
+            await mostrarExito('Ticket pendiente actualizado correctamente.', theme); // Await the success message
           } else {
-            mostrarInfo('Ticket guardado localmente. Se sincronizará al recuperar la conexión.', theme);
+            await mostrarInfo('Ticket pendiente actualizado localmente. Se sincronizará al recuperar la conexión.', theme); // Await the info message
           }
           clearSaleState();
           refetchPendingTickets();
         } else {
-          mostrarError('Error al guardar el ticket pendiente localmente.', theme);
+          mostrarError('Error al actualizar el ticket pendiente localmente.', theme);
         }
+      } catch (error) {
+        console.error('Error al actualizar ticket pendiente:', error);
+        mostrarError('Error al actualizar ticket pendiente: ' + (error.message || 'Error desconocido'), theme);
+        if (fromSummaryModal) {
+          setIsSummaryModalOpen(true);
+        }
+      } finally {
+        Swal.close(); // Dismiss loading message
+      }
+    } else { // It's a new creation
+      try {
+        const result = await mostrarInput({
+          title: 'Guardar Ticket Pendiente',
+          inputLabel: 'Por favor, ingrese un nombre para el ticket pendiente (ej: Pedido de Ana):',
+          inputValidator: (value) => {
+            if (!value) {
+              return '¡Necesitas escribir algo!';
+            }
+          }
+        }, theme);
 
-      } else {
+        if (result.isConfirmed && result.value) {
+          const ticketName = result.value;
+          const dataToSend = {
+            name: ticketName.trim(),
+            ticket_data,
+            cash_session_id: activeSessionData.id, // <-- AÑADIR ID DE SESIÓN
+            user_id: usuario.id // <-- AÑADIR ID DE USUARIO
+          };
+
+          const response = await syncService.savePendingTicket(dataToSend, isOnline); // No localId for creation
+
+          if (response.success) {
+            if (response.synced) {
+              mostrarExito('Ticket guardado correctamente.', theme);
+            } else {
+              mostrarInfo('Ticket guardado localmente. Se sincronizará al recuperar la conexión.', theme);
+            }
+            clearSaleState();
+            refetchPendingTickets();
+          } else {
+            mostrarError('Error al guardar el ticket pendiente localmente.', theme);
+          }
+
+        } else {
+          if (fromSummaryModal) {
+            setIsSummaryModalOpen(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error al guardar ticket pendiente:', error);
+        mostrarError('Error al guardar ticket pendiente: ' + (error.message || 'Error desconocido'), theme);
         if (fromSummaryModal) {
           setIsSummaryModalOpen(true);
         }
       }
-    } catch (error) {
-      console.error('Error al guardar ticket pendiente:', error);
-      mostrarError('Error al guardar ticket pendiente: ' + (error.message || 'Error desconocido'), theme);
-      if (fromSummaryModal) {
-        setIsSummaryModalOpen(true);
-      }
     }
   }, [
     tempTable, activeSessionData, isLoadingActiveSession, theme,
-    clearSaleState, refetchPendingTickets, calcularTotal, 
-    selectedCustomer, selectedSinglePaymentType, paymentOption, mixedPayments, 
-    ivaActivo, setIsSummaryModalOpen, isOnline // ⭐ Agregar isOnline a las dependencias
+    clearSaleState, refetchPendingTickets, calcularTotal,
+    selectedCustomer, selectedSinglePaymentType, paymentOption, mixedPayments,
+    ivaActivo, setIsSummaryModalOpen, isOnline, currentTicketId, pendingTickets, usuario.id, usuario.nombre
   ]);
 
 
@@ -727,15 +770,17 @@ const handlePresentationModalClose = () => {
       if (isSummaryModalOpen) {
         if (e.altKey && key === 'v') {
           e.preventDefault();
-          // Simular un clic en el botón de confirmar venta
-          if (confirmSaleButtonRef.current) {
-            confirmSaleButtonRef.current.click();
-          }
+          // Llamar directamente a la función de guardar venta
+          handleSaveSale();
           return;
         }
         if (e.altKey && key === 'p') {
           e.preventDefault();
-          handleSavePendingTicket(true);
+          if (!currentTicketId) {
+            handleSavePendingTicket(true);
+          } else {
+            mostrarInfo('No puedes guardar un ticket pendiente que ya está siendo editado.', theme);
+          }
           return;
         }
         if (e.altKey && key === 'c') {
@@ -776,6 +821,7 @@ const handlePresentationModalClose = () => {
           return;
         }
       }
+      if (isSummaryModalOpen) return; // <--- ADD THIS LINE TO PREVENT FALL-THROUGH
 
       // Atajos globales (no se ejecutan si hay otros modales abiertos)
       const isAnyModalOpen = isCajaModalOpen || showManualEntryModal || showPendingTickets || isPesableModalOpen || isSummaryModalOpen || isPresentationModalOpen;
@@ -803,17 +849,36 @@ const handlePresentationModalClose = () => {
 
       // El resto de atajos globales solo se activan si no hay NINGÚN modal abierto
       if (!isAnyModalOpen) {
-        if (e.altKey && key === 'b') {
+        if (e.altKey && key === 'd') { // Alt+D for Vaciar Venta
+          e.preventDefault();
+          if (tempTable.length > 0) {
+            mostrarConfirmacion(
+              {
+                title: '¿Vaciar Venta?',
+                text: 'Se eliminarán todos los productos de la venta actual. ¿Estás seguro?',
+                confirmButtonText: 'Sí, vaciar'
+              },
+              theme,
+              () => { // onConfirm
+                clearSaleState();
+              }
+            );
+          } else {
+            mostrarError('No hay productos en la venta para vaciar.', theme);
+          }
+          return;
+        }
+        if (e.altKey && key === 'b') { // Alt+B for Autocomplete
           e.preventDefault();
           autocompleteInputRef.current?.focus();
         }
-        if (e.altKey && key === 'x') {
+        if (e.altKey && key === 'x') { // Alt+X for Manual Entry
           e.preventDefault();
           setShowManualEntryModal(true);
           setFormValues({});
           setSelectedProduct(null);
         }
-        if (e.altKey && key === 'c') {
+        if (e.altKey && key === 'c') { // Alt+C for Custom Quantity
           e.preventDefault();
           setCustomQuantityMode(true);
           setCustomQuantity('');
@@ -837,7 +902,8 @@ const handlePresentationModalClose = () => {
   }, [
     tempTable, isCajaModalOpen, showManualEntryModal, showPendingTickets,
     isPesableModalOpen, isSummaryModalOpen, isPresentationModalOpen, handleSaveSale, handleSavePendingTicket,
-    totalFinal, paymentMethods, selectedCustomer, isConfirmButtonDisabled, isLoadingActiveSession, activeSessionData
+    totalFinal, paymentMethods, selectedCustomer, isConfirmButtonDisabled, isLoadingActiveSession, activeSessionData,
+    currentTicketId, theme
   ]);
 
   useEffect(() => {
@@ -1367,15 +1433,15 @@ const handlePresentationModalClose = () => {
         confirmButtonText: 'Sí, continuar',
         cancelButtonText: 'No, cancelar'
       }, theme,
-      () => {
-        // onConfirm: agregar producto y devolver foco
-        handleConfirmInsufficientStock(product, quantity);
-        focusBarcodeInput();
-      },
-      () => {
-        // onCancel: solo devolver foco
-        focusBarcodeInput();
-      });
+        () => {
+          // onConfirm: agregar producto y devolver foco
+          handleConfirmInsufficientStock(product, quantity);
+          focusBarcodeInput();
+        },
+        () => {
+          // onCancel: solo devolver foco
+          focusBarcodeInput();
+        });
     } else {
       // Stock suficiente
       addItem(product, quantity, false);
@@ -1796,6 +1862,33 @@ const handlePresentationModalClose = () => {
   }
 
   if (!isSessionActive) {
+    // Si el usuario está online pero tiene sesiones locales pendientes, mostrar un mensaje para que sincronice.
+    if (isOnline && pendingSync.pendingSessions > 0) {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '80vh',
+            textAlign: 'center',
+            p: 3,
+          }}
+        >
+          <SyncProblemIcon sx={{ fontSize: 80, color: 'info.main', mb: 2 }} />
+          <Typography variant="h4" gutterBottom sx={{ color: theme.palette.text.primary }}>
+            Sesión Local Pendiente
+          </Typography>
+          <Alert severity="info" sx={{ mb: 3, maxWidth: '500px' }}>
+            Tienes una sesión de caja que fue creada sin conexión. Por favor, sincroniza los datos para continuar operando.
+          </Alert>
+          {/* Aquí podrías agregar un botón que lleve al usuario a la pantalla de sincronización si lo deseas */}
+        </Box>
+      );
+    }
+
+    // Si no, mostrar el mensaje estándar de Caja Cerrada.
     return (
       <>
         <Box
@@ -2005,7 +2098,7 @@ const handlePresentationModalClose = () => {
         {/* --- Bottom Section (Finalize Button) --- */}
         <Box sx={{ p: 2 }}>
           {tempTable.length > 0 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}> {/* Added gap for spacing */}
               <StyledButton
                 variant="contained" color="success" onClick={() => setIsSummaryModalOpen(true)}
                 startIcon={<ShoppingCartIcon />} size="large"
@@ -2016,6 +2109,31 @@ const handlePresentationModalClose = () => {
                 }}
               >
                 Finalizar Venta (Alt + F)
+              </StyledButton>
+              <StyledButton
+                variant="outlined"
+                color="error"
+                onClick={() => {
+                  mostrarConfirmacion(
+                    {
+                      title: '¿Vaciar Venta?',
+                      text: 'Se eliminarán todos los productos de la venta actual. ¿Estás seguro?',
+                      confirmButtonText: 'Sí, vaciar'
+                    },
+                    theme,
+                    () => { // onConfirm
+                      clearSaleState();
+                    }
+                  );
+                }}
+                startIcon={<ClearIcon />}
+                size="large"
+                sx={{
+                  fontSize: 'clamp(0.9rem, 2vw, 1.1rem)', padding: 'clamp(8px, 2vw, 12px) clamp(16px, 4vw, 24px)',
+                  borderRadius: '8px',
+                }}
+              >
+                Vaciar Venta (Alt + D)
               </StyledButton>
             </Box>
           )}
@@ -2070,7 +2188,8 @@ const handlePresentationModalClose = () => {
           setTempTable={setTempTable}
           setValues={setValues}
           setSelectedProduct={setSelectedProduct}
-          confirmButtonRef={confirmSaleButtonRef} // <-- Pasar el ref al modal
+          confirmButtonRef={confirmButtonRef} // <-- Pasar el ref al modal
+          currentTicketId={currentTicketId}
         />
 
         {/* Modal para entrada manual de productos */}

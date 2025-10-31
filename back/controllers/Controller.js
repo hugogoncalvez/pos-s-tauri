@@ -4773,6 +4773,47 @@ export const createPendingTicket = async (req, res) => {
     }
 };
 
+export const updatePendingTicket = async (req, res) => {
+    const transaction = await db.transaction();
+    try {
+        const { id } = req.params;
+        const { name, ticket_data } = req.body;
+        const user_id = req.usuario.id;
+
+        const ticket = await PendingTicketModel.findByPk(id, { transaction });
+
+        if (!ticket) {
+            await transaction.rollback();
+            return res.status(404).json({ message: 'Ticket pendiente no encontrado.' });
+        }
+
+        const oldValues = {
+            name: ticket.name,
+            ticket_data: ticket.ticket_data
+        };
+
+        await ticket.update({ name, ticket_data }, { transaction });
+
+        await logAudit({
+            user_id,
+            action: 'ACTUALIZAR_TICKET_PENDIENTE',
+            entity_type: 'pending_ticket',
+            entity_id: ticket.id,
+            old_values: oldValues,
+            new_values: { name, ticket_data },
+            details: `Se actualizó el ticket pendiente "${name}".`
+        }, req, transaction);
+
+        await transaction.commit();
+        res.status(200).json({ message: 'Ticket pendiente actualizado correctamente', ticket });
+
+    } catch (error) {
+        await transaction.rollback();
+        console.error("Error al actualizar ticket pendiente:", error);
+        res.status(500).json({ message: 'Error al actualizar el ticket pendiente', error: error.message });
+    }
+};
+
 // Obtener un ticket pendiente por ID
 export const getPendingTicketById = async (req, res) => {
     try {
@@ -5553,7 +5594,7 @@ export const updateUserModules = async (req, res) => {
             return res.status(400).json({ message: 'Módulo no válido.' });
         }
 
-        const permissionsToUpdate = modulePermissions[module];
+        const permissionsToUpdate = [...(modulePermissions[module].acciones || []), ...(modulePermissions[module].vista ? [modulePermissions[module].vista] : [])];
 
         const permissionRecords = await PermissionModel.findAll({
             where: { nombre: { [Op.in]: permissionsToUpdate } },
@@ -5580,16 +5621,15 @@ export const updateUserModules = async (req, res) => {
             await Promise.all(overridePromises);
 
         } else {
-            // Si se desactiva el módulo, eliminar cualquier override existente para esos permisos
-
-            await UserPermissionModel.destroy({
-                where: {
+            // Si se desactiva el módulo, revocar explícitamente todos los permisos del módulo
+            const overridePromises = permissionIds.map(pid => {
+                return UserPermissionModel.upsert({
                     user_id: user_id,
-                    permission_id: { [Op.in]: permissionIds }
-                },
-                transaction
+                    permission_id: pid,
+                    type: 'revoke'
+                }, { transaction });
             });
-
+            await Promise.all(overridePromises);
         }
 
         await transaction.commit();

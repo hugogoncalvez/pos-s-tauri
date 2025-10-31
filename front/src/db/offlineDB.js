@@ -2,7 +2,7 @@ import Dexie from 'dexie';
 
 export const db = new Dexie('POSOfflineDB');
 
-db.version(5).stores({
+db.version(6).stores({
   // --- Datos Maestros (Caché del servidor) ---
   stock: '++id, name, barcode, price, stock, tipo_venta, category_id',
   presentations: '++id, stock_id, barcode, name, price',
@@ -21,7 +21,8 @@ db.version(5).stores({
   // --- Colas de Sincronización ---
   pending_sales: '++local_id, timestamp, synced, server_id, cash_session_id, user_id',
   pending_tickets: '++local_id, server_id, sync_status',
-  pending_cash_movements: '++local_id, synced, user_id, cash_session_id', // <--- NUEVA TABLA
+  pending_cash_movements: '++local_id, synced, user_id, cash_session_id',
+  local_cash_sessions: 'id, [status+user_id]', // <--- AGREGAR ÍNDICE COMPUESTO
   
   // --- Configuración y Metadatos Offline ---
   sync_metadata: 'key, value, updated_at', // 'key' será 'last_sync'
@@ -159,6 +160,24 @@ export const addLocalPendingTicket = async (ticketData) => {
     sync_status: 'created'
   };
   return await db.pending_tickets.add(newTicket);
+};
+
+/**
+ * Updates an existing pending ticket in the local Dexie DB.
+ * @param {number} localId - The local_id of the ticket to update.
+ * @param {string} name - The new name for the ticket.
+ * @param {object} ticket_data - The new ticket_data object (containing tempTable, customer, etc.).
+ * @returns {Promise<number>} The local_id of the updated ticket.
+ */
+export const updateLocalPendingTicket = async (localId, name, ticket_data) => {
+  await db.pending_tickets.update(localId, {
+    data: {
+      ...ticket_data, // This already contains the updated tempTable, customer, etc.
+      name: name // Ensure the top-level name within `data` is also updated
+    },
+    sync_status: 'updated' // Mark as updated for later sync
+  });
+  return localId;
 };
 
 /**

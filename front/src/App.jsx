@@ -22,7 +22,7 @@ function App() {
     handleSyncComplete,
   } = useSyncManager();
 
-  const totalPendingCount = (pendingSync.pendingSales || 0) + (pendingSync.pendingTickets || 0) + (pendingSync.pendingCashMovements || 0);
+  const totalPendingCount = (pendingSync.pendingSales || 0) + (pendingSync.pendingTickets || 0) + (pendingSync.pendingCashMovements || 0) + (pendingSync.pendingSessions || 0);
 
   const { activeSession, isLoadingActiveSession } = useCashRegister();
 
@@ -36,12 +36,20 @@ function App() {
     initUser();
   }, [isAuthenticated, user]);
 
+  // Sync pending tickets when coming back online
+  useEffect(() => {
+    if (isOnline && isAuthenticated) {
+      console.log('[App.jsx] 🌐 Connection restored. Syncing pending tickets from server...');
+      syncService.syncAllPendingTickets();
+    }
+  }, [isOnline, isAuthenticated]);
+
   const appBarHeight = isDesktopUp ? 80 : 56;
 
   return (
     <div className="App">
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <DenseAppBar isOnline={isOnline} pendingSalesCount={totalPendingCount} onSyncClick={handleSyncClick} />
+        <DenseAppBar isOnline={isOnline} pendingSyncCount={totalPendingCount} onSyncClick={handleSyncClick} />
         <Box sx={{ height: appBarHeight }} />
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
           <AnimatePresence mode='wait'>

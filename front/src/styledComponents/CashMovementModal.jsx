@@ -161,7 +161,7 @@ CashMovementModal.propTypes = {
     open: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
     onSave: PropTypes.func.isRequired,
-    activeSessionId: PropTypes.number,
+    activeSessionId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     userName: PropTypes.string,
     isSaving: PropTypes.bool, // Definir la nueva prop
     theme: PropTypes.object.isRequired // <-- Nueva propType

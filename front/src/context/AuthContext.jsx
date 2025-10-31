@@ -189,6 +189,9 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(false);
       setPermisos([]);
       localStorage.removeItem('sessionID');
+      
+      // Limpiar la sesión de caja activa de la base de datos local
+      await db.active_cash_session.clear();
 
       // Limpiar la caché de React Query para eliminar todos los datos del usuario anterior
       queryClient.clear();

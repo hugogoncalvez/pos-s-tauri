@@ -161,11 +161,17 @@ export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale
 
       // Special handling for pending tickets to ensure data consistency
       if (queryFnOrUrl === '/pending-tickets') {
-        console.log("🔄 Fetching and syncing pending tickets...");
-        const res = await Api.get(queryFnOrUrl);
-        const serverData = res.data || [];
-        await syncServerTicketsToLocal(serverData);
-        return getVisiblePendingTickets(); // Always return data from Dexie in the correct format
+        console.log("🔄 Fetching pending tickets state...");
+        // When online, we can trigger a background fetch to update the cache later,
+        // but for the immediate UI response, we return local data to prevent race conditions.
+        if (isOnline) {
+          Api.get(queryFnOrUrl).then(res => {
+            // TODO: Implement a safe background sync instead of the direct call
+            // that was causing a race condition. For now, we do nothing with the result.
+            console.log('Background fetch of pending tickets complete. Sync-down deferred.');
+          });
+        }
+        return getVisiblePendingTickets(); // Always return local data for UI consistency
       }
 
       const res = await Api.get(queryFnOrUrl);

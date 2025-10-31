@@ -28,7 +28,7 @@ import {
     updateThemePreference,
     checkCustomerDuplicate,
     getThemeSettings, updateThemeSettings,
-    getPendingTickets, createPendingTicket, deletePendingTicket, getPendingTicketById,
+    getPendingTickets, createPendingTicket, updatePendingTicket, deletePendingTicket, getPendingTicketById,
     checkBarcodeExists,
     getProductByBarcode,
     getPromotions,
@@ -211,6 +211,7 @@ authenticatedRouter.put('/element', checkPermission('accion_gestionar_roles'), u
 // --- RUTAS DE ENTIDADES COMPLEJAS (PROMOCIONES, COMBOS, TICKETS) ---
 authenticatedRouter.get('/pending-tickets', checkPermission('accion_crear_venta'), getPendingTickets);
 authenticatedRouter.post('/pending-tickets', checkPermission('accion_crear_venta'), createPendingTicket);
+authenticatedRouter.put('/pending-tickets/:id', checkPermission('accion_crear_venta'), updatePendingTicket);
 authenticatedRouter.get('/pending-tickets/:id', checkPermission('accion_crear_venta'), getPendingTicketById);
 authenticatedRouter.delete('/pending-tickets/:id', checkPermission('accion_crear_venta'), deletePendingTicket);
 

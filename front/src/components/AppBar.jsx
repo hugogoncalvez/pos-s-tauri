@@ -25,7 +25,7 @@ import { useIsTauri } from '../hooks/useIsTauri';
 import CashMovementModal from '../styledComponents/CashMovementModal';
 import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
 
-export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }) {
+export default function DenseAppBar({ isOnline, pendingSyncCount, onSyncClick }) {
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -53,7 +53,7 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
 
   const handleLogout = async (event) => {
     handleClose(event);
-    if (activeSession) {
+    if (activeSession && tienePermiso('accion_cerrar_caja_propia')) {
       const result = await mostrarConfirmacion(
         {
           title: '¡Sesión de Caja Activa!',
@@ -75,7 +75,7 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
   const handleLogoutAndExit = async (event) => {
     handleClose(event);
     console.log(`[AppBar] handleLogoutAndExit: Valor de activeSession: ${JSON.stringify(activeSession)}`);
-    if (activeSession) {
+    if (activeSession && tienePermiso('accion_cerrar_caja_propia')) {
       const result = await mostrarConfirmacion(
         {
           title: '¡Sesión de Caja Activa!',
@@ -154,7 +154,7 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
               </Box>
             )}
 
-            {pendingSalesCount > 0 && (
+            {pendingSyncCount > 0 && (
               <Button
                 color="warning"
                 variant="contained"
@@ -172,7 +172,7 @@ export default function DenseAppBar({ isOnline, pendingSalesCount, onSyncClick }
                   },
                 }}
               >
-                {isOnline ? `Sincronizar (${pendingSalesCount})` : `${pendingSalesCount} Pendientes`}
+                {isOnline ? `Sincronizar (${pendingSyncCount})` : `${pendingSyncCount} Pendientes`}
               </Button>)}
 
             <Tooltip title="Inicio">

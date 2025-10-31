@@ -10,6 +10,12 @@ export const mostrarInfo = (mensaje, theme) => {
         confirmButtonColor: theme.palette.info.main,
         timer: 1500,
         timerProgressBar: true,
-        showConfirmButton: false
+        showConfirmButton: false,
+        didOpen: () => {
+            const swalContainer = document.querySelector('.swal2-container');
+            if (swalContainer) {
+                swalContainer.style.zIndex = '1400';
+            }
+        }
     });
 };

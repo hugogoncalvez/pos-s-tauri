@@ -23,11 +23,15 @@ import { StyledButton } from './ui/StyledButton';
 import { db } from '../db/offlineDB'; // Importar db
 import { useQueryClient } from '@tanstack/react-query'; // Importar useQueryClient
 
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { syncService } from '../services/syncService';
+
 export const CajaManager = ({ open, onClose, userId, activeSession = null }) => {
     const theme = useTheme();
     const [formValues, handleInputChange, resetForm] = useForm({ openingAmount: '' });
     const [error, setError] = useState('');
     const openingAmountInputRef = useRef(null);
+    const { isOnline } = useOnlineStatus();
 
     // Usamos el hook para la mutación
     const { mutateAsync: openSession, isLoading, error: submitError } = useSubmit();
@@ -58,38 +62,41 @@ export const CajaManager = ({ open, onClose, userId, activeSession = null }) => 
     const handleOpenSession = async () => {
         const { openingAmount } = formValues;
         if (!openingAmount || parseFloat(openingAmount) < 0) {
-            return setError('Debe ingresar un monto inicial válido'); // This is not a Swal.fire
+            return setError('Debe ingresar un monto inicial válido');
         }
 
         mostrarCarga('Abriendo caja...', theme);
 
         try {
-            const response = await openSession({
-                url: '/cash-sessions/open',
-                values: {
-                    user_id: userId,
-                    opening_amount: parseFloat(openingAmount)
-                }
-            });
-            Swal.close();
-            mostrarExito('La sesión de caja se ha abierto correctamente', theme);
+            if (isOnline) {
+                const response = await openSession({
+                    url: '/cash-sessions/open',
+                    values: {
+                        user_id: userId,
+                        opening_amount: parseFloat(openingAmount)
+                    }
+                });
+                Swal.close();
+                mostrarExito('La sesión de caja se ha abierto correctamente', theme);
 
-            if (response && response.session) {
-                try {
+                if (response && response.session) {
                     await db.active_cash_session.clear();
                     await db.active_cash_session.put(response.session);
-                    console.log('[CashSession] Sesión guardada en Dexie:', response.session);
-                } catch (e) {
-                    console.error('[CashSession] Error guardando session en Dexie:', e);
                 }
+            } else {
+                // --- LÓGICA OFFLINE ---
+                await syncService.createLocalCashSession(openingAmount, userId);
+                Swal.close();
+                mostrarExito('Caja local creada. Se sincronizará al recuperar la conexión.', theme);
             }
-            queryClient.invalidateQueries(['activeCashSession', userId]); // Invalidar la query de sesión activa
-            onClose(true); // Indicar que la sesión se abrió con éxito
+
+            queryClient.invalidateQueries(['activeCashSession', userId]);
+            onClose(true);
         } catch (err) {
             Swal.close();
-            const errorMessage = err.response?.data?.error || 'Error al abrir la sesión de caja';
+            const errorMessage = err.response?.data?.error || err.message || 'Error al abrir la sesión de caja';
             mostrarError(errorMessage, theme);
-            onClose(false); // Indicar que la sesión no se abrió
+            onClose(false);
         }
     };
 

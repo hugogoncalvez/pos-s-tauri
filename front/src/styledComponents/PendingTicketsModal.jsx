@@ -119,10 +119,16 @@ const PendingTicketsModal = ({
                       sx={{ cursor: allowLoading ? 'pointer' : 'default' }}
                     >
                       <StyledTableCell component="th" scope="row">{row.data.name}</StyledTableCell>
-                      <StyledTableCell align="center">{row.data.ticket_data.customer?.name || 'Consumidor Final'}</StyledTableCell>
-                      <StyledTableCell align="center">${row.data.ticket_data.totalFinal?.toFixed(2)}</StyledTableCell>
-                      <StyledTableCell align="center">{row.data.usuario?.nombre || 'N/A'}</StyledTableCell>
-                      <StyledTableCell align="center">{moment(row.data.createdAt).format('DD/MM/YYYY HH:mm')}</StyledTableCell>
+                      <StyledTableCell align="center">
+                        {row.data?.ticket_data?.customer?.name || row.data?.customer?.name || 'Consumidor Final'}
+                      </StyledTableCell>
+                                            <StyledTableCell align="center">
+                                              ${(row.data?.ticket_data?.totalFinal || row.data?.total_neto)?.toFixed(2)}
+                                            </StyledTableCell>
+                      <StyledTableCell align="center">{row.data?.ticket_data?.usuario?.nombre || row.data?.user?.name || 'N/A'}</StyledTableCell>
+                                            <StyledTableCell align="center">
+                                              {moment(row.data.createdAt || row.data.ticket_data.createdAt).format('DD/MM/YYYY HH:mm')}
+                                            </StyledTableCell>
                       <StyledTableCell align="center">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', alignItems: 'center' }}>
                           {allowLoading && (
