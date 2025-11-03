@@ -39,7 +39,7 @@ function App() {
   // Sync pending tickets when coming back online
   useEffect(() => {
     if (isOnline && isAuthenticated) {
-      console.log('[App.jsx] 🌐 Connection restored. Syncing pending tickets from server...');
+      //console.log('[App.jsx] 🌐 Connection restored. Syncing pending tickets from server...');
       syncService.syncAllPendingTickets();
     }
   }, [isOnline, isAuthenticated]);
@@ -62,14 +62,14 @@ function App() {
 
       {showSyncModal && (
         <>
-          {console.log(`[App.jsx] Passing to SyncModal: activeSession (${activeSession ? 'present' : 'undefined'}), isLoadingActiveSession (${isLoadingActiveSession})`)}
-          <SyncModal
-            open={showSyncModal}
-            pendingSync={pendingSync || { pendingSales: 0 }}
-            onSyncComplete={handleSyncComplete}
-            activeSessionData={activeSession}
-            isCheckingSession={isLoadingActiveSession}
-          />
+          {/* console.log(`[App.jsx] Passing to SyncModal: activeSession (${activeSession ? 'present' : 'undefined'}), isLoadingActiveSession (${isLoadingActiveSession})`) */}
+            <SyncModal
+              open={showSyncModal}
+              pendingSync={pendingSync || { pendingSales: 0 }}
+              onSyncComplete={handleSyncComplete}
+              activeSessionData={activeSession}
+              isCheckingSession={isLoadingActiveSession}
+            />
         </>
       )}
     </div>

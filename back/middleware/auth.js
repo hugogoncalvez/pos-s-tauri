@@ -5,7 +5,7 @@ export const verificarSesion = async (req, res, next) => {
     if (req.session && req.session.usuario) {
         req.usuario = req.session.usuario;
         req.user = req.session.usuario;
-        console.log('[AuthMiddleware] ✅ Sesión directa encontrada para usuario ID:', req.usuario.id);
+        //console.log('[AuthMiddleware] ✅ Sesión directa encontrada para usuario ID:', req.usuario.id);
         next();
     } else if (req.sessionID) {
         // Si la sesión existe pero req.session.usuario no está poblado, intentar rehidratar
@@ -18,12 +18,12 @@ export const verificarSesion = async (req, res, next) => {
                 req.session.usuario = sessionData.usuario;
                 req.usuario = req.session.usuario;
                 req.user = req.session.usuario;
-                console.log('[AuthMiddleware] ✅ Sesión rehidratada exitosamente para usuario ID:', req.user.id);
-                console.log('[AuthMiddleware] 📦 Sesión rehidratada manualmente para ID:', req.sessionID);
+                //console.log('[AuthMiddleware] ✅ Sesión rehidratada exitosamente para usuario ID:', req.user.id);
+                //console.log('[AuthMiddleware] 📦 Sesión rehidratada manualmente para ID:', req.sessionID);
                 next();
             } else {
-                console.log('[AuthMiddleware] ❌ Sesión no encontrada en el store para ID:', req.sessionID);
-                console.log('[AuthMiddleware] ⚠️ Sesión no encontrada o sin usuario en la tienda para ID:', req.sessionID);
+                //console.log('[AuthMiddleware] ❌ Sesión no encontrada en el store para ID:', req.sessionID);
+                //console.log('[AuthMiddleware] ⚠️ Sesión no encontrada o sin usuario en la tienda para ID:', req.sessionID);
                 res.status(401).json({ message: 'No autenticado. Por favor, inicia sesión.' });
             }
         });

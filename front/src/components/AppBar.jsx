@@ -74,7 +74,7 @@ export default function DenseAppBar({ isOnline, pendingSyncCount, onSyncClick })
 
   const handleLogoutAndExit = async (event) => {
     handleClose(event);
-    console.log(`[AppBar] handleLogoutAndExit: Valor de activeSession: ${JSON.stringify(activeSession)}`);
+    //console.log(`[AppBar] handleLogoutAndExit: Valor de activeSession: ${JSON.stringify(activeSession)}`);
     if (activeSession && tienePermiso('accion_cerrar_caja_propia')) {
       const result = await mostrarConfirmacion(
         {

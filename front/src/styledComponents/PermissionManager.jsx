@@ -46,7 +46,7 @@ const PermissionManager = ({ open, onClose, user }) => {
     open
   );
 
-  console.log('[PermissionManager] userPermissions:', userPermissions);
+  //console.log('[PermissionManager] userPermissions:', userPermissions);
 
   const updateModule = useSubmit('updateUserModule');
 
@@ -58,7 +58,7 @@ const PermissionManager = ({ open, onClose, user }) => {
 
   // 2. MANEJAR CAMBIOS
   const handleModuleChange = async (moduleName, isActive) => {
-    console.log(`[PermissionManager] handleModuleChange: Módulo: ${moduleName}, IsActive: ${isActive}`);
+    //console.log(`[PermissionManager] handleModuleChange: Módulo: ${moduleName}, IsActive: ${isActive}`);
     await updateModule.mutateAsync({
       url: `/users/${user.id}/modules`,
       values: { module: moduleName, active: isActive },
@@ -118,7 +118,7 @@ const PermissionManager = ({ open, onClose, user }) => {
               {landingElements.sort((a, b) => a.orden - b.orden).map((element) => {
                 const viewPermission = modulePermissions[element.nombre]?.vista;
                 const isChecked = hasPermission(viewPermission);
-                console.log(`[PermissionManager] Módulo: ${element.nombre}, Permiso: ${viewPermission}, Checked: ${isChecked}`);
+                //console.log(`[PermissionManager] Módulo: ${element.nombre}, Permiso: ${viewPermission}, Checked: ${isChecked}`);
                 return (
                   <Tooltip key={element.id} title={`Activa o desactiva el acceso a ${element.nombre} y todos sus permisos asociados.`} placement="right">
                     <FormControlLabel

@@ -29,17 +29,17 @@ export const usePermissions = () => {
    * @returns {boolean} - `true` si el usuario tiene el permiso, `false` en caso contrario.
    */
   const tienePermiso = useCallback((permisoRequerido) => {
-    //console.log(`[usePermissions] Checking permission: ${permisoRequerido}`);
-    //console.log(`[usePermissions] User permissions:`, permisos);
-    // console.log(`[usePermissions] isLoading: ${isLoading}`);
+    ////console.log(`[usePermissions] Checking permission: ${permisoRequerido}`);
+    ////console.log(`[usePermissions] User permissions:`, permisos);
+    // //console.log(`[usePermissions] isLoading: ${isLoading}`);
 
     if (isLoading) {
-      // console.log(`[usePermissions] Returning false because isLoading is true.`);
+      // //console.log(`[usePermissions] Returning false because isLoading is true.`);
       return false;
     }
 
     const hasPermission = permisos?.includes(permisoRequerido) ?? false;
-    // console.log(`[usePermissions] Result for ${permisoRequerido}: ${hasPermission}`);
+    // //console.log(`[usePermissions] Result for ${permisoRequerido}: ${hasPermission}`);
     return hasPermission;
   }, [permisos, isLoading]);
 

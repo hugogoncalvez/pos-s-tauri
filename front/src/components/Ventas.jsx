@@ -112,6 +112,8 @@ const calcularTotalConRecargoDirecto = (subtotal, mixedPayments, paymentMethods)
   };
 };
 
+import { useCreateSale } from '../hooks/useCreateSale';
+
 const Ventas = () => {
 
   const theme = useTheme(); // Inicializar el hook useTheme
@@ -119,6 +121,9 @@ const Ventas = () => {
 
   const { usuario } = useContext(AuthContext);
   const queryClient = useQueryClient();
+
+  // Hook para la mutación de ventas
+  const { mutate: createSale, isLoading: isSavingSale } = useCreateSale();
 
   // Hook para verificar la sesión de caja activa
   const {
@@ -134,9 +139,9 @@ const Ventas = () => {
   const isSessionActive = !!activeSession; // true si hay una sesión activa, false si es null
   const activeSessionData = activeSession || null; // El objeto de sesión o null
 
-  console.log('[Ventas] activeSession:', activeSession);
-  console.log('[Ventas] isSessionActive:', isSessionActive);
-  console.log('[Ventas] activeSessionData:', activeSessionData);
+  //console.log('[Ventas] activeSession:', activeSession);
+  //console.log('[Ventas] isSessionActive:', isSessionActive);
+  //console.log('[Ventas] activeSessionData:', activeSessionData);
 
   const [isCajaModalOpen, setIsCajaModalOpen] = useState(false);
 
@@ -230,7 +235,6 @@ const Ventas = () => {
   // const { isOnline } = useOnlineStatus(); // <--- AÑADIR HOOK DE ESTADO DE CONEXIÓN
 
   const [formValues, handleInputChange, reset, resetArray, setFormValues] = useForm()
-  const [isSavingSale, setIsSavingSale] = useState(false); // <--- REEMPLAZAR loadingSale
   const { mutateAsync: deleteItem, isLoading: isDeletingTicket } = useDelete();
 
   const processedTempTable = useMemo(() => applyPromotions(tempTable, promotions), [tempTable, promotions]);
@@ -409,86 +413,73 @@ const Ventas = () => {
         }));
     }
 
-    setIsSavingSale(true);
-    try {
-      const userId = usuario?.id;
-      if (!userId) {
-        mostrarError('No se pudo identificar al usuario. Por favor, inicie sesión de nuevo.', theme);
-        return;
-      }
+    const userId = usuario?.id;
+    if (!userId) {
+      mostrarError('No se pudo identificar al usuario. Por favor, inicie sesión de nuevo.', theme);
+      return;
+    }
 
-      const saleData = {
-        total_amount: subtotal,
-        promotion_discount: descuentoAplicado,
-        surcharge_amount: surchargeAmount,
-        total_neto: totalFinal,
-        customer_id: selectedCustomer.id,
-        user_id: userId,
-        payments: paymentsToSend,
-        tempValues: processedTempTable.map(item => ({
-          id: item.id,
-          stock_id: item.stock_id,
-          presentation_id: item.presentation_id || null,
-          promotion_id: item.promotion?.id || null,
-          quantity: item.quantity_for_stock_deduction || item.quantity,
-          price: item.price,
-          final_price: item.cost,
-          force_sale: item.force_sale || false,
-          is_manual_entry: item.is_manual_entry || false,
-          type: item.type
-        }))
-      };
+    const saleData = {
+      total_amount: subtotal,
+      promotion_discount: descuentoAplicado,
+      surcharge_amount: surchargeAmount,
+      total_neto: totalFinal,
+      customer_id: selectedCustomer.id,
+      user_id: userId,
+      payments: paymentsToSend,
+      tempValues: processedTempTable.map(item => ({
+        id: item.id,
+        stock_id: item.stock_id,
+        presentation_id: item.presentation_id || null,
+        promotion_id: item.promotion?.id || null,
+        quantity: item.quantity_for_stock_deduction || item.quantity,
+        price: item.price,
+        final_price: item.cost,
+        force_sale: item.force_sale || false,
+        is_manual_entry: item.is_manual_entry || false,
+        type: item.type
+      }))
+    };
 
-      // *** LLAMADA AL NUEVO SERVICIO DE SINCRONIZACIÓN ***
-      const response = await syncService.saveSale(saleData, isOnline);
+    mostrarCarga('Guardando Venta...', theme);
 
-      if (response.success) {
+    createSale(saleData, {
+      onSuccess: (data) => {
+        Swal.close(); // Cerrar la alerta de carga
+
         if (ticketIdToDelete) {
           const ticketToDeleteObject = pendingTickets.find(t => t.local_id === ticketIdToDelete);
           if (ticketToDeleteObject) {
-            try {
-              await syncService.deletePendingTicket(ticketToDeleteObject, isOnline);
-              refetchPendingTickets(); // This will trigger a refetch and sync
-            } catch (deleteError) {
+            syncService.deletePendingTicket(ticketToDeleteObject, isOnline).catch(deleteError => {
               console.error("Error al eliminar el ticket pendiente después de la venta:", deleteError);
               mostrarError('La venta se completó, pero no se pudo eliminar el ticket pendiente.', theme);
-            }
-          } else {
-            console.warn(`No se encontró el objeto del ticket pendiente con local_id: ${ticketIdToDelete} para eliminar.`);
+            });
+            refetchPendingTickets();
           }
         }
 
         clearSaleState();
         setIsSummaryModalOpen(false);
 
-        if (isOnline) {
-          reStock(); // Refrescar stock solo si estamos online
-        }
-
-        if (response.synced) {
-          setSaleCompletedId(response.server_id || response.id);
+        if (data.source === 'api') {
+          setSaleCompletedId(data.id);
         } else {
           mostrarInfo('Venta guardada localmente. Se sincronizará al recuperar la conexión.', theme);
-          // Opcional: podrías querer un ID local para mostrar
-          setSaleCompletedId(response.localId);
+          setSaleCompletedId(data.localId);
         }
-
-      } else {
-        mostrarError('Error al guardar la venta: La operación local falló.', theme);
+      },
+      onError: (error) => {
+        Swal.close(); // Cerrar la alerta de carga
+        mostrarError(`Error al guardar la venta: ${error.message || 'Error desconocido'}`, theme);
+        inputRefCodigoBarra.current?.focus();
       }
-    } catch (error) {
-      console.error('Error al guardar la venta:', error);
-      mostrarError('Error al guardar la venta: ' + (error.message || 'Error desconocido'), theme);
-      inputRefCodigoBarra.current?.focus();
-    } finally {
-      setIsSavingSale(false);
-    }
+    });
   }, [
     currentTicketId, tempTable, paymentOption, selectedSinglePaymentType, selectedCustomer,
-    setSummaryError, totalFinal, mixedPayments, setIsSavingSale, usuario, theme, subtotal,
+    totalFinal, mixedPayments, usuario, theme, subtotal,
     descuentoAplicado, surchargeAmount, processedTempTable, isOnline, deleteItem,
     refetchPendingTickets, clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
-    mostrarError, mostrarInfo, inputRefCodigoBarra
+    mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets
   ]);
 
   // Función para guardar/actualizar ticket pendiente

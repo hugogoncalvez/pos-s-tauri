@@ -57,7 +57,7 @@ const Auth = () => {
     setIsLoading(false);
 
     if (result.success) {
-      console.log('[DEBUG] Login exitoso en Auth.jsx. Navegando a /.');
+      //console.log('[DEBUG] Login exitoso en Auth.jsx. Navegando a /.');
       setLoginSuccess(true);
       // navigate('/'); // Comentado temporalmente para depuración
     } else {
@@ -89,7 +89,7 @@ const Auth = () => {
     enter: { opacity: 1, y: 0 },
     exit: { opacity: 0, y: 50 }
   };
-  console.log(theme.palette.mode);
+  //console.log(theme.palette.mode);
   return (
     <Grid
       container

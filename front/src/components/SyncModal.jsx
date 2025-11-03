@@ -26,9 +26,9 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
   const theme = useTheme();
   const { login, isAuthenticated, usuario } = useContext(AuthContext);
 
-  console.log('[SyncModal] activeSessionData prop:', activeSessionData);
-  console.log('[SyncModal] isCheckingSession prop:', isCheckingSession);
-  console.log('[SyncModal] pendingSync prop:', pendingSync);
+  //console.log('[SyncModal] activeSessionData prop:', activeSessionData);
+  //console.log('[SyncModal] isCheckingSession prop:', isCheckingSession);
+  //console.log('[SyncModal] pendingSync prop:', pendingSync);
 
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
@@ -44,17 +44,17 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
 
   // Derive activeCashSessionId from props
   useEffect(() => {
-    console.log('[SyncModal] useEffect - activeSessionData:', activeSessionData);
+    //console.log('[SyncModal] useEffect - activeSessionData:', activeSessionData);
     if (activeSessionData && activeSessionData.id) {
       setActiveCashSessionId(activeSessionData.id);
-      console.log('[SyncModal] activeCashSessionId set to:', activeSessionData.id);
+      //console.log('[SyncModal] activeCashSessionId set to:', activeSessionData.id);
     } else {
       setActiveCashSessionId(null);
-      console.log('[SyncModal] activeCashSessionId set to null.');
+      //console.log('[SyncModal] activeCashSessionId set to null.');
     }
   }, [activeSessionData]);
 
-  console.log('[SyncModal] Render - activeCashSessionId state:', activeCashSessionId);
+  //console.log('[SyncModal] Render - activeCashSessionId state:', activeCashSessionId);
 
   const handleLogin = async () => {
     setError('');

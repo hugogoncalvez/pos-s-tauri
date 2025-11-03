@@ -6,7 +6,7 @@ export const ProtectedRoute = ({ children, permission }) => {
   const { isAuthenticated, isLoading, usuario, permisos } = useContext(AuthContext);
   const location = useLocation();
 
-  //console.log(`[ProtectedRoute] Render. Path: ${location.pathname}, Permiso requerido: ${permission || 'N/A'}, isLoading: ${isLoading}, isAuthenticated: ${isAuthenticated}, User: ${usuario?.username}, Permisos del usuario: ${permisos?.join(', ')}`);
+  ////console.log(`[ProtectedRoute] Render. Path: ${location.pathname}, Permiso requerido: ${permission || 'N/A'}, isLoading: ${isLoading}, isAuthenticated: ${isAuthenticated}, User: ${usuario?.username}, Permisos del usuario: ${permisos?.join(', ')}`);
 
   // if (isLoading) {
   //   return (
@@ -27,6 +27,6 @@ export const ProtectedRoute = ({ children, permission }) => {
     }
   }
 
-  // console.log(`[ProtectedRoute] Acceso permitido a ${location.pathname}.`);
+  // //console.log(`[ProtectedRoute] Acceso permitido a ${location.pathname}.`);
   return children;
 };

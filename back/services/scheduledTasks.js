@@ -40,7 +40,7 @@ const getSystemUserId = async () => {
 const autoCloseCashSessions = async () => {
     const systemUserId = await getSystemUserId();
     try {
-        console.log('🕛 Iniciando cierre automático de sesiones de caja...');
+        //console.log('🕛 Iniciando cierre automático de sesiones de caja...');
 
         // Buscar todas las sesiones abiertas
         const openSessions = await CashSessionsModel.findAll({
@@ -61,11 +61,11 @@ const autoCloseCashSessions = async () => {
         });
 
         if (openSessions.length === 0) {
-            console.log('✅ No hay sesiones abiertas para cerrar');
+            //console.log('✅ No hay sesiones abiertas para cerrar');
             return;
         }
 
-        console.log(`📋 Encontradas ${openSessions.length} sesiones abiertas para cerrar`);
+        //console.log(`📋 Encontradas ${openSessions.length} sesiones abiertas para cerrar`);
 
         for (const session of openSessions) {
             try {
@@ -120,7 +120,7 @@ const autoCloseCashSessions = async () => {
                     user_agent: 'System Scheduler'
                 });
 
-                console.log(`✅ Sesión cerrada automáticamente: Usuario ${session.Usuario?.username} (ID: ${session.id})`);
+                //console.log(`✅ Sesión cerrada automáticamente: Usuario ${session.Usuario?.username} (ID: ${session.id})`);
 
             } catch (sessionError) {
                 console.error(`❌ Error al cerrar sesión ${session.id}:`, sessionError);
@@ -138,7 +138,7 @@ const autoCloseCashSessions = async () => {
             }
         }
 
-        console.log('🎉 Proceso de cierre automático completado');
+        //console.log('🎉 Proceso de cierre automático completado');
 
     } catch (error) {
         console.error('❌ Error en el proceso de cierre automático:', error);
@@ -159,7 +159,7 @@ const autoCloseCashSessions = async () => {
 // Función para limpiar logs de auditoría antiguos (opcional)
 const cleanOldAuditLogs = async () => {
     try {
-        console.log('🧹 Limpiando logs de auditoría antiguos...');
+        //console.log('🧹 Limpiando logs de auditoría antiguos...');
 
         // Eliminar logs de más de 90 días
         const cutoffDate = new Date();
@@ -173,7 +173,7 @@ const cleanOldAuditLogs = async () => {
             }
         );
 
-        console.log(`🗑️ Eliminados ${deletedCount} logs de auditoría antiguos`);
+        //console.log(`🗑️ Eliminados ${deletedCount} logs de auditoría antiguos`);
 
     } catch (error) {
         console.error('❌ Error al limpiar logs antiguos:', error);
@@ -185,14 +185,14 @@ const checkAllStocksForLowAlerts = async () => {
     const systemUserId = await getSystemUserId();
     const transaction = await db.transaction();
     try {
-        console.log('📦 Ejecutando tarea programada de verificación de stock bajo...');
+        //console.log('📦 Ejecutando tarea programada de verificación de stock bajo...');
         const allStocks = await StockModel.findAll();
         for (const stock of allStocks) {
             // Reutilizar la función checkLowStockAndLog del controlador
             await checkLowStockAndLog(stock.id, systemUserId, transaction);
         }
         await transaction.commit();
-        console.log('✅ Verificación de stock bajo completada.');
+        //console.log('✅ Verificación de stock bajo completada.');
     } catch (error) {
         await transaction.rollback();
         console.error('❌ Error en la tarea programada de verificación de stock bajo:', error);
@@ -210,11 +210,11 @@ const checkAllStocksForLowAlerts = async () => {
 
 // Configurar tareas programadas
 export const initScheduledTasks = () => {
-    console.log('⏰ Inicializando tareas programadas...');
+    //console.log('⏰ Inicializando tareas programadas...');
 
     // Cierre automático de sesiones a medianoche (00:00)
     cron.schedule('0 0 * * *', () => {
-        console.log('🕛 Ejecutando cierre automático de sesiones de caja...');
+        //console.log('🕛 Ejecutando cierre automático de sesiones de caja...');
         autoCloseCashSessions();
     }, {
         timezone: "America/Buenos_Aires"
@@ -222,7 +222,7 @@ export const initScheduledTasks = () => {
 
     // Limpieza de logs antiguos cada domingo a las 2:00 AM
     cron.schedule('0 2 * * 0', () => {
-        console.log('🧹 Ejecutando limpieza de logs antiguos...');
+        //console.log('🧹 Ejecutando limpieza de logs antiguos...');
         cleanOldAuditLogs();
     }, {
         timezone: "America/Buenos_Aires"
@@ -256,7 +256,7 @@ export const initScheduledTasks = () => {
             });
 
             if (longSessions.length > 0) {
-                console.log(`⚠️ Detectadas ${longSessions.length} sesiones abiertas por más de 12 horas`);
+                //console.log(`⚠️ Detectadas ${longSessions.length} sesiones abiertas por más de 12 horas`);
 
                 for (const session of longSessions) {
                     await logAudit({
@@ -284,11 +284,11 @@ export const initScheduledTasks = () => {
         timezone: "America/Buenos_Aires"
     });
 
-    console.log('✅ Tareas programadas configuradas:');
-    console.log('   - Cierre automático: Todos los días a las 00:00');
-    console.log('   - Limpieza de logs: Domingos a las 02:00');
-    console.log('   - Verificación de sesiones: Cada hora');
-    console.log('   - Verificación de stock bajo: Todos los días a la 01:00 AM');
+    //console.log('✅ Tareas programadas configuradas:');
+    //console.log('   - Cierre automático: Todos los días a las 00:00');
+    //console.log('   - Limpieza de logs: Domingos a las 02:00');
+    //console.log('   - Verificación de sesiones: Cada hora');
+    //console.log('   - Verificación de stock bajo: Todos los días a la 01:00 AM');
 };
 
 // Función para ejecutar cierre manual (para testing)

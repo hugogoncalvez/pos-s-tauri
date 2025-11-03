@@ -106,8 +106,8 @@ const SummarySaleModal = ({
   setSelectedProduct,
   confirmButtonRef,
 }) => {
-  console.log('[SummarySaleModal] currentTicketId:', currentTicketId);
-  console.log('[SummarySaleModal] tempTable.length:', tempTable.length);
+  //console.log('[SummarySaleModal] currentTicketId:', currentTicketId);
+  //console.log('[SummarySaleModal] tempTable.length:', tempTable.length);
   const theme = useTheme();
   const { subtotal, impuesto, descuento: descuentoAplicado, surchargeAmount, surchargeDetails, totalFinal } = calcularTotal();
   const [surchargeDetailsOpen, setSurchargeDetailsOpen] = useState(false);

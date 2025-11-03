@@ -21,7 +21,7 @@ export const categoriesSeeder = async () => {
         defaults: category,
       });
     }
-    console.log('Categorías sembradas exitosamente.');
+    //console.log('Categorías sembradas exitosamente.');
   } catch (error) {
     console.error('Error al sembrar categorías:', error);
   }

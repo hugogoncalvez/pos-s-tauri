@@ -317,7 +317,7 @@ const CashAdmin = () => {
             refetchCashSessions();
             refetchHistory();
             queryClient.invalidateQueries(['activeCashSession', usuario.id]); // Invalidar la query de sesión activa
-            console.log(`[CashAdmin] Invalidando query 'activeCashSession' para usuario.id: ${usuario.id}`);
+            //console.log(`[CashAdmin] Invalidando query 'activeCashSession' para usuario.id: ${usuario.id}`);
         } catch (err) {
             Swal.close();
             mostrarError(err.response?.data?.message || 'Error al finalizar el cierre.', theme);

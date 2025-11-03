@@ -31,6 +31,7 @@ import { StyledButton } from './ui/StyledButton';
 import { StyledTextField } from './ui/StyledTextField';
 import { EnhancedTable } from './EnhancedTable';
 import { StyledTableRow, StyledTableCell } from '../styles/styles';
+import { TextFieldWithClear } from './ui/TextFieldWithClear';
 
 import { useForm } from '../hooks/useForm';
 import { UseFetchQuery, UseQueryWithCache } from '../hooks/useQuery';
@@ -247,7 +248,7 @@ export const ProductModalContent = React.memo(({
     const handleBarcodeChange = useCallback((e) => {
         console.info('handleBarcodeChange called with:', e.target.value);
         const newBarcode = e.target.value.toString().slice(0, 18);
-        console.log('handleBarcodeChange - newBarcode:', newBarcode);
+        //console.log('handleBarcodeChange - newBarcode:', newBarcode);
         let error = "";
         let warning = "";
         setProductModalError('');
@@ -521,7 +522,7 @@ export const ProductModalContent = React.memo(({
                 {productModalError && <Alert severity="error" sx={{ mb: 2 }}>{productModalError}</Alert>}
                 <Grid container spacing={2} sx={{ mt: 0 }} justifyContent="center">
                     <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             inputRef={barcodeInputRef}
                             autoFocus
                             label='Código de Barras'
@@ -534,44 +535,33 @@ export const ProductModalContent = React.memo(({
                             onInput={(e) => { e.target.value = e.target.value.toString().slice(0, 18); }}
                             error={!!barcodeError}
                             helperText={barcodeError || barcodeWarning || barcodeSuccess || (isCheckingBarcode ? 'Verificando...' : '')}
+                            onClear={!isCheckingBarcode ? () => handleBarcodeChange({ target: { value: '' } }) : undefined}
                             InputProps={{
-                                startAdornment: (
+                                startAdornment: isCheckingBarcode ? (
                                     <InputAdornment position="start">
-                                        {isCheckingBarcode ? <CircularProgress size={20} /> : <IconButton onClick={() => handleBarcodeChange({ target: { value: '' } })}><ClearIcon color='error' /></IconButton>}
+                                        <CircularProgress size={20} />
                                     </InputAdornment>
-                                )
+                                ) : undefined
                             }}
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             label='Nombre'
                             name='name'
                             value={values?.name || ''}
                             onChange={handleLocalInputChange}
                             required
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton onClick={() => handleLocalInputChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
+                            onClear={() => handleLocalInputChange({ target: { name: 'name', value: '' } })}
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(200px, 20vw, 300px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             label='Descripción'
                             name='description'
                             value={values?.description || ''}
                             onChange={handleLocalInputChange}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton onClick={() => handleLocalInputChange({ target: { name: 'description', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
+                            onClear={() => handleLocalInputChange({ target: { name: 'description', value: '' } })}
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
@@ -582,38 +572,25 @@ export const ProductModalContent = React.memo(({
                             onChange={(event, newValue) => handleLocalInputChange({ target: { name: 'category_id', value: newValue ? newValue.id : '' } })}
                             isOptionEqualToValue={(option, value) => option.id === value.id}
                             renderInput={(params) => (
-                                <StyledTextField
+                                <TextFieldWithClear
                                     {...params}
                                     label="Categoría"
                                     name='category_id'
                                     required
-                                    InputProps={{
-                                        ...params.InputProps,
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <IconButton onClick={() => handleLocalInputChange({ target: { name: 'category_id', value: '' } })}><ClearIcon color="error" /></IconButton>
-                                            </InputAdornment>
-                                        )
-                                    }}
+                                    onClear={() => handleLocalInputChange({ target: { name: 'category_id', value: '' } })}
                                 />
                             )}
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(150px, 10vw, 180px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             label='Stock'
                             name='stock'
                             type='number'
                             value={values?.stock || ''}
                             onChange={handleLocalInputChange}
                             required
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton onClick={() => handleLocalInputChange({ target: { name: 'stock', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
+                            onClear={() => handleLocalInputChange({ target: { name: 'stock', value: '' } })}
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
@@ -624,19 +601,12 @@ export const ProductModalContent = React.memo(({
                             onChange={(event, newValue) => handleLocalInputChange({ target: { name: 'tipo_venta', value: newValue ? newValue.value : '' } })}
                             isOptionEqualToValue={(option, value) => option.value === value.value}
                             renderInput={(params) => (
-                                <StyledTextField
+                                <TextFieldWithClear
                                     {...params}
                                     label="Tipo de Venta"
                                     name='tipo_venta'
                                     required
-                                    InputProps={{
-                                        ...params.InputProps,
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <IconButton onClick={() => handleLocalInputChange({ target: { name: 'tipo_venta', value: '' } })}><ClearIcon color="error" /></IconButton>
-                                            </InputAdornment>
-                                        )
-                                    }}
+                                    onClear={() => handleLocalInputChange({ target: { name: 'tipo_venta', value: '' } })}
                                 />
                             )}
                         />
@@ -649,19 +619,12 @@ export const ProductModalContent = React.memo(({
                             onChange={(event, newValue) => handleLocalInputChange({ target: { name: 'units_id', value: newValue ? newValue.id : '' } })}
                             isOptionEqualToValue={(option, value) => option.id === value.id}
                             renderInput={(params) => (
-                                <StyledTextField
+                                <TextFieldWithClear
                                     {...params}
                                     label="Unidad de medida"
                                     name='units_id'
                                     required
-                                    InputProps={{
-                                        ...params.InputProps,
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <IconButton onClick={() => handleLocalInputChange({ target: { name: 'units_id', value: '' } })}><ClearIcon color="error" /></IconButton>
-                                            </InputAdornment>
-                                        )
-                                    }}
+                                    onClear={() => handleLocalInputChange({ target: { name: 'units_id', value: '' } })}
                                 />
                             )}
                         />
@@ -712,70 +675,45 @@ export const ProductModalContent = React.memo(({
                                 return <li key={key} {...rest}>{option.nombre}</li>;
                             }}
                             renderInput={(params) => (
-                                <StyledTextField
+                                <TextFieldWithClear
                                     {...params}
                                     label="Proveedor"
-                                    InputProps={{
-                                        ...params.InputProps,
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <IconButton onClick={() => handleLocalInputChange({ target: { name: 'supplier_id', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                            </InputAdornment>
-                                        )
-                                    }}
+                                    onClear={() => handleLocalInputChange({ target: { name: 'supplier_id', value: '' } })}
                                 />
                             )}
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             label='Precio de Compra'
                             name='cost'
                             type='number'
                             value={values?.cost || ''}
                             onChange={handleLocalInputChange}
                             required
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton onClick={() => handleLocalInputChange({ target: { name: 'cost', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
+                            onClear={() => handleLocalInputChange({ target: { name: 'cost', value: '' } })}
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             label='Precio de Venta'
                             name='price'
                             type='number'
                             value={values?.price || ''}
                             onChange={handleLocalInputChange}
                             required
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton onClick={() => handleLocalInputChange({ target: { name: 'price', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
+                            onClear={() => handleLocalInputChange({ target: { name: 'price', value: '' } })}
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             label='Stock mínimo'
                             name='min_stock'
                             type='number'
                             value={values?.min_stock || ''}
                             onChange={handleLocalInputChange}
                             required
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton onClick={() => handleLocalInputChange({ target: { name: 'min_stock', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
+                            onClear={() => handleLocalInputChange({ target: { name: 'min_stock', value: '' } })}
                         />
                     </Grid>
                 </Grid>
@@ -786,34 +724,24 @@ export const ProductModalContent = React.memo(({
                 <Typography color={theme.palette.text.titlePrimary} variant="h6" gutterBottom>Presentaciones de Venta</Typography>
                 <Grid container spacing={2} justifyContent="center" alignItems="center">
                     <Grid sx={{ width: 'clamp(200px, 15vw, 250px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             label='Nombre Presentación'
                             name='name'
                             value={presentationValues?.name || ''}
                             onChange={handlePresentationInputChange}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton onClick={() => handlePresentationInputChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
+                            onClear={() => handlePresentationInputChange({ target: { name: 'name', value: '' } })}
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(200px, 15vw, 250px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             label='Cantidad en Unidades Base'
                             name='quantity_in_base_units'
                             type='number'
                             value={presentationValues?.quantity_in_base_units ?? ''}
                             onChange={handlePresentationInputChange}
                             disabled={values?.tipo_venta === 'pesable'}
+                            onClear={() => handlePresentationInputChange({ target: { name: 'quantity_in_base_units', value: '' } })}
                             InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton onClick={() => handlePresentationInputChange({ target: { name: 'quantity_in_base_units', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                    </InputAdornment>
-                                ),
                                 endAdornment: (
                                     values?.tipo_venta === 'pesable' && (
                                         <InputAdornment position="end">
@@ -829,36 +757,26 @@ export const ProductModalContent = React.memo(({
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(200px, 15vw, 250px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             label='Precio Presentación'
                             name='price'
                             type='number'
                             value={presentationValues?.price || ''}
                             onChange={handlePresentationInputChange}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton onClick={() => handlePresentationInputChange({ target: { name: 'price', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
+                            onClear={() => handlePresentationInputChange({ target: { name: 'price', value: '' } })}
                         />
                     </Grid>
                     <Grid sx={{ width: 'clamp(200px, 15vw, 250px)' }}>
-                        <StyledTextField
+                        <TextFieldWithClear
                             label='Código de Barras (Presentación)'
                             name='barcode'
                             value={presentationValues?.barcode || ''}
                             onChange={handlePresentationInputChange}
                             onInput={(e) => { e.target.value = e.target.value.toString().slice(0, 13); }}
                             inputProps={{ maxLength: 13, readOnly: true }}
+                            onClear={() => handlePresentationInputChange({ target: { name: 'barcode', value: '' } })}
                             InputProps={{
                                 readOnly: true, // Add this line
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton onClick={() => handlePresentationInputChange({ target: { name: 'barcode', value: '' } })}><ClearIcon color='error' /></IconButton>
-                                    </InputAdornment>
-                                ),
                                 endAdornment: (
                                     <InputAdornment position="end">
                                         <Tooltip title="Generar Código de Barras">

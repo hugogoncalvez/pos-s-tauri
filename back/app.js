@@ -41,7 +41,7 @@ const app = express();
 // Middleware para loguear todas las peticiones entrantes
 app.use((req, res, next) => {
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[Request Logger] Method: ${req.method}, URL: ${req.originalUrl}, Origin: ${req.headers.origin}`);
+    //console.log(`[Request Logger] Method: ${req.method}, URL: ${req.originalUrl}, Origin: ${req.headers.origin}`);
   }
   next();
 });
@@ -50,7 +50,7 @@ app.use((req, res, next) => {
 const corsOptions = {
   origin: (origin, callback) => {
     if (process.env.NODE_ENV !== 'production') {
-      console.log('🔍 Origin recibido:', origin || 'SIN ORIGIN');
+      //console.log('🔍 Origin recibido:', origin || 'SIN ORIGIN');
     }
 
     const allowedOrigins = [
@@ -69,7 +69,7 @@ const corsOptions = {
     // CRÍTICO: Si no hay origin (curl, Postman, requests internos), PERMITIR
     if (!origin) {
       if (process.env.NODE_ENV !== 'production') {
-        console.log('✅ Petición sin Origin - Permitida');
+        //console.log('✅ Petición sin Origin - Permitida');
       }
       return callback(null, true);
     }
@@ -82,7 +82,7 @@ const corsOptions = {
 
     if (isAllowed) {
       if (process.env.NODE_ENV !== 'production') {
-        console.log('✅ Origin permitido:', origin);
+        //console.log('✅ Origin permitido:', origin);
       }
       callback(null, true);
     } else {
@@ -152,14 +152,14 @@ app.use(session({
     // Si viene sessionID en la cookie (que pusimos en el middleware), usar ese
     if (req.cookies && req.cookies[sessionKey]) {
       if (process.env.NODE_ENV !== 'production') {
-        console.log('[SESSION] 🔄 Usando sessionID existente:', req.cookies[sessionKey]);
+        //console.log('[SESSION] 🔄 Usando sessionID existente:', req.cookies[sessionKey]);
       }
       return req.cookies[sessionKey];
     }
     // Si no, generar uno nuevo
     const newId = randomUUID();
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[SESSION] ✨ Generando nuevo sessionID:', newId);
+      //console.log('[SESSION] ✨ Generando nuevo sessionID:', newId);
     }
     return newId;
   }
@@ -178,7 +178,7 @@ async function startServer() {
     while (currentRetry < MAX_RETRIES) {
       try {
         await db.authenticate();
-        console.log('✅ Conexión a la base de datos establecida correctamente.');
+        //console.log('✅ Conexión a la base de datos establecida correctamente.');
         return; // Salir del bucle si la conexión es exitosa
       } catch (error) {
         currentRetry++;
@@ -199,11 +199,11 @@ async function startServer() {
 
   // Si llegamos aquí, la conexión a la DB fue exitosa.
   initScheduledTasks();
-  console.log('✅ Tareas programadas inicializadas');
+  //console.log('✅ Tareas programadas inicializadas');
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Servidor en ejecución en http://localhost:${PORT}/`);
-    console.log(`🌐 Accesible desde la red en http://<TU_IP>:${PORT}/`);
+    //console.log(`🚀 Servidor en ejecución en http://localhost:${PORT}/`);
+    //console.log(`🌐 Accesible desde la red en http://<TU_IP>:${PORT}/`);
   });
 }
 

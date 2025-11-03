@@ -115,7 +115,7 @@ const authController = {
 
                 // ESTABLECER EL HEADER CON EL SESSION ID
                 res.setHeader('X-Session-ID', req.sessionID);
-                console.log('[AUTH] ✅ Login exitoso. SessionID:', req.sessionID);
+                //console.log('[AUTH] ✅ Login exitoso. SessionID:', req.sessionID);
 
                 res.status(200).json({
                     message: 'Inicio de sesión exitoso',
@@ -136,14 +136,14 @@ const authController = {
                 console.error('❌ Error al destruir la sesión:', err);
                 return res.status(500).json({ error: 'Error al cerrar sesión.' });
             }
-            console.log('[AUTH] ✅ Sesión cerrada exitosamente');
+            //console.log('[AUTH] ✅ Sesión cerrada exitosamente');
             res.json({ message: 'Sesión cerrada exitosamente.' });
         });
     },
 
     async verificarEstado(req, res) {
-        console.log('[AUTH] 🔍 Verificando estado. SessionID:', req.sessionID);
-        console.log('[AUTH] 📦 Datos de sesión:', req.session?.usuario ? 'Usuario presente' : 'Sin usuario');
+        //console.log('[AUTH] 🔍 Verificando estado. SessionID:', req.sessionID);
+        //console.log('[AUTH] 📦 Datos de sesión:', req.session?.usuario ? 'Usuario presente' : 'Sin usuario');
 
         if (req.session && req.session.usuario) {
             try {
@@ -172,13 +172,13 @@ const authController = {
 
                         // Devolver el sessionID en el header
                         res.setHeader('X-Session-ID', req.sessionID);
-                        console.log('[AUTH] ✅ Usuario autenticado:', userFromDb.username);
+                        //console.log('[AUTH] ✅ Usuario autenticado:', userFromDb.username);
                         res.json({ estaLogueado: true, usuario: req.session.usuario });
                     });
                 } else {
                     req.session.destroy((err) => {
                         if (err) console.error("❌ Error destroying session:", err);
-                        console.log('[AUTH] ⚠️ Usuario no encontrado en DB');
+                        //console.log('[AUTH] ⚠️ Usuario no encontrado en DB');
                         res.json({ estaLogueado: false, usuario: null });
                     });
                 }
@@ -187,7 +187,7 @@ const authController = {
                 res.status(500).json({ estaLogueado: false, usuario: null, error: 'Error interno del servidor' });
             }
         } else {
-            console.log('[AUTH] ⚠️ Sin sesión activa');
+            //console.log('[AUTH] ⚠️ Sin sesión activa');
             res.json({ estaLogueado: false, usuario: null });
         }
     },

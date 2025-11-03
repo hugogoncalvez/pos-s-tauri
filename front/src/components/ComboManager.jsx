@@ -55,7 +55,7 @@ const ComboManager = () => {
 
   const [comboComponents, setComboComponents] = useState([]);
 
-  console.log('ComboManager Render - comboComponents:', comboComponents);
+  //console.log('ComboManager Render - comboComponents:', comboComponents);
 
   const statusOptions = [
     { value: 'true', label: 'Activo' },
@@ -98,8 +98,8 @@ const ComboManager = () => {
   };
 
   const removeComboComponent = (_id) => {
-    console.log('--- REMOVE COMPONENT ---');
-    console.log('ID to remove:', _id);
+    //console.log('--- REMOVE COMPONENT ---');
+    //console.log('ID to remove:', _id);
 
     setIsConfirmDialogOpen(true);
 
@@ -107,7 +107,7 @@ const ComboManager = () => {
       () => { // onConfirm
         setComboComponents(prevComboComponents => { // Use functional update
           const newComboComponents = prevComboComponents.filter(item => item._id !== _id);
-          console.log('Combo Components AFTER filter:', newComboComponents);
+          //console.log('Combo Components AFTER filter:', newComboComponents);
           return newComboComponents;
         });
         setIsConfirmDialogOpen(false);
@@ -121,7 +121,7 @@ const ComboManager = () => {
   };
 
   const updateComboComponent = (_id, field, value) => {
-    console.log("updateComboComponent:", { _id, field, value });
+    //console.log("updateComboComponent:", { _id, field, value });
     const newComboComponents = comboComponents.map(item =>
       item._id === _id ? { ...item, [field]: value } : item
     );
@@ -129,7 +129,7 @@ const ComboManager = () => {
   };
 
   const handleAddComponent = () => {
-    console.log('handleAddComponent - newComponent:', newComponent);
+    //console.log('handleAddComponent - newComponent:', newComponent);
     if (!newComponent.product || newComponent.quantity < 1) {
       mostrarError('Selecciona un producto y una cantidad válida.', theme);
       return;
@@ -154,7 +154,7 @@ const ComboManager = () => {
   };
   // --- Manejadores de Eventos (Combos) ---
   const handleOpenComboModal = (combo = null) => {
-    console.log('handleOpenComboModal called with combo:', combo);
+    //console.log('handleOpenComboModal called with combo:', combo);
     setCurrentCombo(combo);
     const initialValues = {
       name: combo?.name || '',
@@ -187,9 +187,9 @@ const ComboManager = () => {
   };
 
   const handleCloseComboModal = () => {
-    console.log('handleCloseComboModal called');
+    //console.log('handleCloseComboModal called');
     if (isConfirmDialogOpen) {
-      console.log('Confirmation dialog is open, preventing modal close.');
+      //console.log('Confirmation dialog is open, preventing modal close.');
       return;
     }
     setOpenComboModal(false);
@@ -215,7 +215,7 @@ const ComboManager = () => {
   };
 
   const handleComboSubmit = async (event) => {
-    console.log('handleComboSubmit called with formValues:', formValues);
+    //console.log('handleComboSubmit called with formValues:', formValues);
     event.preventDefault();
 
     if (comboComponents.length === 0) {
@@ -223,11 +223,11 @@ const ComboManager = () => {
       return;
     }
 
-    console.log('handleComboSubmit - comboComponents:', comboComponents);
+    //console.log('handleComboSubmit - comboComponents:', comboComponents);
     const hasInvalidComponents = comboComponents.some(comp =>
       !comp.stock_id || !comp.quantity || comp.quantity < 1
     );
-    console.log('handleComboSubmit - hasInvalidComponents:', hasInvalidComponents);
+    //console.log('handleComboSubmit - hasInvalidComponents:', hasInvalidComponents);
 
     if (hasInvalidComponents) {
       alert('Todos los componentes del combo deben tener un producto seleccionado y una cantidad válida.');
@@ -352,20 +352,24 @@ const ComboManager = () => {
     },
     { id: 'barcode', label: 'Código de Barras' },
     { id: 'price', label: 'Precio', valueGetter: ({ row }) => `${parseFloat(row.price).toFixed(2)}` },
-    { id: 'start_date', label: 'Fecha Inicio', valueGetter: ({ row }) => {
+    {
+      id: 'start_date', label: 'Fecha Inicio', valueGetter: ({ row }) => {
         const dateString = row.start_date;
         if (!dateString) return '';
         const [year, month, day] = dateString.split('-').map(Number);
         const localDate = new Date(year, month - 1, day);
         return localDate.toLocaleDateString();
-      } },
-    { id: 'end_date', label: 'Fecha Fin', valueGetter: ({ row }) => {
+      }
+    },
+    {
+      id: 'end_date', label: 'Fecha Fin', valueGetter: ({ row }) => {
         const dateString = row.end_date;
         if (!dateString) return '';
         const [year, month, day] = dateString.split('-').map(Number);
         const localDate = new Date(year, month - 1, day);
         return localDate.toLocaleDateString();
-      } },
+      }
+    },
     {
       id: 'actions',
       label: 'Acciones',
@@ -414,10 +418,10 @@ const ComboManager = () => {
 
   const isPageLoading = combosLoading;
 
-  console.log('--- RENDER ---');
-  console.log('Product Search Term:', productSearchTerm);
-  console.log('Products in options:', products.map(p => p.name));
-  console.log('Combo Components State:', comboComponents);
+  //console.log('--- RENDER ---');
+  //console.log('Product Search Term:', productSearchTerm);
+  //console.log('Products in options:', products.map(p => p.name));
+  //console.log('Combo Components State:', comboComponents);
 
   if (isPageLoading) {
     return <ComboManagerSkeleton />;

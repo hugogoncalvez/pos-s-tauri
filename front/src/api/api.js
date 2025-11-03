@@ -15,7 +15,7 @@ export const Api = axios.create({
   }
 });
 
-console.log('🔧 API configurada con baseURL:', API_BASE_URL);
+//console.log('🔧 API configurada con baseURL:', API_BASE_URL);
 
 // Interceptor para manejar sessionID en cada petición
 Api.interceptors.request.use((config) => {

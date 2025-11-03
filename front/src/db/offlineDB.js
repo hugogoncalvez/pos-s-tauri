@@ -14,7 +14,7 @@ db.version(6).stores({
   payment_methods: '++id, method, nombre, surcharge_active, surcharge_percentage',
   elements: 'id',
   theme_settings: 'id',
-  
+
   // --- Datos de Sesión Activa ---
   active_cash_session: 'id',
 
@@ -23,7 +23,7 @@ db.version(6).stores({
   pending_tickets: '++local_id, server_id, sync_status',
   pending_cash_movements: '++local_id, synced, user_id, cash_session_id',
   local_cash_sessions: 'id, [status+user_id]', // <--- AGREGAR ÍNDICE COMPUESTO
-  
+
   // --- Configuración y Metadatos Offline ---
   sync_metadata: 'key, value, updated_at', // 'key' será 'last_sync'
   offline_config: 'key, value' // Para guardar configuraciones como el usuario offline
@@ -57,7 +57,7 @@ export const initializeOfflineUser = async () => {
     const user = await db.offline_config.get('OFFLINE_USER');
     if (!user) {
       await db.offline_config.put({ key: 'OFFLINE_USER', value: OFFLINE_USER });
-      console.log('👤 Usuario offline inicializado en la base de datos local.');
+      //console.log('👤 Usuario offline inicializado en la base de datos local.');
     }
   } catch (error) {
     console.error('Error inicializando el usuario offline:', error);
@@ -138,9 +138,9 @@ export const syncServerTicketsToLocal = async (serverTickets) => {
           await db.pending_tickets.bulkDelete(ticketsToDelete);
         }
       });
-      console.log(`🔄 Tickets pendientes sincronizados. Añadidos: ${ticketsToAdd.length}, Eliminados: ${ticketsToDelete.length}`);
+      //console.log(`🔄 Tickets pendientes sincronizados. Añadidos: ${ticketsToAdd.length}, Eliminados: ${ticketsToDelete.length}`);
     } else {
-      console.log('🔄 Tickets pendientes ya estaban sincronizados.');
+      //console.log('🔄 Tickets pendientes ya estaban sincronizados.');
     }
 
   } catch (error) {

@@ -30,7 +30,7 @@ export const useSyncManager = () => {
     // useLiveQuery lo hará automáticamente.
   }, []);
 
-  console.log("[useSyncManager] Retornando pendingSync:", pendingSync);
+  //console.log("[useSyncManager] Retornando pendingSync:", pendingSync);
 
   return {
     pendingSync,

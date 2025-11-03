@@ -18,9 +18,9 @@ export const seedPromotions = async () => {
         active: true,
         // Sequelize manejará createdAt y updatedAt
       });
-      console.log('Promoción por defecto creada exitosamente.');
+      //console.log('Promoción por defecto creada exitosamente.');
     } else {
-      console.log('La promoción por defecto ya existe.');
+      //console.log('La promoción por defecto ya existe.');
     }
   } catch (error) {
     console.error('Error al crear la promoción por defecto:', error);

@@ -144,7 +144,7 @@ const PromotionsManager = () => {
   };
 
   const handleDeletePromotion = async (id) => {
-    const result = await ConfirmDelete(() => {}, () => {}, '¿Estás seguro de eliminar esta promoción?', theme); // Pasar mensaje y theme
+    const result = await ConfirmDelete(() => { }, () => { }, '¿Estás seguro de eliminar esta promoción?', theme); // Pasar mensaje y theme
     if (result.isConfirmed) {
       mostrarCarga('Eliminando promoción...', theme); // Mostrar carga
       try {
@@ -162,7 +162,7 @@ const PromotionsManager = () => {
 
   // --- Procesamiento y Paginación ---
   const processedPromotions = useMemo(() => {
-    console.log('Data de promociones recibida del backend:', promotions);
+    //console.log('Data de promociones recibida del backend:', promotions);
     if (!Array.isArray(promotions)) return [];
 
     const getStatus = (promo) => {

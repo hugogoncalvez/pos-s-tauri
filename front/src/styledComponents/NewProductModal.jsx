@@ -18,6 +18,7 @@ import { useTheme } from '@mui/material/styles';
 import SaveAsIcon from '@mui/icons-material/SaveAs';
 import ClearIcon from '@mui/icons-material/Clear';
 import CloseIcon from '@mui/icons-material/Close';
+import { TextFieldWithClear } from './ui/TextFieldWithClear';
 import { useForm } from '../hooks/useForm';
 import { useSubmit } from '../hooks/useSubmit';
 import { UseFetchQuery } from '../hooks/useQuery';
@@ -86,42 +87,38 @@ export const NewProductModal = ({ open, handleClose, onProductAdded, initialName
                 <Box sx={{ backgroundColor: 'background.dialog', color: 'text.primary', p: 3 }}>
                     <Grid container spacing={2} sx={{ mt: 1 }}>
                         <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <StyledTextField autoFocus name="name" label="Nombre del Producto" fullWidth value={values.name || ''} onChange={handleInputChange} required
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <IconButton onClick={() => reset('name')}>
-                                                <ClearIcon color="error" />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
+                            <TextFieldWithClear
+                                autoFocus
+                                name="name"
+                                label="Nombre del Producto"
+                                fullWidth
+                                value={values.name || ''}
+                                onChange={handleInputChange}
+                                required
+                                onClear={() => reset('name')}
                             />
                         </Grid>
                         <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <StyledTextField name="description" label="Descripción" fullWidth value={values.description || ''} onChange={handleInputChange} required
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <IconButton onClick={() => reset('description')}>
-                                                <ClearIcon color="error" />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
+                            <TextFieldWithClear
+                                name="description"
+                                label="Descripción"
+                                fullWidth
+                                value={values.description || ''}
+                                onChange={handleInputChange}
+                                required
+                                onClear={() => reset('description')}
                             />
                         </Grid>
                         <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <StyledTextField name="barcode" label="Código de Barras" fullWidth type="number" onInput={(e) => { e.target.value = (e.target.value).toString().slice(0, 13) }} value={values.barcode || ''} onChange={handleInputChange}
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <IconButton onClick={() => reset('barcode')}>
-                                                <ClearIcon color="error" />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
+                            <TextFieldWithClear
+                                name="barcode"
+                                label="Código de Barras"
+                                fullWidth
+                                type="number"
+                                onInput={(e) => { e.target.value = (e.target.value).toString().slice(0, 13) }}
+                                value={values.barcode || ''}
+                                onChange={handleInputChange}
+                                onClear={() => reset('barcode')}
                             />
                         </Grid>
                         <Grid item xs={6} sm={6} md={4} lg={3}>
@@ -131,22 +128,16 @@ export const NewProductModal = ({ open, handleClose, onProductAdded, initialName
                                 value={categories?.find(option => option.id === values.category_id) || null}
                                 onChange={(event, newValue) => handleInputChange({ target: { name: 'category_id', value: newValue ? newValue.id : '' } })}
                                 isOptionEqualToValue={(option, value) => option.id === value.id}
+                                slotProps={{
+                                    clearButton: { tabIndex: -1 },
+                                    popupIndicator: { tabIndex: -1 },
+                                }}
                                 renderInput={(params) => (
                                     <StyledTextField
                                         {...params}
                                         label="Categoría"
                                         fullWidth
                                         required
-                                        InputProps={{
-                                            ...params.InputProps,
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <IconButton onClick={() => handleInputChange({ target: { name: 'category_id', value: '' } })}>
-                                                        <ClearIcon color="error" />
-                                                    </IconButton>
-                                                </InputAdornment>
-                                            )
-                                        }}
                                     />
                                 )}
                             />
@@ -158,76 +149,66 @@ export const NewProductModal = ({ open, handleClose, onProductAdded, initialName
                                 value={units?.find(option => option.id === values.units_id) || null}
                                 onChange={(event, newValue) => handleInputChange({ target: { name: 'units_id', value: newValue ? newValue.id : '' } })}
                                 isOptionEqualToValue={(option, value) => option.id === value.id}
+                                slotProps={{
+                                    clearButton: { tabIndex: -1 },
+                                    popupIndicator: { tabIndex: -1 },
+                                }}
                                 renderInput={(params) => (
                                     <StyledTextField
                                         {...params}
                                         label="Unidad de Medida"
                                         fullWidth
                                         required
-                                        InputProps={{
-                                            ...params.InputProps,
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <IconButton onClick={() => handleInputChange({ target: { name: 'units_id', value: '' } })}>
-                                                        <ClearIcon color="error" />
-                                                    </IconButton>
-                                                </InputAdornment>
-                                            )
-                                        }}
                                     />
                                 )}
                             />
                         </Grid>
                         <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <StyledTextField name="stock" label="Stock Inicial" type="number" fullWidth value={values.stock || ''} onChange={handleInputChange} required helperText="Este será el stock inicial."
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <IconButton onClick={() => reset('stock')}>
-                                                <ClearIcon color="error" />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
+                            <TextFieldWithClear
+                                name="stock"
+                                label="Stock Inicial"
+                                type="number"
+                                fullWidth
+                                value={values.stock || ''}
+                                onChange={handleInputChange}
+                                required
+                                helperText="Este será el stock inicial."
+                                onClear={() => reset('stock')}
                             />
                         </Grid>
                         <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <StyledTextField name="cost" label="Precio de Costo" type="number" fullWidth value={values.cost || ''} onChange={handleInputChange} required
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <IconButton onClick={() => reset('cost')}>
-                                                <ClearIcon color="error" />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
+                            <TextFieldWithClear
+                                name="cost"
+                                label="Precio de Costo"
+                                type="number"
+                                fullWidth
+                                value={values.cost || ''}
+                                onChange={handleInputChange}
+                                required
+                                onClear={() => reset('cost')}
                             />
                         </Grid>
                         <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <StyledTextField name="price" label="Precio de Venta" type="number" fullWidth value={values.price || ''} onChange={handleInputChange} required
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <IconButton onClick={() => reset('price')}>
-                                                <ClearIcon color="error" />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
+                            <TextFieldWithClear
+                                name="price"
+                                label="Precio de Venta"
+                                type="number"
+                                fullWidth
+                                value={values.price || ''}
+                                onChange={handleInputChange}
+                                required
+                                onClear={() => reset('price')}
                             />
                         </Grid>
                         <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <StyledTextField name="min_stock" label="Stock Mínimo" type="number" fullWidth value={values.min_stock || ''} onChange={handleInputChange}
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <IconButton onClick={() => reset('min_stock')}>
-                                                <ClearIcon color="error" />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
+                            <TextFieldWithClear
+                                name="min_stock"
+                                label="Stock Mínimo"
+                                type="number"
+                                fullWidth
+                                value={values.min_stock || ''}
+                                onChange={handleInputChange}
+                                onClear={() => reset('min_stock')}
                             />
                         </Grid>
                     </Grid>

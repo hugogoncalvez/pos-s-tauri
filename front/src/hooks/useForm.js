@@ -6,7 +6,7 @@ export const useForm = (initialState = {}) => {
   const [values, setValues] = useState(initialState)
   const initialValuesRef = useRef(initialState); // Store initial state
 
-  //console.log({ keyFilter })
+  ////console.log({ keyFilter })
 
   const reset = useCallback((newStateOrKey) => {
     if (typeof newStateOrKey === 'string') {
@@ -21,20 +21,20 @@ export const useForm = (initialState = {}) => {
     }
   }, []);
   const resetArray = (claves) => {
-    //  console.log(claves)
+    //  //console.log(claves)
     if (typeof values !== 'undefined') {
       let borrador = structuredClone(values)
       claves.map((clave) =>
         delete borrador[clave]
       )
-      //  console.log({ borrador })\n      setValues(borrador)
+      //  //console.log({ borrador })\n      setValues(borrador)
     }
   }
 
   // const claveFil = ({ target }) => {
-  //   // console.log({ target })
+  //   // //console.log({ target })
   //   const clave = target.name
-  //   //console.log({ clave })
+  //   ////console.log({ clave })
   //   setKeyFilter(clave)
   // }
 

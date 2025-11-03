@@ -17,6 +17,13 @@ import modulePermissions from '../config/modulePermissions.js';
 
 import SupplierModel from "../Models/SuppliersModel.js";
 
+class ValidationError extends Error {
+    constructor(message, statusCode = 400) {
+        super(message);
+        this.name = 'ValidationError';
+        this.statusCode = statusCode;
+    }
+}
 
 /**
  * @description Obtiene todos los permisos disponibles en el sistema.
@@ -1020,7 +1027,7 @@ export const updateStock = async (req, res) => {
             await ProductPresentationsModel.bulkCreate(presentationsToCreate, { transaction });
 
         } else {
-            console.log("Backend: No new presentations to create.");
+            //console.log("Backend: No new presentations to create.");
         }
 
         // After updating stock, check for low stock
@@ -1692,235 +1699,170 @@ export const checkLowStockAndLog = async (stockId, auditUserId, transaction) => 
     }
 };
 
-// --- FUNCION MODIFICADA --- //
+// --- FUNCION MODIFICADA Y OPTIMIZADA --- //
 export const createSale = async (req, res) => {
-    const MAX_RETRIES = 3; // cantidad máxima de reintentos
-    const BASE_DELAY = 50; // ms (para backoff exponencial)
+    const MAX_RETRIES = 3;
+    const BASE_DELAY = 50;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         const transaction = await db.transaction();
         try {
+            console.time('createSale_total');
+
             const { total_amount, promotion_discount, customer_id, user_id, payments, tempValues, surcharge_amount } = req.body;
             let { total_neto } = req.body;
 
-            // 1. Verificar sesión de caja activa
             const activeSession = await CashSessionsModel.findOne({
                 where: { user_id: user_id, status: 'abierta' },
                 transaction
             });
 
-            if (!activeSession) {
-                await transaction.rollback();
-                return res.status(403).json({
-                    message: 'No tienes una sesión de caja activa. Por favor, abre una caja antes de registrar una venta.'
-                });
-            }
-
-            // 2. Validar pagos
-            if (!payments || !Array.isArray(payments) || payments.length === 0) {
-                await transaction.rollback();
-                return res.status(400).json({ message: 'Se requiere al menos un método de pago.' });
-            }
+            if (!activeSession) throw new ValidationError('No tienes una sesión de caja activa.', 403);
+            if (!payments?.length) throw new ValidationError('Se requiere al menos un método de pago.');
 
             const totalPaymentsAmount = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-
-            // Se valida contra total_amount porque los pagos no incluyen el recargo, que se maneja por separado.
-            const difference = totalPaymentsAmount - total_amount;
-
-            if (difference < -0.01) { // Se permite una pequeña tolerancia para errores de punto flotante
-                await transaction.rollback();
-                return res.status(400).json({
-                    message: `El monto recibido (${totalPaymentsAmount.toFixed(2)}) es insuficiente para cubrir el total de ${total_amount.toFixed(2)}.`
-                });
+            if (totalPaymentsAmount < total_amount - 0.01) {
+                throw new ValidationError(`Monto insuficiente: ${totalPaymentsAmount.toFixed(2)} < ${total_amount.toFixed(2)}`);
             }
 
-            // 3. Crear venta principal
             const newSale = await SaleModel.create({
-                total_amount,
-                promotion_discount,
-                surcharge_amount,
-                total_neto,
-                customer_id,
-                user_id,
-                cash_session_id: activeSession.id
+                total_amount, promotion_discount, surcharge_amount, total_neto,
+                customer_id, user_id, cash_session_id: activeSession.id
             }, { transaction });
 
-            // 4. Crear pagos
-            for (const payment of payments) {
-                await SalePaymentModel.create({
-                    sale_id: newSale.id,
-                    payment_method_id: payment.payment_method_id,
-                    amount: payment.amount
-                }, { transaction });
+            console.time('createSale_pre-load');
+            const stockIds = [...new Set(tempValues.filter(i => i.stock_id && !i.is_manual_entry).map(i => i.stock_id))];
+            const comboIds = [...new Set(tempValues.filter(i => i.type === 'combo').map(i => i.id))];
+            const paymentMethodIds = [...new Set(payments.map(p => p.payment_method_id))];
 
-                const paymentMethod = await PaymentModel.findByPk(payment.payment_method_id, { transaction });
-                if (paymentMethod && paymentMethod.method &&
-                    (paymentMethod.method.toLowerCase().includes('credito') ||
-                        paymentMethod.method.toLowerCase().includes('crédito') ||
-                        paymentMethod.method.toLowerCase().includes('cuenta corriente'))) {
-                    if (customer_id && customer_id !== 1) {
-                        const customer = await CustomerModel.findByPk(customer_id, { transaction });
-                        if (customer) {
-                            const newDebt = parseFloat(customer.debt || 0) + parseFloat(payment.amount);
-                            await customer.update({ debt: newDebt }, { transaction });
+            const [stockItems, comboItems, paymentMethodsList] = await Promise.all([
+                stockIds.length ? StockModel.findAll({ where: { id: { [Op.in]: stockIds } }, transaction }) : [],
+                comboIds.length ? ComboItem.findAll({ where: { combo_id: { [Op.in]: comboIds } }, transaction }) : [],
+                paymentMethodIds.length ? PaymentModel.findAll({ where: { id: { [Op.in]: paymentMethodIds } }, transaction }) : []
+            ]);
+            console.timeEnd('createSale_pre-load');
+
+            const stockItemsMap = new Map(stockItems.map(s => [s.id, s]));
+            const comboItemsMap = new Map();
+            comboItems.forEach(item => {
+                if (!comboItemsMap.has(item.combo_id)) comboItemsMap.set(item.combo_id, []);
+                comboItemsMap.get(item.combo_id).push(item);
+            });
+            const paymentMethodsMap = new Map(paymentMethodsList.map(pm => [pm.id, pm]));
+
+            console.time('createSale_payment-processing');
+            const salePaymentsToCreate = payments.map(p => ({
+                sale_id: newSale.id,
+                payment_method_id: p.payment_method_id,
+                amount: p.amount
+            }));
+            await SalePaymentModel.bulkCreate(salePaymentsToCreate, { transaction });
+
+            const creditPayments = [];
+            for (const payment of payments) {
+                const method = paymentMethodsMap.get(payment.payment_method_id);
+                if (method?.method && (method.method.toLowerCase().includes('credito') || method.method.toLowerCase().includes('cuenta corriente'))) {
+                    creditPayments.push({ customer_id, amount: payment.amount });
+                }
+            }
+            if (creditPayments.length && customer_id !== 1) {
+                const totalCreditAmount = creditPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+                await CustomerModel.increment('debt', { by: totalCreditAmount, where: { id: customer_id }, transaction });
+            }
+            console.timeEnd('createSale_payment-processing');
+
+            const validationErrors = [];
+            for (const item of tempValues) {
+                if (item.is_manual_entry || item.type === 'combo') continue;
+                const stockItem = stockItemsMap.get(item.stock_id);
+                if (!stockItem) {
+                    validationErrors.push(`Producto ID ${item.stock_id} no encontrado`);
+                    continue;
+                }
+                if (!item.force_sale && stockItem.stock < item.quantity) validationErrors.push(`Stock insuficiente: ${stockItem.name}`);
+                if (stockItem.tipo_venta === 'unitario' && !Number.isInteger(item.quantity)) validationErrors.push(`${stockItem.name} requiere cantidad entera`);
+            }
+            if (validationErrors.length) throw new ValidationError(validationErrors.join('; '));
+
+            const stockUpdates = new Map();
+            const saleDetailsToCreate = [];
+            const auditLogsToCreate = [];
+            const stocksToCheck = new Set();
+
+            for (const item of tempValues) {
+                if (item.type === 'combo') {
+                    saleDetailsToCreate.push({ sales_Id: newSale.id, combo_id: item.id, quantity: item.quantity, price: item.final_price / item.quantity, cost: 0 });
+                    const components = comboItemsMap.get(item.id) || [];
+                    components.forEach(comp => {
+                        const qty = comp.quantity * item.quantity;
+                        stockUpdates.set(comp.stock_id, (stockUpdates.get(comp.stock_id) || 0) + qty);
+                        stocksToCheck.add(comp.stock_id);
+                    });
+                } else {
+                    const { stock_id, promotion_id, quantity, final_price } = item;
+                    const stockItem = stockItemsMap.get(stock_id);
+                    saleDetailsToCreate.push({ sales_Id: newSale.id, stock_id: item.is_manual_entry ? null : stock_id, promotion_id: promotion_id || null, quantity, price: final_price / quantity, cost: stockItem?.cost || 0 });
+                    if (stock_id) {
+                        stockUpdates.set(stock_id, (stockUpdates.get(stock_id) || 0) + quantity);
+                        stocksToCheck.add(stock_id);
+                        if (stockItem?.price !== item.price) {
+                            auditLogsToCreate.push({ user_id, action: 'CAMBIO_PRECIO_MANUAL', entity_type: 'sale_item', entity_id: stock_id, session_id: activeSession.id, new_values: { sale_id: newSale.id, product_name: stockItem.name, original_price: stockItem.price, new_price: item.price }, details: `Precio modificado: ${stockItem.name}` });
+                        }
+                        if (item.force_sale && stockItem.stock - quantity < 0) {
+                            auditLogsToCreate.push({ user_id, action: 'VENTA_FORZADA_STOCK_NEGATIVO', entity_type: 'stock', entity_id: stock_id, new_values: { product_name: stockItem.name, quantity, stock_before: stockItem.stock, stock_after: stockItem.stock - quantity }, details: `Venta forzada: ${quantity} x ${stockItem.name}` });
                         }
                     }
                 }
             }
 
-            // 5. Crear detalles de venta y decrementar stock
-            if (tempValues && Array.isArray(tempValues)) {
-                // Validaciones de stock previas
-                for (const item of tempValues) {
-                    if (item.is_manual_entry || item.type === 'combo') continue;
-                    const stockItem = await StockModel.findByPk(item.stock_id, { transaction });
+            console.time('createSale_batch-writes');
+            await Promise.all([
+                SaleDetailModel.bulkCreate(saleDetailsToCreate, { transaction }),
+                ...Array.from(stockUpdates.entries()).map(([stockId, qty]) => StockModel.decrement('stock', { by: qty, where: { id: stockId }, transaction }))
+            ]);
+            console.timeEnd('createSale_batch-writes');
 
-                    if (!stockItem) {
-                        throw new Error(`Producto con ID ${item.stock_id} no fue encontrado.`);
-                    }
-                    if (!item.force_sale && stockItem.stock < item.quantity) {
-                        throw new Error(`Stock insuficiente para el producto "${stockItem.name}".`);
-                    }
-                    if (stockItem.tipo_venta === 'unitario' && !Number.isInteger(item.quantity)) {
-                        throw new Error(`El producto "${stockItem.name}" se vende por unidades enteras.`);
-                    }
-                    if (stockItem.tipo_venta === 'pesable' && isNaN(parseFloat(item.quantity))) {
-                        throw new Error(`Cantidad inválida para el producto pesable "${stockItem.name}".`);
-                    }
+            if (auditLogsToCreate.length) {
+                console.time('createSale_audit-logs');
+                const commonAuditData = { ip_address: req.ip, user_agent: req.get('user-agent'), createdAt: new Date() };
+                await AuditLogModel.bulkCreate(auditLogsToCreate.map(log => ({ ...log, ...commonAuditData })), { transaction });
+                console.timeEnd('createSale_audit-logs');
+            }
+
+            if (stocksToCheck.size) {
+                console.time('createSale_low-stock-check');
+                const lowStockItems = await StockModel.findAll({
+                    where: { id: { [Op.in]: Array.from(stocksToCheck) }, [Op.or]: [db.literal('stock <= min_stock')] },
+                    attributes: ['id', 'name', 'stock', 'min_stock'],
+                    transaction
+                });
+                if (lowStockItems.length) {
+                    const commonAuditData = { user_id, action: 'ALERTA_STOCK_BAJO', entity_type: 'stock', ip_address: req.ip, user_agent: req.get('user-agent'), createdAt: new Date() };
+                    await AuditLogModel.bulkCreate(lowStockItems.map(item => ({ ...commonAuditData, entity_id: item.id, new_values: { current_stock: item.stock, min_stock: item.min_stock }, details: `Stock bajo: ${item.name} (${item.stock}/${item.min_stock})` })), { transaction });
                 }
-
-                // Procesar cada item
-                for (const item of tempValues) {
-                    if (item.type === 'combo') {
-                        // --- Manejo de combos ---
-                        await SaleDetailModel.create({
-                            sales_Id: newSale.id,
-                            combo_id: item.id,
-                            quantity: item.quantity,
-                            price: item.final_price / item.quantity,
-                            cost: 0
-                        }, { transaction });
-
-                        const comboItems = await ComboItem.findAll({
-                            where: { combo_id: item.id },
-                            transaction
-                        });
-
-                        for (const comboComponent of comboItems) {
-                            const quantityToDecrement = comboComponent.quantity * item.quantity;
-                            await StockModel.decrement('stock', {
-                                by: quantityToDecrement,
-                                where: { id: comboComponent.stock_id },
-                                transaction
-                            });
-                            await checkLowStockAndLog(comboComponent.stock_id, req.user?.id || user_id, transaction);
-                        }
-                    } else {
-                        // --- Productos normales ---
-                        const { stock_id, promotion_id, quantity, final_price } = item;
-                        let cogs = 0;
-                        let stockItem = null;
-
-                        if (stock_id) {
-                            stockItem = await StockModel.findByPk(stock_id, { transaction });
-                            if (stockItem) cogs = stockItem.cost;
-                        }
-
-                        await SaleDetailModel.create({
-                            sales_Id: newSale.id,
-                            stock_id: item.is_manual_entry ? null : stock_id,
-                            promotion_id: promotion_id || null,
-                            quantity,
-                            price: final_price / quantity,
-                            cost: cogs
-                        }, { transaction });
-
-                        if (stock_id) {
-                            await StockModel.decrement('stock', {
-                                by: quantity,
-                                where: { id: stock_id },
-                                transaction
-                            });
-
-                            if (stockItem && stockItem.price !== item.price) {
-                                await logAudit({
-                                    user_id,
-                                    action: 'CAMBIO_PRECIO_MANUAL',
-                                    entity_type: 'sale_item',
-                                    entity_id: stock_id,
-                                    session_id: activeSession.id,
-                                    new_values: {
-                                        sale_id: newSale.id,
-                                        product_name: stockItem.name,
-                                        original_price: stockItem.price,
-                                        new_price: item.price
-                                    },
-                                    details: `Cambio de precio para "${stockItem.name}" en venta #${newSale.id}`
-                                }, req, transaction);
-                            }
-                        }
-
-                        if (stock_id && item.force_sale && stockItem.stock - quantity < 0) {
-                            await logAudit({
-                                user_id,
-                                action: 'VENTA_FORZADA_STOCK_NEGATIVO',
-                                entity_type: 'stock',
-                                entity_id: stock_id,
-                                new_values: { product_name: stockItem.name, quantity, stock_before: stockItem.stock, stock_after: stockItem.stock - quantity },
-                                details: `Venta forzada de ${quantity} unidades de ${stockItem.name}.`
-                            }, req, transaction);
-                        }
-
-                        if (item.is_manual_entry) {
-                            await logAudit({
-                                user_id,
-                                action: 'VENTA_PRODUCTO_MANUAL',
-                                entity_type: 'sale_item',
-                                entity_id: null,
-                                new_values: {
-                                    product_name: item.name,
-                                    quantity: item.quantity,
-                                    price: item.price,
-                                    description: item.description || 'N/A'
-                                },
-                                details: `Producto manual "${item.name}" agregado a la venta`
-                            }, req, transaction);
-                        }
-
-                        if (stock_id) {
-                            await checkLowStockAndLog(stock_id, req.user?.id || user_id, transaction); // Usar user_id de la venta como fallback
-                        }
-                    }
-                }
+                console.timeEnd('createSale_low-stock-check');
             }
 
             await transaction.commit();
+            console.timeEnd('createSale_total');
             return res.json({ message: 'Venta registrada correctamente', id: newSale.id });
 
         } catch (error) {
             await transaction.rollback();
-
-            // 🔑 DETECCIÓN DE DEADLOCK
-            if ((error.original && error.original.code === 'ER_LOCK_DEADLOCK') ||
-                (error.original && error.original.code === 'ER_LOCK_WAIT_TIMEOUT')) {
-                console.warn(`⚠️ Deadlock detectado en createSale. Intento ${attempt} de ${MAX_RETRIES}`);
-                if (attempt < MAX_RETRIES) {
-                    // Backoff exponencial
-                    await new Promise(r => setTimeout(r, BASE_DELAY * attempt));
-                    continue; // reintentar
-                }
+            if ((error.original?.code === 'ER_LOCK_DEADLOCK' || error.original?.code === 'ER_LOCK_WAIT_TIMEOUT') && attempt < MAX_RETRIES) {
+                console.warn(`⚠️ Deadlock detectado. Reintento ${attempt}/${MAX_RETRIES}`);
+                await new Promise(r => setTimeout(r, BASE_DELAY * Math.pow(2, attempt - 1)));
+                continue;
             }
-
-            // Manejo específico para errores de stock insuficiente
-            if (error.message.includes('Stock insuficiente')) {
-                console.error("❌ createSale: Error de validación de stock:", error.message);
-                return res.status(400).json({ error: error.message });
+            if (error instanceof ValidationError) {
+                console.error(`❌ createSale: Error de validación: ${error.message}`);
+                return res.status(error.statusCode).json({ error: error.message });
             }
-
-            console.error("❌ createSale: Error fatal, sin reintento:", error);
-            return res.status(500).json({ error: error.message });
+            console.error(`❌ createSale error (intento ${attempt}):`, error);
+            return res.status(500).json({ error: `Error al registrar venta: ${error.message}` });
         }
     }
+    return res.status(500).json({ error: 'No se pudo registrar la venta tras múltiples intentos. Reintente más tarde.' });
 };
 
 
@@ -2126,7 +2068,7 @@ export const loginUsu = async (req, res) => {
 
 
     } catch (error) {
-        console.log({ error })
+        //console.log({ error })
     }
 }
 
@@ -2518,7 +2460,7 @@ export const finalizeClosure = async (req, res) => {
 // Obtener sesión de caja activa del usuario
 export const getActiveCashSession = async (req, res) => {
     const { user_id } = req.params;
-    console.log(`[Backend] getActiveCashSession: Recibida solicitud para user_id: ${user_id}`);
+    //console.log(`[Backend] getActiveCashSession: Recibida solicitud para user_id: ${user_id}`);
     try {
         const session = await CashSessionsModel.findOne({
             where: {
@@ -2537,17 +2479,17 @@ export const getActiveCashSession = async (req, res) => {
             }]
         });
 
-        console.log(`[Backend] getActiveCashSession: Resultado de findOne para user_id ${user_id}: ${session ? 'Sesión encontrada' : 'No se encontró sesión'}`);
+        //console.log(`[Backend] getActiveCashSession: Resultado de findOne para user_id ${user_id}: ${session ? 'Sesión encontrada' : 'No se encontró sesión'}`);
         if (session) {
-            console.log(`[Backend] getActiveCashSession: Sesión encontrada - ID: ${session.id}, Status: ${session.status}`);
+            //console.log(`[Backend] getActiveCashSession: Sesión encontrada - ID: ${session.id}, Status: ${session.status}`);
         }
 
         if (!session) {
-            console.log(`[Backend] getActiveCashSession: No se encontró sesión activa para user_id: ${user_id}`);
+            //console.log(`[Backend] getActiveCashSession: No se encontró sesión activa para user_id: ${user_id}`);
             return res.status(200).json({ hasActiveSession: false, session: null });
         }
 
-        console.log(`[Backend] getActiveCashSession: Sesión activa encontrada para user_id: ${user_id}, ID de sesión: ${session.id}`);
+        //console.log(`[Backend] getActiveCashSession: Sesión activa encontrada para user_id: ${user_id}, ID de sesión: ${session.id}`);
         // Calcular el current_cash si la sesión está abierta
         const movements = await CashSessionMovementModel.findAll({
             where: { cash_session_id: session.id }

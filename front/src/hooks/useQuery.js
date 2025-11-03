@@ -26,12 +26,12 @@ const handleOfflineQuery = async (url) => {
   const tableName = matchedKey ? ENDPOINT_TO_TABLE[matchedKey] : null;
 
   if (tableName && db[tableName]) {
-    console.log(`[Offline Query] Interceptada URL: ${url}`);
-    console.log(`[Offline Query] Consultando tabla de Dexie: [${tableName}]`);
+    //console.log(`[Offline Query] Interceptada URL: ${url}`);
+    //console.log(`[Offline Query] Consultando tabla de Dexie: [${tableName}]`);
 
     if (tableName === 'stock') {
       const searchTerm = urlObject.searchParams.get('name') || '';
-      console.log(`[Offline Query] Término de búsqueda para stock: "${searchTerm}"`);
+      //console.log(`[Offline Query] Término de búsqueda para stock: "${searchTerm}"`);
       try {
         let data;
         if (searchTerm) {
@@ -46,7 +46,7 @@ const handleOfflineQuery = async (url) => {
         } else {
           data = await db.stock.limit(100).toArray();
         }
-        console.log(`[Offline Query] Resultados encontrados en Dexie: ${data.length}`);
+        //console.log(`[Offline Query] Resultados encontrados en Dexie: ${data.length}`);
         return { products: data };
       } catch (error) {
         console.error('[Offline Query] Error al consultar Dexie:', error);
@@ -56,20 +56,20 @@ const handleOfflineQuery = async (url) => {
 
     if (tableName === 'active_cash_session') {
       const sessions = await db.active_cash_session.toArray();
-      console.log('[Offline Query - DEBUG] Contenido de la tabla active_cash_session:', sessions);
+      //console.log('[Offline Query - DEBUG] Contenido de la tabla active_cash_session:', sessions);
       if (sessions.length > 0) {
-        console.log('[Offline Query] Sesión de caja activa encontrada localmente.');
+        //console.log('[Offline Query] Sesión de caja activa encontrada localmente.');
         // Mimic the online response structure
         return { hasActiveSession: true, session: sessions[0] };
       } else {
-        console.log('[Offline Query] No se encontró sesión de caja activa local.');
+        //console.log('[Offline Query] No se encontró sesión de caja activa local.');
         // Mimic the online response structure for no active session
         return { hasActiveSession: false, session: null };
       }
     }
 
     if (tableName === 'elements') {
-      console.log('[Offline Query] Modo offline detectado para /elements. Devolviendo solo la tarjeta de Ventas.');
+      //console.log('[Offline Query] Modo offline detectado para /elements. Devolviendo solo la tarjeta de Ventas.');
       const ventasCard = {
         id: 5,
         nombre: 'Ventas',
@@ -80,32 +80,32 @@ const handleOfflineQuery = async (url) => {
         permiso_requerido: 'ver_vista_ventas'
       };
       if (OFFLINE_USER.permisos.includes(ventasCard.permiso_requerido)) {
-        console.log('[Offline Query] ✅ Retornando datos para /elements:', [ventasCard]);
+        //console.log('[Offline Query] ✅ Retornando datos para /elements:', [ventasCard]);
         return [ventasCard];
       }
-      console.log('[Offline Query] ❌ Usuario offline no tiene permiso, retornando array vacío.');
+      //console.log('[Offline Query] ❌ Usuario offline no tiene permiso, retornando array vacío.');
       return [];
     }
 
     if (tableName === 'theme_settings') {
       const theme = await db.theme_settings.get(1);
       if (theme) {
-        console.log('[Offline Query] Configuración de tema encontrada localmente.');
+        //console.log('[Offline Query] Configuración de tema encontrada localmente.');
         return theme;
       } else {
-        console.log('[Offline Query] No se encontró configuración de tema local.');
+        //console.log('[Offline Query] No se encontró configuración de tema local.');
         return null;
       }
     }
 
     if (tableName === 'pending_tickets') {
-      console.log('[Offline Query] Consultando tickets pendientes visibles.');
+      //console.log('[Offline Query] Consultando tickets pendientes visibles.');
       return getVisiblePendingTickets();
     }
 
     const data = await db[tableName].toArray();
     if (tableName === 'customers') {
-      console.log(`[Offline Query - Customers] Data from Dexie:`, data);
+      //console.log(`[Offline Query - Customers] Data from Dexie:`, data);
     }
     return data;
   }
@@ -125,14 +125,14 @@ export const UseFetchQuery = (key, queryFnOrUrl, enable = true, stale = 0, optio
         return queryFnOrUrl();
       }
 
-      console.log(`[UseFetchQuery - queryFn] isOnline: ${isOnline}, URL: ${queryFnOrUrl}`);
+      //console.log(`[UseFetchQuery - queryFn] isOnline: ${isOnline}, URL: ${queryFnOrUrl}`);
 
       if (!isOnline) {
         return handleOfflineQuery(queryFnOrUrl);
       }
 
       const res = await Api.get(queryFnOrUrl);
-      console.log(`[UseFetchQuery - API Response] URL: ${queryFnOrUrl}, Data:`, res.data);
+      //console.log(`[UseFetchQuery - API Response] URL: ${queryFnOrUrl}, Data:`, res.data);
       return res.data;
     },
     enabled: enable,
@@ -161,21 +161,21 @@ export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale
 
       // Special handling for pending tickets to ensure data consistency
       if (queryFnOrUrl === '/pending-tickets') {
-        console.log("🔄 Fetching pending tickets state...");
+        //console.log("🔄 Fetching pending tickets state...");
         // When online, we can trigger a background fetch to update the cache later,
         // but for the immediate UI response, we return local data to prevent race conditions.
         if (isOnline) {
           Api.get(queryFnOrUrl).then(res => {
             // TODO: Implement a safe background sync instead of the direct call
             // that was causing a race condition. For now, we do nothing with the result.
-            console.log('Background fetch of pending tickets complete. Sync-down deferred.');
+            //console.log('Background fetch of pending tickets complete. Sync-down deferred.');
           });
         }
         return getVisiblePendingTickets(); // Always return local data for UI consistency
       }
 
       const res = await Api.get(queryFnOrUrl);
-      console.log(`[API Response - ${queryFnOrUrl}]`, res.data);
+      //console.log(`[API Response - ${queryFnOrUrl}]`, res.data);
       return res.data;
     } : undefined,
     enabled: enable,

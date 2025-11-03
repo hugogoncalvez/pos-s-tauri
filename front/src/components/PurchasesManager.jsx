@@ -40,10 +40,11 @@ import { StyledAutocomplete } from '../styledComponents/ui/StyledAutocomplete';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
 import { StyledCard } from '../styledComponents/ui/StyledCard';
 import { StyledTextField } from '../styledComponents/ui/StyledTextField';
+import { TextFieldWithClear } from '../styledComponents/ui/TextFieldWithClear';
 import { StyledDialog } from '../styledComponents/ui/StyledDialog';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
 import { NewSupplierModal } from '../styledComponents/NewSupplierModal';
-import { NewProductModal } from '../styledComponents/NewProductModal';
+//import { NewProductModal } from '../styledComponents/NewProductModal';
 
 import { useForm } from '../hooks/useForm';
 import { UseFetchQuery } from '../hooks/useQuery';
@@ -195,7 +196,7 @@ const PurchasesManager = () => {
         try {
             const currentDate = moment().format('DD/MM/YYYY HH:mm');
             const purchaseDate = moment.utc(selectedPurchase.createdAt).format('DD/MM/YYYY');
-            
+
             const iframe = document.createElement('iframe');
             iframe.style.position = 'absolute';
             iframe.style.width = '0px';
@@ -751,8 +752,28 @@ const PurchasesManager = () => {
                     <Box sx={{ backgroundColor: 'background.dialog', p: 3 }}>
                         {modalError && <Alert severity="error" sx={{ mb: 2 }}>{modalError}</Alert>}
                         <Grid container spacing={2} sx={{ mt: 0 }} justifyContent="center">
-                            <Grid xs={12} md={4}><StyledTextField fullWidth label="Fecha" type="date" name="createdAt" value={purchaseValues.createdAt || ''} onChange={(e) => { handlePurchaseInputChange(e); e.target.blur(); }} InputLabelProps={{ shrink: true }} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handlePurchaseInputChange({ target: { name: 'createdAt', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
-                            <Grid xs={12} md={4}><StyledTextField fullWidth label="Nº de Factura" name="factura" value={purchaseValues.factura || ''} onChange={handlePurchaseInputChange} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handlePurchaseInputChange({ target: { name: 'factura', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
+                            <Grid xs={12} md={4}>
+                                <TextFieldWithClear
+                                    fullWidth
+                                    label="Fecha"
+                                    type="date"
+                                    name="createdAt"
+                                    value={purchaseValues.createdAt || ''}
+                                    onChange={(e) => { handlePurchaseInputChange(e); e.target.blur(); }}
+                                    InputLabelProps={{ shrink: true }}
+                                    onClear={() => handlePurchaseInputChange({ target: { name: 'createdAt', value: '' } })}
+                                />
+                            </Grid>
+                            <Grid xs={12} md={4}>
+                                <TextFieldWithClear
+                                    fullWidth
+                                    label="Nº de Factura"
+                                    name="factura"
+                                    value={purchaseValues.factura || ''}
+                                    onChange={handlePurchaseInputChange}
+                                    onClear={() => handlePurchaseInputChange({ target: { name: 'factura', value: '' } })}
+                                />
+                            </Grid>
                             <Grid xs={12} md={4}>
                                 <StyledAutocomplete
                                     freeSolo
@@ -794,7 +815,7 @@ const PurchasesManager = () => {
 
                                         return filtered;
                                     }}
-                                    renderInput={(params) => <StyledTextField {...params} label="Proveedor" InputProps={{ ...params.InputProps, startAdornment: <InputAdornment position="start"><IconButton onClick={() => handlePurchaseInputChange({ target: { name: 'supplier', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} />}
+                                    renderInput={(params) => <TextFieldWithClear {...params} label="Proveedor" onClear={() => handlePurchaseInputChange({ target: { name: 'supplier', value: '' } })} />}
                                     renderOption={(props, option) => {
                                         const { key, ...rest } = props;
                                         return <li key={key} {...rest}>{option.nombre}</li>;
@@ -805,7 +826,7 @@ const PurchasesManager = () => {
                         <Divider sx={{ my: 3 }}>Añadir Items</Divider>
                         <Grid container spacing={2} justifyContent="center">
                             <Grid xs={12} md={6} lg={4}>
-                                <StyledTextField
+                                <TextFieldWithClear
                                     fullWidth
                                     label="Código de Barras"
                                     type="text"
@@ -813,53 +834,99 @@ const PurchasesManager = () => {
                                     value={barcodeInput}
                                     onChange={handleBarcodeInputChange}
                                     onKeyDown={handleBarcodeKeyDown}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <IconButton onClick={() => {
-                                                    setBarcodeInput('');
-                                                    setSelectedProduct(null);
-                                                    resetItemForm();
-                                                    setModalError('');
-                                                    // Explicitly call handleBarcodeSearch with an empty string
-                                                    // to trigger the reset logic in the search function.
-                                                    handleBarcodeSearch('');
-                                                }}>
-                                                    <ClearIcon color='error' />
-                                                </IconButton>
-                                            </InputAdornment>
-                                        )
+                                    onClear={() => {
+                                        setBarcodeInput('');
+                                        setSelectedProduct(null);
+                                        resetItemForm();
+                                        setModalError('');
+                                        // Explicitly call handleBarcodeSearch with an empty string
+                                        // to trigger the reset logic in the search function.
+                                        handleBarcodeSearch('');
                                     }}
                                     inputRef={barcodeInputRef}
                                 />
                             </Grid>
-                            <Grid xs={12} md={6} lg={4}><StyledAutocomplete
-                                options={products || []}
-                                value={selectedProduct}
-                                onChange={(e, newValue) => {
-                                    setSelectedProduct(newValue);
-                                    handleItemInputChange({ target: { name: 'stock_id', value: newValue?.id || '' } });
-                                }}
-                                onInputChange={(event, newInputValue) => {
-                                    debouncedSetProductSearchTerm(newInputValue);
-                                }}
-                                getOptionLabel={(option) => option.name || ""}
-                                getOptionKey={(option) => option.id}
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                loading={isLoadingStock}
-                                filterOptions={(x) => x}
-                                renderInput={(params) => <StyledTextField {...params} label="Selecciona un producto" InputProps={{ ...params.InputProps, startAdornment: <InputAdornment position="start"><IconButton onClick={() => setSelectedProduct(null)}><ClearIcon color='error' /></IconButton></InputAdornment>, endAdornment: (<>{isLoadingStock ? <CircularProgress size={20} /> : null}{params.InputProps.endAdornment}</>) }} />}
-                            /></Grid>
+                            <Grid xs={12} md={6} lg={4}>
+                                <StyledAutocomplete
+                                    options={products || []}
+                                    value={selectedProduct}
+                                    onChange={(e, newValue) => {
+                                        setSelectedProduct(newValue);
+                                        handleItemInputChange({ target: { name: 'stock_id', value: newValue?.id || '' } });
+                                    }}
+                                    onInputChange={(event, newInputValue) => {
+                                        debouncedSetProductSearchTerm(newInputValue);
+                                    }}
+                                    getOptionLabel={(option) => option.name || ""}
+                                    getOptionKey={(option) => option.id}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    loading={isLoadingStock}
+                                    filterOptions={(x) => x}
+                                    renderInput={(params) => <TextFieldWithClear {...params} label="Selecciona un producto" onClear={() => setSelectedProduct(null)} InputProps={{...params.InputProps, endAdornment: (<>{isLoadingStock ? <CircularProgress size={20} /> : null}{params.InputProps.endAdornment}</>)}} />}
+                                />
+                            </Grid>
                             {isPesableProduct ? (
-                                <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Cantidad (Kg)" type='number' name='quantity' value={itemValues.quantity || ''} onChange={handleItemInputChange} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleItemInputChange({ target: { name: 'quantity', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} inputRef={quantityInputRef} /></Grid>
+                                <Grid xs={6} md={3} lg={2}>
+                                    <TextFieldWithClear
+                                        fullWidth
+                                        label="Cantidad (Kg)"
+                                        type='number'
+                                        name='quantity'
+                                        value={itemValues.quantity || ''}
+                                        onChange={handleItemInputChange}
+                                        onClear={() => handleItemInputChange({ target: { name: 'quantity', value: '' } })}
+                                        inputRef={quantityInputRef}
+                                    />
+                                </Grid>
                             ) : (
                                 <>
-                                    <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Cajas/Bultos" type='number' name='boxes' value={itemValues.boxes || ''} onChange={handleItemInputChange} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleItemInputChange({ target: { name: 'boxes', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
-                                    <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Unidades/Caja" type='number' name='unitsPerBox' value={itemValues.unitsPerBox || ''} onChange={handleItemInputChange} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleItemInputChange({ target: { name: 'unitsPerBox', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
-                                    <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Cant/Unidad" type='number' name='quantityPerUnits' value={itemValues.quantityPerUnits || ''} onChange={handleItemInputChange} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleItemInputChange({ target: { name: 'quantityPerUnits', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} inputRef={quantityInputRef} /></Grid>
+                                    <Grid xs={6} md={3} lg={2}>
+                                        <TextFieldWithClear
+                                            fullWidth
+                                            label="Cajas/Bultos"
+                                            type='number'
+                                            name='boxes'
+                                            value={itemValues.boxes || ''}
+                                            onChange={handleItemInputChange}
+                                            onClear={() => handleItemInputChange({ target: { name: 'boxes', value: '' } })}
+                                        />
+                                    </Grid>
+                                    <Grid xs={6} md={3} lg={2}>
+                                        <TextFieldWithClear
+                                            fullWidth
+                                            label="Unidades/Caja"
+                                            type='number'
+                                            name='unitsPerBox'
+                                            value={itemValues.unitsPerBox || ''}
+                                            onChange={handleItemInputChange}
+                                            onClear={() => handleItemInputChange({ target: { name: 'unitsPerBox', value: '' } })}
+                                        />
+                                    </Grid>
+                                    <Grid xs={6} md={3} lg={2}>
+                                        <TextFieldWithClear
+                                            fullWidth
+                                            label="Cant/Unidad"
+                                            type='number'
+                                            name='quantityPerUnits'
+                                            value={itemValues.quantityPerUnits || ''}
+                                            onChange={handleItemInputChange}
+                                            onClear={() => handleItemInputChange({ target: { name: 'quantityPerUnits', value: '' } })}
+                                            inputRef={quantityInputRef}
+                                        />
+                                    </Grid>
                                 </>
                             )}
-                            <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Costo Total" type='number' name='cost' value={itemValues.cost || ''} onChange={handleItemInputChange} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleItemInputChange({ target: { name: 'cost', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
+                            <Grid xs={6} md={3} lg={2}>
+                                <TextFieldWithClear
+                                    fullWidth
+                                    label="Costo Total"
+                                    type='number'
+                                    name='cost'
+                                    value={itemValues.cost || ''}
+                                    onChange={handleItemInputChange}
+                                    onClear={() => handleItemInputChange({ target: { name: 'cost', value: '' } })}
+                                />
+                            </Grid>
                             <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Total Unidades" type='number' name='totalPerUnits' value={itemValues.totalPerUnits || 0} InputProps={{ readOnly: true }} /></Grid>
                             <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Costo/Unidad" type='text' name='costPerUnits' value={formatCurrency(itemValues.costPerUnits) || ''} InputProps={{ readOnly: true }} /></Grid>
                             <Grid xs={12} md={2} sx={{ display: 'flex', alignItems: 'center' }}><StyledButton fullWidth variant="outlined" onClick={handleAddItem} startIcon={<PlaylistAddIcon />}>{editingItemIndex !== null ? 'Actualizar' : 'Agregar'}</StyledButton></Grid>
@@ -933,7 +1000,7 @@ const PurchasesManager = () => {
                 </DialogActions>
             </StyledDialog>
             <NewSupplierModal open={openNewSupplierModal} handleClose={() => setOpenNewSupplierModal(false)} initialName={newSupplierName} onSupplierAdded={(newSupplier) => { refetchSuppliers(); setPurchaseValues(prev => ({ ...prev, supplier: newSupplier.nombre })); }} />
-            <NewProductModal open={openNewProductModal} handleClose={() => setOpenNewProductModal(false)} initialName={newProductName} onProductAdded={(newProduct) => { refetchStock(); setSelectedProduct(newProduct); setItemValues(prev => ({ ...prev, stock_id: newProduct.id })); }} />
+            {/* <NewProductModal open={openNewProductModal} handleClose={() => setOpenNewProductModal(false)} initialName={newProductName} onProductAdded={(newProduct) => { refetchStock(); setSelectedProduct(newProduct); setItemValues(prev => ({ ...prev, stock_id: newProduct.id })); }} /> */}
         </Box>
     );
 };

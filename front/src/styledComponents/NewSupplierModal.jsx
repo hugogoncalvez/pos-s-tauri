@@ -19,6 +19,7 @@ import { mostrarExito } from '../functions/mostrarExito';
 import { mostrarError } from '../functions/MostrarError';
 import CloseIcon from '@mui/icons-material/Close';
 import ClearIcon from '@mui/icons-material/Clear';
+import { TextFieldWithClear } from './ui/TextFieldWithClear';
 import SaveAsIcon from '@mui/icons-material/SaveAs';
 
 // ...
@@ -77,7 +78,7 @@ export const NewSupplierModal = ({ open, handleClose, initialName = '', onSuppli
                 <Box sx={{ backgroundColor: 'background.dialog', p: 3 }}>
                     <Grid container spacing={2} sx={{ mt: 1 }}>
                         <Grid item xs={12}>
-                            <StyledTextField
+                            <TextFieldWithClear
                                 autoFocus
                                 name="nombre"
                                 label="Nombre del Proveedor"
@@ -86,11 +87,11 @@ export const NewSupplierModal = ({ open, handleClose, initialName = '', onSuppli
                                 variant="outlined"
                                 value={values.nombre || ''}
                                 onChange={handleInputChange}
-                                InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'nombre', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                                onClear={() => handleInputChange({ target: { name: 'nombre', value: '' } })}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <StyledTextField
+                            <TextFieldWithClear
                                 name="cuit"
                                 label="CUIT"
                                 type="text"
@@ -98,11 +99,11 @@ export const NewSupplierModal = ({ open, handleClose, initialName = '', onSuppli
                                 variant="outlined"
                                 value={values.cuit || ''}
                                 onChange={handleInputChange}
-                                InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'cuit', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                                onClear={() => handleInputChange({ target: { name: 'cuit', value: '' } })}
                             />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <StyledTextField
+                            <TextFieldWithClear
                                 name="telefono"
                                 label="Teléfono"
                                 type="text"
@@ -110,7 +111,7 @@ export const NewSupplierModal = ({ open, handleClose, initialName = '', onSuppli
                                 variant="outlined"
                                 value={values.telefono || ''}
                                 onChange={handleInputChange}
-                                InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'telefono', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                                onClear={() => handleInputChange({ target: { name: 'telefono', value: '' } })}
                             />
                         </Grid>
                     </Grid>

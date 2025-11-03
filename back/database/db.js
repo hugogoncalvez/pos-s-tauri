@@ -13,7 +13,7 @@ const DB_PORT = process.env.DB_PORT
 //     host: DB_HOST,
 //     port: DB_PORT,
 //     dialect: 'mysql',
-//     logging: console.log // Habilitar el log de consultas SQL
+//     logging: //console.log // Habilitar el log de consultas SQL
 // })
 
 const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
@@ -21,7 +21,7 @@ const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
     port: DB_PORT,
     dialect: 'mysql',
     pool: {
-        max: 5, 
+        max: 5,
         min: 0,
         acquire: 60000, // Aumentado a 60 segundos
         idle: 60000      // Aumentado a 60 segundos
