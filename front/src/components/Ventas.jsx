@@ -444,17 +444,19 @@ const Ventas = () => {
     mostrarCarga('Guardando Venta...', theme);
 
     createSale(saleData, {
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         Swal.close(); // Cerrar la alerta de carga
 
         if (ticketIdToDelete) {
           const ticketToDeleteObject = pendingTickets.find(t => t.local_id === ticketIdToDelete);
           if (ticketToDeleteObject) {
-            syncService.deletePendingTicket(ticketToDeleteObject, isOnline).catch(deleteError => {
+            try {
+              await syncService.deletePendingTicket(ticketToDeleteObject, isOnline);
+              queryClient.invalidateQueries({ queryKey: ['pendingTickets'] });
+            } catch (deleteError) {
               console.error("Error al eliminar el ticket pendiente después de la venta:", deleteError);
               mostrarError('La venta se completó, pero no se pudo eliminar el ticket pendiente.', theme);
-            });
-            refetchPendingTickets();
+            }
           }
         }
 
@@ -477,8 +479,8 @@ const Ventas = () => {
   }, [
     currentTicketId, tempTable, paymentOption, selectedSinglePaymentType, selectedCustomer,
     totalFinal, mixedPayments, usuario, theme, subtotal,
-    descuentoAplicado, surchargeAmount, processedTempTable, isOnline, deleteItem,
-    refetchPendingTickets, clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
+    descuentoAplicado, surchargeAmount, processedTempTable, isOnline, queryClient,
+    clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
     mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets
   ]);
 
@@ -944,6 +946,13 @@ const Ventas = () => {
       inputRefCodigoBarra.current.focus();
     }
   }, [showPendingTickets]);
+
+  // Efecto para refrescar tickets pendientes al abrir el modal
+  useEffect(() => {
+    if (showPendingTickets) {
+      refetchPendingTickets();
+    }
+  }, [showPendingTickets, refetchPendingTickets]);
 
   // Set default payment method to "Efectivo" when payment methods are loaded
   useEffect(() => {

@@ -1,136 +1,92 @@
 const palette = {
-  light: {
-    primary: {
-      main: '#546E7A',
-    },
-    secondary: {
-      main: '#C9E9D2',
-    },
-    button: {
-      contained: {
-        main: '#546E7A'
-      },
-      outlined: {
-        main: '#546E7A'
-      }
-    },
-    background: {
-      default: {
-        type: 'linear',
-        direction: '135deg',
-        colors: ['#ECECEC', '#F0F0F0']
-      },
-      paper: '#E0E0E0',
-      dialog: '#E0E0E0',
-      styledCard: '#E0E0E0',
-      card: {
-        type: 'linear',
-        direction: '135deg',
-        colors: ['#E0E0E0', '#E8E8E8']
-      },
-      appBar: '#546E7A',
-      tableHeader: '#546E7A',
-      componentHeaderBackground: {
-        type: 'linear',
-        direction: '135deg',
-        colors: ['#546E7A', '#C9E9D2']
-      },
-    },
-    text: {
-      primary: '#212121',
-      secondary: '#757575',
-      titlePrimary: '#212121',
-      titleSecondary: '#757575',
-    },
-    common: {
-      backdropOverlay: 'rgba(0, 0, 0, 0.75)',
-    },
-    shadows: {
-      card: {
-        properties: 'inset 0 0 12px',
-        color: 'rgba(0, 0, 0, 0.2)',
-      },
-      cardHover: {
-        properties: '0 0 24px',
-        color: 'rgba(0, 0, 0, 0.3)',
-      },
-    },
-    info: {
-      main: '#2196f3',
-      dark: '#1976d2',
-    },
-    warning: {
-      main: '#ff9800',
-      dark: '#f57c00',
-    },
-    divider: '#BDBDBD', // Added divider
-  },
   dark: {
-    primary: {
-      main: '#8C3061',
-    },
-    secondary: {
-      main: '#D95F59',
-    },
-    button: {
-      contained: {
-        main: '#8C3061'
-      },
-      outlined: {
-        main: '#8C3061'
-      }
-    },
-    background: {
-      default: {
-        type: 'linear',
-        direction: '135deg',
-        colors: ['#020203', '#0e0d17']
-      },
-      paper: '#1A1A1A',
-      dialog: '#1A1A1A',
-      styledCard: '#1A1A1A',
-      card: {
-      type: 'radial',
-      shape: 'circle',
-      position: 'top left',
-      colors: ['#161b22', '#0d1117']
-    },
-    appBar: '#8C3061',
-    tableHeader: '#8C3061',
-    componentHeaderBackground: {
-      type: 'linear',
-      direction: '135deg',
-      colors: ['#8C3061', '#D95F59']
-    },
-    },
+    info: { dark: '#379defff', main: '#63b3ed' },
     text: {
       primary: '#c9d1d9',
       secondary: '#8b949e',
       titlePrimary: '#c9d1d9',
       titleSecondary: '#8b949e',
     },
-    common: {
-      backdropOverlay: 'rgba(0, 0, 0, 0.75)',
+    button: {
+      outlined: { main: '#d0217dff' },
+      contained: { main: '#a4326fff' },
     },
+    common: { backdropOverlay: '#1e1d1dff' },
+    divider: '#424242',
+    primary: { main: '#822454ff' },
     shadows: {
+      card: { color: '#00f5ff33', properties: 'inset 0 0 12px' },
+      cardHover: { color: '#00f5ff88', properties: '0 0 24px' },
+    },
+    warning: { dark: '#d77902ff', main: '#ff9903ff' },
+    secondary: { main: '#cb609dff' },
+    background: {
       card: {
-        properties: 'inset 0 0 12px',
-        color: '#00f5ff33',
+        type: 'radial',
+        shape: 'circle',
+        colors: ['#141a23ff', '#19212dff'],
+        position: 'top left',
       },
-      cardHover: {
-        properties: '0 0 24px',
-        color: '#00f5ff88',
+      paper: '#1a1a1aff',
+      appBar: '#00787dff',
+      dialog: '#1A1A1A',
+      default: {
+        type: 'linear',
+        colors: ['#0d1117ff', '#0d1117ff'],
+        direction: '135deg',
+      },
+      styledCard: '#1a1a1aff',
+      tableHeader: '#b50345ff',
+      componentHeaderBackground: {
+        type: 'linear',
+        colors: ['#023133ff', '#06686cff'],
+        direction: '135deg',
       },
     },
-    info: {
-      main: '#63b3ed',
-      dark: '#42a5f5',
+  },
+  light: {
+    info: { dark: '#1565c0', main: '#1976d2' },
+    text: {
+      primary: '#2d2d2d',
+      secondary: '#5a5a5a',
+      titlePrimary: '#1a1a1a',
+      titleSecondary: '#4a4a4a',
     },
-    warning: {
-      main: '#ffa726',
-      dark: '#fb8c00',
+    button: {
+      outlined: { main: '#b53f78ff' },
+      contained: { main: '#8d2e5f' },
     },
-    divider: '#424242', // Added divider
+    common: { backdropOverlay: 'rgba(0, 0, 0, 0.6)' },
+    divider: '#9e9e9e',
+    primary: { main: '#6d1e47' },
+    shadows: {
+      card: { color: '#00000038', properties: 'inset 0 0 12px' },
+      cardHover: { color: '#0000004a', properties: '0 0 24px' },
+    },
+    warning: { dark: '#e65100', main: '#f57c00' },
+    secondary: { main: '#b85886' },
+    background: {
+      card: {
+        type: 'linear',
+        colors: ['#b8b8b8', '#c5c5c5'],
+        direction: '135deg',
+      },
+      paper: '#e1e1e1ff',
+      appBar: '#8d2e5fff',
+      dialog: '#d9d9d9ff',
+      default: {
+        type: 'linear',
+        colors: ['#d9d9d9ff', '#e1e1e1ff'],
+        direction: '135deg',
+      },
+      styledCard: '#cfceceff',
+      tableHeader: '#b53f78ff',
+      componentHeaderBackground: {
+        type: 'linear',
+        colors: ['#8d2e5fff', '#f4c8ddff'],
+        direction: '135deg',
+      },
+    },
   },
 };
 
