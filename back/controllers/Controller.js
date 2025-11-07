@@ -2659,8 +2659,9 @@ export const getCashSessionHistory = async (req, res) => {
             include: [
                 {
                     model: UsuarioModel,
+                    required: false, // LEFT OUTER JOIN
                     attributes: ['id', 'username'],
-                    include: [{ model: RoleModel, as: 'rol', attributes: ['nombre'], required: true }]
+                    include: [{ model: RoleModel, as: 'rol', attributes: ['nombre'] }]
                 }
             ],
             order: [['opened_at', 'DESC']],
@@ -2672,11 +2673,12 @@ export const getCashSessionHistory = async (req, res) => {
         const detailedSessions = await Promise.all(rows.map(async (session) => {
             const plainSession = session.toJSON();
 
-            // Safely access role name
-            if (session.usuario && session.usuario.rol) {
-                plainSession.usuario.rol_nombre = session.usuario.rol.nombre;
-            } else {
-                plainSession.usuario.rol_nombre = 'Desconocido'; // Fallback for missing role
+            if (plainSession.usuario) {
+                if (plainSession.usuario.rol) {
+                    plainSession.usuario.rol_nombre = plainSession.usuario.rol.nombre;
+                } else {
+                    plainSession.usuario.rol_nombre = 'Desconocido';
+                }
             }
 
             // 1. Calcular ventas y desglosar por método de pago
