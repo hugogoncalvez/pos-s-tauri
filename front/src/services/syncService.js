@@ -398,47 +398,41 @@ class SyncService {
 
     //console.log(`📤 Sincronizando ${pendingSales.length} venta(s) pendientes...`);
 
-    let syncedCount = 0;
-    let failedCount = 0;
-
-    for (const sale of pendingSales) {
-      try {
-        // Excluir campos locales antes de enviar al backend
-        const { local_id, synced, server_id, retryCount, lastError, ...saleData } = sale;
-        //console.log('[Sync Service - DEBUG] Datos de venta enviados al backend:', JSON.stringify(saleData, null, 2));
-        const response = await Api.post('/sales', saleData);
-
-        await db.pending_sales.update(local_id, {
-          synced: 1, // Marcar como sincronizado
-          server_id: response.data.id,
-          lastError: null, // Limpiar error si se sincroniza
-        });
-
-        syncedCount++;
-        //console.log(`✅ Venta local ${local_id} sincronizada (ID Servidor: ${response.data.id})`);
-      } catch (error) {
-        failedCount++;
-        const newRetryCount = (sale.retryCount || 0) + 1;
-        const errorMessage = error.response?.data?.error || error.message;
-
-        if (newRetryCount >= this.MAX_RETRIES) {
-          // Marcar como fallida permanentemente
-          await db.pending_sales.update(sale.local_id, {
-            synced: -1, // Usar -1 para indicar fallo permanente
-            lastError: `Fallo permanente: ${errorMessage}`,
-            retryCount: newRetryCount,
+    const syncPromises = pendingSales.map(sale => {
+      return (async () => {
+        try {
+          const { local_id, synced, server_id, retryCount, lastError, ...saleData } = sale;
+          const response = await Api.post('/sales', saleData);
+          await db.pending_sales.update(local_id, {
+            synced: 1,
+            server_id: response.data.id,
+            lastError: null,
           });
-          console.error(`❌ Venta local ${sale.local_id} marcada como fallida permanentemente después de ${newRetryCount} intentos. Error: ${errorMessage}`);
-        } else {
-          // Incrementar contador de reintentos y guardar el error
-          await db.pending_sales.update(sale.local_id, {
-            retryCount: newRetryCount,
-            lastError: errorMessage,
-          });
-          console.error(`❌ Error sincronizando venta local ${sale.local_id}. Intento ${newRetryCount}/${this.MAX_RETRIES}. Error: ${errorMessage}`);
+          return { status: 'fulfilled', local_id };
+        } catch (error) {
+          const newRetryCount = (sale.retryCount || 0) + 1;
+          const errorMessage = error.response?.data?.error || error.message;
+          if (newRetryCount >= this.MAX_RETRIES) {
+            await db.pending_sales.update(sale.local_id, {
+              synced: -1,
+              lastError: `Fallo permanente: ${errorMessage}`,
+              retryCount: newRetryCount,
+            });
+          } else {
+            await db.pending_sales.update(sale.local_id, {
+              retryCount: newRetryCount,
+              lastError: errorMessage,
+            });
+          }
+          return { status: 'rejected', local_id, error: errorMessage };
         }
-      }
-    }
+      })();
+    });
+
+    const results = await Promise.allSettled(syncPromises);
+    
+    const syncedCount = results.filter(r => r.status === 'fulfilled').length;
+    const failedCount = results.filter(r => r.status === 'rejected').length;
 
     this.isSyncing = false;
     const permanentlyFailedCount = await db.pending_sales.where('synced').equals(-1).count();
@@ -470,55 +464,43 @@ class SyncService {
       return { synced: 0, failed: 0 };
     }
 
-    let syncedCount = 0;
-    let failedCount = 0;
-
-    for (let i = 0; i < total; i++) {
-      const sale = pendingSales[i];
+    const syncPromises = pendingSales.map((sale, i) => {
       onProgress({ current: i + 1, total });
-      //console.log(`[SyncService] 📤 Procesando venta local ${sale.local_id} para sincronizar...`);
-
-      try {
-        // Actualizar la venta con el ID de sesión real
-        // Excluir campos locales antes de enviar al backend
-        const { local_id, synced, server_id, retryCount, lastError, ...saleData } = sale;
-        saleData.cash_session_id = realCashSessionId; // Asegurar que el ID de sesión real se use
-
-        //console.log('[SyncService - DEBUG] Enviando venta al backend:', JSON.stringify(saleData, null, 2));
-
-        const response = await Api.post('/sales', saleData);
-
-        await db.pending_sales.update(local_id, {
-          synced: 1,
-          server_id: response.data.id,
-          lastError: null, // Limpiar error si se sincroniza
-        });
-
-        syncedCount++;
-        //console.log(`[SyncService] ✅ Venta local ${local_id} sincronizada (ID Servidor: ${response.data.id})`);
-      } catch (error) {
-        failedCount++;
-        const newRetryCount = (sale.retryCount || 0) + 1;
-        const errorMessage = error.response?.data?.error || error.message;
-
-        if (newRetryCount >= this.MAX_RETRIES) {
-          // Marcar como fallida permanentemente
-          await db.pending_sales.update(sale.local_id, {
-            synced: -1, // Usar -1 para indicar fallo permanente
-            lastError: `Fallo permanente: ${errorMessage}`,
-            retryCount: newRetryCount,
+      return (async () => {
+        try {
+          const { local_id, synced, server_id, retryCount, lastError, ...saleData } = sale;
+          saleData.cash_session_id = realCashSessionId;
+          const response = await Api.post('/sales', saleData);
+          await db.pending_sales.update(local_id, {
+            synced: 1,
+            server_id: response.data.id,
+            lastError: null,
           });
-          console.error(`❌ Venta local ${sale.local_id} marcada como fallida permanentemente después de ${newRetryCount} intentos. Error: ${errorMessage}`);
-        } else {
-          // Incrementar contador de reintentos y guardar el error
-          await db.pending_sales.update(sale.local_id, {
-            retryCount: newRetryCount,
-            lastError: errorMessage,
-          });
-          console.error(`[SyncService] ❌ Error sincronizando venta ${sale.local_id}. Intento ${newRetryCount}/${this.MAX_RETRIES}. Error: ${errorMessage}`);
+          return { status: 'fulfilled', local_id };
+        } catch (error) {
+          const newRetryCount = (sale.retryCount || 0) + 1;
+          const errorMessage = error.response?.data?.error || error.message;
+          if (newRetryCount >= this.MAX_RETRIES) {
+            await db.pending_sales.update(sale.local_id, {
+              synced: -1,
+              lastError: `Fallo permanente: ${errorMessage}`,
+              retryCount: newRetryCount,
+            });
+          } else {
+            await db.pending_sales.update(sale.local_id, {
+              retryCount: newRetryCount,
+              lastError: errorMessage,
+            });
+          }
+          return { status: 'rejected', local_id, error: errorMessage };
         }
-      }
-    }
+      })();
+    });
+
+    const results = await Promise.allSettled(syncPromises);
+
+    const syncedCount = results.filter(r => r.status === 'fulfilled').length;
+    const failedCount = results.filter(r => r.status === 'rejected').length;
 
     const permanentlyFailedCount = await db.pending_sales.where('synced').equals(-1).count();
 
@@ -546,48 +528,42 @@ class SyncService {
         return { synced: 0, failed: 0 };
       }
 
-      //console.log(`[SyncService] 📤 Sincronizando ${total} movimiento(s) de caja pendientes...`);
-      let syncedCount = 0;
-      let failedCount = 0;
-
-      for (let i = 0; i < total; i++) {
-        const movement = pendingMovements[i];
+      const syncPromises = pendingMovements.map((movement, i) => {
         if (onProgress) onProgress({ current: i + 1, total });
-
-        try {
-          const { local_id, synced, server_id, retryCount, lastError, ...movementData } = movement;
-
-          const response = await Api.post('/cash-sessions/movement', movementData);
-
-          await db.pending_cash_movements.update(local_id, {
-            synced: 1,
-            server_id: response.data.id,
-            lastError: null,
-          });
-
-          syncedCount++;
-          //console.log(`[SyncService] ✅ Movimiento de caja local ${local_id} sincronizado (ID Servidor: ${response.data.id})`);
-        } catch (error) {
-          failedCount++;
-          const newRetryCount = (movement.retryCount || 0) + 1;
-          const errorMessage = error.response?.data?.error || error.message;
-
-          if (newRetryCount >= this.MAX_RETRIES) {
-            await db.pending_cash_movements.update(movement.local_id, {
-              synced: -1,
-              lastError: `Fallo permanente: ${errorMessage}`,
-              retryCount: newRetryCount,
+        return (async () => {
+          try {
+            const { local_id, synced, server_id, retryCount, lastError, ...movementData } = movement;
+            const response = await Api.post('/cash-sessions/movement', movementData);
+            await db.pending_cash_movements.update(local_id, {
+              synced: 1,
+              server_id: response.data.id,
+              lastError: null,
             });
-            console.error(`❌ Movimiento de caja local ${movement.local_id} marcado como fallido permanentemente.`);
-          } else {
-            await db.pending_cash_movements.update(movement.local_id, {
-              retryCount: newRetryCount,
-              lastError: errorMessage,
-            });
-            console.error(`❌ Error sincronizando movimiento de caja local ${movement.local_id}. Intento ${newRetryCount}/${this.MAX_RETRIES}.`);
+            return { status: 'fulfilled', local_id };
+          } catch (error) {
+            const newRetryCount = (movement.retryCount || 0) + 1;
+            const errorMessage = error.response?.data?.error || error.message;
+            if (newRetryCount >= this.MAX_RETRIES) {
+              await db.pending_cash_movements.update(movement.local_id, {
+                synced: -1,
+                lastError: `Fallo permanente: ${errorMessage}`,
+                retryCount: newRetryCount,
+              });
+            } else {
+              await db.pending_cash_movements.update(movement.local_id, {
+                retryCount: newRetryCount,
+                lastError: errorMessage,
+              });
+            }
+            return { status: 'rejected', local_id, error: errorMessage };
           }
-        }
-      }
+        })();
+      });
+
+      const results = await Promise.allSettled(syncPromises);
+
+      const syncedCount = results.filter(r => r.status === 'fulfilled').length;
+      const failedCount = results.filter(r => r.status === 'rejected').length;
 
       await this.clearPendingCashMovements(userId);
 
@@ -614,46 +590,39 @@ class SyncService {
         return { synced: 0, failed: 0 };
       }
 
-      //console.log(`[SyncService] 📤 Sincronizando ${total} ticket(s) pendiente(s) con cambios locales...`);
-      let syncedCount = 0;
-      let failedCount = 0;
-
-      for (let i = 0; i < total; i++) {
-        const ticket = ticketsToSync[i];
+      const syncPromises = ticketsToSync.map((ticket, i) => {
         if (onProgress) onProgress({ current: i + 1, total });
-
-        try {
-          let response;
-          switch (ticket.sync_status) {
-            case 'created':
-              //console.log(`[SyncService]   - POSTing ticket local_id: ${ticket.local_id}`);
-              response = await Api.post('/pending-tickets', ticket.data);
-              await db.pending_tickets.update(ticket.local_id, {
-                server_id: response.data.ticket.id,
-                sync_status: 'synced'
-              });
-              break;
-
-            case 'updated':
-              //console.log(`[SyncService]   - PUTing ticket server_id: ${ticket.server_id}`);
-              response = await Api.put(`/pending-tickets/${ticket.server_id}`, ticket.data);
-              await db.pending_tickets.update(ticket.local_id, { sync_status: 'synced' });
-              break;
-
-            case 'deleted':
-              //console.log(`[SyncService]   - DELETing ticket server_id: ${ticket.server_id}`);
-              await Api.delete(`/pending-tickets/${ticket.server_id}`);
-              // On successful deletion from server, remove from local DB.
-              await db.pending_tickets.delete(ticket.local_id);
-              break;
+        return (async () => {
+          try {
+            switch (ticket.sync_status) {
+              case 'created':
+                const createResponse = await Api.post('/pending-tickets', ticket.data);
+                await db.pending_tickets.update(ticket.local_id, {
+                  server_id: createResponse.data.ticket.id,
+                  sync_status: 'synced'
+                });
+                break;
+              case 'updated':
+                await Api.put(`/pending-tickets/${ticket.server_id}`, ticket.data);
+                await db.pending_tickets.update(ticket.local_id, { sync_status: 'synced' });
+                break;
+              case 'deleted':
+                await Api.delete(`/pending-tickets/${ticket.server_id}`);
+                await db.pending_tickets.delete(ticket.local_id);
+                break;
+            }
+            return { status: 'fulfilled', local_id: ticket.local_id };
+          } catch (error) {
+            console.error(`❌ Error sincronizando ticket local ${ticket.local_id}.`, error);
+            return { status: 'rejected', local_id: ticket.local_id, error };
           }
-          syncedCount++;
-        } catch (error) {
-          failedCount++;
-          console.error(`❌ Error sincronizando ticket local ${ticket.local_id}.`, error);
-          // Optional: Implement retry logic here if needed
-        }
-      }
+        })();
+      });
+
+      const results = await Promise.allSettled(syncPromises);
+
+      const syncedCount = results.filter(r => r.status === 'fulfilled').length;
+      const failedCount = results.filter(r => r.status === 'rejected').length;
 
       //console.log(`[SyncService] ✅ Sincronización de tickets completada. ${syncedCount} exitosos, ${failedCount} fallidos.`);
       return { synced: syncedCount, failed: failedCount };
