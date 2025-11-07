@@ -140,7 +140,7 @@ const CashAdmin = () => {
 
     // --- QUERIES ---
     const { data: usersData, isLoading: usersLoading, error: usersError } = UseFetchQuery(
-        ['users'], '/users', !authLoading && tienePermiso('ver_usuarios')
+        ['users'], '/users', !authLoading && tienePermiso('ver_vista_usuarios')
     );
 
     const { data: cashSessions, isLoading: cashSessionsLoading, error: cashSessionsError, refetch: refetchCashSessions } = UseFetchQuery('cashSessions', '/cash-sessions/history?status=abierta,pendiente_cierre');
@@ -363,6 +363,9 @@ const CashAdmin = () => {
         return numericValue > 0 ? 'success.main' : 'error.main';
     };
     const getUserName = (session) => {
+        if (!session.user_id) {
+            return 'Usuario Eliminado';
+        }
         const user = session?.usuario;
         if (user?.username && user?.rol?.nombre) {
             return `${user.username} (${user.rol.nombre})`;

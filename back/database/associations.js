@@ -59,7 +59,7 @@ PaymentModel.hasMany(SalePaymentModel, { foreignKey: 'payment_method_id' });
 SalePaymentModel.belongsTo(PaymentModel, { foreignKey: 'payment_method_id', as: 'payment' });
 
 // Sales <-> Users (UsuarioModel) (Many-to-One)
-UsuarioModel.hasMany(SaleModel, { foreignKey: 'user_id' }); // FK en SalesModel
+UsuarioModel.hasMany(SaleModel, { foreignKey: 'user_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' }); // FK en SalesModel
 SaleModel.belongsTo(UsuarioModel, { foreignKey: 'user_id' });
 
 // SalesDetails <-> Stocks (Many-to-One)
@@ -77,7 +77,7 @@ SaleDetailModel.belongsTo(PromotionModel, { foreignKey: 'promotion_id' });
 // --- Asociaciones de Sesiones de Caja ---
 
 // CashSessions <-> Users (Many-to-One)
-UsuarioModel.hasMany(CashSessionsModel, { foreignKey: 'user_id' }); // FK en CashSessionsModel
+UsuarioModel.hasMany(CashSessionsModel, { foreignKey: 'user_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' }); // FK en CashSessionsModel
 CashSessionsModel.belongsTo(UsuarioModel, { foreignKey: 'user_id' });
 
 // CashSessions <-> Sales (One-to-Many)
@@ -89,12 +89,12 @@ CashSessionsModel.hasMany(CashSessionMovementModel, { foreignKey: 'cash_session_
 CashSessionMovementModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id' });
 
 // CashSessionMovements <-> Users (Many-to-One)
-UsuarioModel.hasMany(CashSessionMovementModel, { foreignKey: 'user_id' });
+UsuarioModel.hasMany(CashSessionMovementModel, { foreignKey: 'user_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 CashSessionMovementModel.belongsTo(UsuarioModel, { foreignKey: 'user_id' });
 
 // --- Asociaciones de Tickets Pendientes ---
 PendingTicketModel.belongsTo(UsuarioModel, { foreignKey: 'user_id' });
-UsuarioModel.hasMany(PendingTicketModel, { foreignKey: 'user_id' });
+UsuarioModel.hasMany(PendingTicketModel, { foreignKey: 'user_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 
 PendingTicketModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id' });
 CashSessionsModel.hasMany(PendingTicketModel, { foreignKey: 'cash_session_id' });
@@ -103,7 +103,7 @@ CashSessionsModel.hasMany(PendingTicketModel, { foreignKey: 'cash_session_id' })
 // --- Asociaciones de Auditoría ---
 
 // AuditLog <-> Users (Many-to-One)
-UsuarioModel.hasMany(AuditLogModel, { foreignKey: 'user_id' }); // FK en AuditLogModel
+UsuarioModel.hasMany(AuditLogModel, { foreignKey: 'user_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' }); // FK en AuditLogModel
 AuditLogModel.belongsTo(UsuarioModel, { foreignKey: 'user_id' });
 
 // AuditLog <-> Stock (Many-to-One, for alerts related to stock)
@@ -117,7 +117,7 @@ UsuarioModel.belongsTo(RoleModel, { foreignKey: 'rol_id', as: 'rol' });
 // --- Asociaciones de Permisos Dinámicos ---
 
 // Usuario <-> UserPermission (One-to-Many)
-UsuarioModel.hasMany(UserPermissionModel, { foreignKey: 'user_id', as: 'permission_overrides' });
+UsuarioModel.hasMany(UserPermissionModel, { foreignKey: 'user_id', as: 'permission_overrides', onDelete: 'CASCADE', onUpdate: 'CASCADE' });
 UserPermissionModel.belongsTo(UsuarioModel, { foreignKey: 'user_id' });
 
 // Permission <-> UserPermission (One-to-Many)
