@@ -3,6 +3,8 @@ import { useTheme } from '@mui/material/styles';
 import { Api } from '../api/api';
 import validator from 'validator';
 import moment from 'moment';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 
 import Grid from '@mui/material/Unstable_Grid2';
 import {
@@ -44,6 +46,7 @@ import { TextFieldWithClear } from '../styledComponents/ui/TextFieldWithClear';
 import { StyledDialog } from '../styledComponents/ui/StyledDialog';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
 import { NewSupplierModal } from '../styledComponents/NewSupplierModal';
+import { StyledDatePicker } from '../styledComponents/ui/StyledDatePicker';
 //import { NewProductModal } from '../styledComponents/NewProductModal';
 
 import { useForm } from '../hooks/useForm';
@@ -705,33 +708,83 @@ const PurchasesManager = () => {
                     </IconButton>
                 </Grid>
                 <Box sx={{ height: openFilterSection ? 'auto' : 0, overflow: 'hidden', transition: 'height 0.3s ease-in-out' }}>
-                    <Grid container spacing={2} justifyContent="center" alignItems="flex-start">
-                        <Grid xs={12}>
-                            <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, height: '100%', backgroundColor: theme.palette.background.paper }}>
-                                <Typography variant="subtitle1" gutterBottom>Filtrar Tabla</Typography>
-                                <Grid container spacing={2}>
-                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Nº de Factura" name="factura" value={facturaInput} onChange={(e) => setFacturaInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setFacturaInput('')}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
-                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Proveedor" name="supplier" value={supplierInput} onChange={(e) => setSupplierInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setSupplierInput('')}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
-                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Fecha Inicio" type="date" name="startDate" value={filters.startDate || ''} onChange={(e) => { handleFilterChange(e); setPage(0); e.target.blur(); }} InputLabelProps={{ shrink: true }} /></Grid>
-                                    <Grid xs={12} sm={6} md={3}><StyledTextField label="Fecha Fin" type="date" name="endDate" value={filters.endDate || ''} onChange={(e) => { handleFilterChange(e); setPage(0); e.target.blur(); }} InputLabelProps={{ shrink: true }} /></Grid>
-                                    <Grid xs={12} sm={6} md={4}><StyledAutocomplete
-                                        options={products || []}
-                                        getOptionLabel={(option) => (typeof option === 'string' ? option : option?.name || '')}
-                                        getOptionKey={(option) => option.id}
-                                        isOptionEqualToValue={(option, value) => option?.id === value?.id} onChange={(event, value) => { handleFilterChange({ target: { name: 'stock_id', value: value ? value.id : '' } }); setPage(0); }}
-                                        onInputChange={(event, newInputValue) => {
-                                            debouncedSetProductSearchTerm(newInputValue);
-                                        }}
-                                        loading={isLoadingStock}
-                                        filterOptions={(x) => x}
-                                        value={products.find(p => p.id === filters.stock_id) || null}
-                                        renderInput={(params) => (<StyledTextField {...params} label="Filtrar por producto contenido" InputProps={{ ...params.InputProps, startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleFilterChange({ target: { name: 'stock_id', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment>, endAdornment: (<>{isLoadingStock ? <CircularProgress color="inherit" size={20} /> : null}{params.InputProps.endAdornment}</>) }} />)}
-                                    /></Grid>
-                                    <Grid xs={12} sm={6} md={4} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><StyledButton variant="outlined" color="secondary" onClick={() => { resetFilters(); setPage(0); }}>Limpiar Filtros</StyledButton></Grid>
-                                </Grid>
-                            </Box>
+                    <LocalizationProvider dateAdapter={AdapterMoment}>
+                        <Grid container spacing={2} justifyContent="center" alignItems="flex-start">
+                            <Grid xs={12}>
+                                <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, height: '100%', backgroundColor: theme.palette.background.paper }}>
+                                    <Typography variant="subtitle1" gutterBottom>Filtrar Tabla</Typography>
+                                    <Grid container spacing={2}>
+                                        <Grid xs={12} sm={6} md={3}><StyledTextField label="Nº de Factura" name="factura" value={facturaInput} onChange={(e) => setFacturaInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setFacturaInput('')}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
+                                        <Grid xs={12} sm={6} md={3}><StyledTextField label="Proveedor" name="supplier" value={supplierInput} onChange={(e) => setSupplierInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setSupplierInput('')}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
+                                        <Grid xs={12} sm={6} md={3}><StyledDatePicker
+                                            label="Fecha Inicio"
+                                            value={filters.startDate ? moment(filters.startDate) : null}
+                                            onChange={(newValue) => {
+                                                handleFilterChange({ target: { name: 'startDate', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                                                setPage(0);
+                                            }}
+                                            format="DD/MM/YYYY"
+                                            slotProps={{
+                                                textField: {
+                                                    InputProps: {
+                                                        startAdornment: (
+                                                            <InputAdornment position="start">
+                                                                <IconButton size='small' onClick={() => {
+                                                                    handleFilterChange({ target: { name: 'startDate', value: '' } });
+                                                                    setPage(0);
+                                                                }}>
+                                                                    <ClearIcon fontSize='small' color='error' />
+                                                                </IconButton>
+                                                            </InputAdornment>
+                                                        )
+                                                    }
+                                                }
+                                            }}
+                                        /></Grid>
+                                        <Grid xs={12} sm={6} md={3}><StyledDatePicker
+                                            label="Fecha Fin"
+                                            value={filters.endDate ? moment(filters.endDate) : null}
+                                            onChange={(newValue) => {
+                                                handleFilterChange({ target: { name: 'endDate', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                                                setPage(0);
+                                            }}
+                                            format="DD/MM/YYYY"
+                                            slotProps={{
+                                                textField: {
+                                                    InputProps: {
+                                                        startAdornment: (
+                                                            <InputAdornment position="start">
+                                                                <IconButton size='small' onClick={() => {
+                                                                    handleFilterChange({ target: { name: 'endDate', value: '' } });
+                                                                    setPage(0);
+                                                                }}>
+                                                                    <ClearIcon fontSize='small' color='error' />
+                                                                </IconButton>
+                                                            </InputAdornment>
+                                                        )
+                                                    }
+                                                }
+                                            }}
+                                        /></Grid>
+                                        <Grid xs={12} sm={6} md={4}><StyledAutocomplete
+                                            options={products || []}
+                                            getOptionLabel={(option) => (typeof option === 'string' ? option : option?.name || '')}
+                                            getOptionKey={(option) => option.id}
+                                            isOptionEqualToValue={(option, value) => option?.id === value?.id} onChange={(event, value) => { handleFilterChange({ target: { name: 'stock_id', value: value ? value.id : '' } }); setPage(0); }}
+                                            onInputChange={(event, newInputValue) => {
+                                                debouncedSetProductSearchTerm(newInputValue);
+                                            }}
+                                            loading={isLoadingStock}
+                                            filterOptions={(x) => x}
+                                            value={products.find(p => p.id === filters.stock_id) || null}
+                                            renderInput={(params) => (<StyledTextField {...params} label="Filtrar por producto contenido" InputProps={{ ...params.InputProps, startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleFilterChange({ target: { name: 'stock_id', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment>, endAdornment: (<>{isLoadingStock ? <CircularProgress color="inherit" size={20} /> : null}{params.InputProps.endAdornment}</>) }} />)}
+                                        /></Grid>
+                                        <Grid xs={12} sm={6} md={4} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><StyledButton variant="outlined" color="secondary" onClick={() => { resetFilters(); setPage(0); }}>Limpiar Filtros</StyledButton></Grid>
+                                    </Grid>
+                                </Box>
+                            </Grid>
                         </Grid>
-                    </Grid>
+                    </LocalizationProvider>
                 </Box>
             </StyledCard>
 
@@ -753,16 +806,29 @@ const PurchasesManager = () => {
                         {modalError && <Alert severity="error" sx={{ mb: 2 }}>{modalError}</Alert>}
                         <Grid container spacing={2} sx={{ mt: 0 }} justifyContent="center">
                             <Grid xs={12} md={4}>
-                                <TextFieldWithClear
-                                    fullWidth
-                                    label="Fecha"
-                                    type="date"
-                                    name="createdAt"
-                                    value={purchaseValues.createdAt || ''}
-                                    onChange={(e) => { handlePurchaseInputChange(e); e.target.blur(); }}
-                                    InputLabelProps={{ shrink: true }}
-                                    onClear={() => handlePurchaseInputChange({ target: { name: 'createdAt', value: '' } })}
-                                />
+                                <LocalizationProvider dateAdapter={AdapterMoment}>
+                                    <StyledDatePicker
+                                        label="Fecha"
+                                        value={purchaseValues.createdAt ? moment(purchaseValues.createdAt) : null}
+                                        onChange={(newValue) => {
+                                            handlePurchaseInputChange({ target: { name: 'createdAt', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                                        }}
+                                        format="DD/MM/YYYY"
+                                        slotProps={{
+                                            textField: {
+                                                InputProps: {
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <IconButton size='small' onClick={() => handlePurchaseInputChange({ target: { name: 'createdAt', value: '' } })}>
+                                                                <ClearIcon fontSize='small' color='error' />
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    )
+                                                }
+                                            }
+                                        }}
+                                    />
+                                </LocalizationProvider>
                             </Grid>
                             <Grid xs={12} md={4}>
                                 <TextFieldWithClear

@@ -21,6 +21,7 @@ import {
     getPurchasesToday, // <-- Añadir esta línea
     getReportSummary, getFullReport, // <-- Añadir esta línea
     getProfitMarginReport,
+    getDailyCutReport, // New controller for daily cut report
     getAllPermissions,
     getUserPermissions,
     addUserPermission,
@@ -103,6 +104,7 @@ authenticatedRouter.get('/dashboard/compras/hoy', checkPermission('ver_vista_com
 authenticatedRouter.get('/reports/summary', checkPermission('listar_ventas_historial'), getReportSummary);
 authenticatedRouter.get('/reports/full-data', checkPermission('listar_ventas_historial'), getFullReport);
 authenticatedRouter.get('/reports/profit-margin', checkPermission('listar_ventas_historial'), getProfitMarginReport);
+authenticatedRouter.get('/reports/daily-cut', checkPermission('ver_vista_caja_admin'), getDailyCutReport); // New route for daily cut report
 
 // --- RUTAS DE ROLES Y PERMISOS ---
 authenticatedRouter.get('/roles', checkPermission('accion_gestionar_roles'), getRoles);

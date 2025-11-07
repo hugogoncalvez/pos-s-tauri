@@ -14,8 +14,10 @@ export const Update = (key = '') => {
         mutationFn: updating,
         mutationKey: key,
 
-        onSuccess: (data, variables, context, customTheme) => {
-            mostrarExito('Se ha actualizado con éxito !', customTheme || theme);
+        onSuccess: (data, variables) => {
+            if (variables.showSuccessAlert !== false) {
+                mostrarExito('Se ha actualizado con éxito !', theme);
+            }
         },
 
         onError: (error) => {

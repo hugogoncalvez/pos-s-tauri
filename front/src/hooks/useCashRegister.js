@@ -4,20 +4,22 @@ import { AuthContext } from '../context/AuthContext';
 import { db } from '../db/offlineDB';
 import { UseFetchQuery } from './useQuery';
 import { useOnlineStatus } from './useOnlineStatus';
-import { useSubmit } from './useSubmit'; // Importar useSubmit
-import { useQueryClient } from '@tanstack/react-query'; // Importar useQueryClient
+import { useSubmit } from './useSubmit';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTheme } from '@mui/material/styles';
+import { mostrarExito } from '../functions/mostrarExito';
+import { mostrarError } from '../functions/MostrarError';
 
 export const useCashRegister = () => {
+    const theme = useTheme(); // <--- AÑADIDO
     const { usuario: user, isLoading: authLoading } = useContext(AuthContext);
     const userId = user?.id;
     const userName = user?.username;
     const { isOnline } = useOnlineStatus();
-    const queryClient = useQueryClient(); // Obtener el cliente de query
+    const queryClient = useQueryClient();
 
-    // Hook de mutación para manejar el guardado
     const { mutateAsync, isLoading: isSavingMovement } = useSubmit();
 
-    // Query para obtener la sesión de caja activa desde la API (solo si está online)
     const { data: rawActiveSessionData, isLoading: isLoadingOnlineSession, refetch: refetchOnlineSession } = UseFetchQuery(
         ['activeCashSession', userId],
         `/cash-sessions/active/${userId}`,
@@ -25,7 +27,6 @@ export const useCashRegister = () => {
         0
     );
 
-    // useLiveQuery se suscribe automáticamente a cambios en la base de datos
     const localSession = useLiveQuery(
         async () => {
             if (!userId) return null;
@@ -37,10 +38,9 @@ export const useCashRegister = () => {
                 return null;
             }
         },
-        [userId] // Dependencias: re-ejecutar cuando userId cambie
+        [userId]
     );
 
-    // Combinar los resultados de la API y Dexie
     const activeSession = useMemo(() => {
         if (isOnline) {
             if (rawActiveSessionData?.hasActiveSession) {
@@ -55,39 +55,54 @@ export const useCashRegister = () => {
         }
     }, [isOnline, rawActiveSessionData, localSession, isLoadingOnlineSession]);
 
-    // Calcular el estado de carga
     const isLoadingActiveSession = useMemo(() => {
         if (authLoading) return true;
         if (isOnline) return isLoadingOnlineSession;
         return localSession === undefined;
     }, [authLoading, isOnline, isLoadingOnlineSession, localSession]);
 
-    // --- IMPLEMENTACIÓN DE createCashMovement ---
     const createCashMovement = useCallback(async (payload) => {
-        if (!userId) throw new Error("Usuario no autenticado.");
-
-        if (isOnline) {
-            // Lógica para guardar en el backend
-            await mutateAsync({
-                url: '/cash-movements', // Asumiendo este endpoint
-                values: payload,
-                method: 'POST',
-            });
-            // Invalidar queries relacionadas si es necesario
-            queryClient.invalidateQueries(['cashMovements', payload.cash_session_id]);
-        } else {
-            // Lógica para guardar en Dexie (modo offline)
-            const movementToQueue = {
-                ...payload,
-                user_id: userId,
-                created_at: new Date().toISOString(),
-                synced: 0, // 0 = pendiente de sincronización
-            };
-            await db.pending_cash_movements.add(movementToQueue);
-            // Opcional: invalidar una query local si se muestra en algún lado
-            queryClient.invalidateQueries(['pendingMovements']);
+        if (!userId || !activeSession?.id) {
+            const errorMessage = "No hay una sesión de caja activa para registrar el movimiento.";
+            mostrarError(errorMessage, theme);
+            throw new Error(errorMessage);
         }
-    }, [isOnline, userId, mutateAsync, queryClient]);
+
+        try {
+            if (isOnline) {
+                // MODO ONLINE: Intentar guardar directamente en el backend
+                await mutateAsync({
+                    url: '/cash-sessions/movement',
+                    values: payload,
+                    method: 'post',
+                });
+                mostrarExito('Movimiento de caja registrado con éxito.', theme);
+            } else {
+                // MODO OFFLINE: Guardar en la cola de Dexie
+                const movementToQueue = {
+                    ...payload,
+                    user_id: userId,
+                    created_at: new Date().toISOString(),
+                    synced: 0,
+                    retryCount: 0,
+                    lastError: null,
+                };
+                await db.pending_cash_movements.add(movementToQueue);
+                mostrarExito('Movimiento guardado localmente. Se sincronizará al recuperar la conexión.', theme);
+            }
+
+            // Refrescar datos en ambos casos para consistencia de la UI
+            await queryClient.invalidateQueries(['activeCashSession', userId]);
+            if (isOnline) {
+                await refetchOnlineSession();
+            }
+
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || 'Error al registrar el movimiento de caja.';
+            mostrarError(errorMessage, theme);
+            throw error;
+        }
+    }, [isOnline, userId, activeSession?.id, mutateAsync, queryClient, refetchOnlineSession, theme]);
 
 
     return {
@@ -97,10 +112,9 @@ export const useCashRegister = () => {
             if (isOnline) {
                 await refetchOnlineSession();
             }
-            // En offline, useLiveQuery actualiza automáticamente
         },
-        createCashMovement, // <-- Devolver la función implementada
-        isSavingMovement, // <-- Devolver el estado de carga
+        createCashMovement,
+        isSavingMovement,
         userName
     };
 };

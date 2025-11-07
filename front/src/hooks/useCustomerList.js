@@ -32,7 +32,7 @@ export const useCustomerList = (tienePermiso) => { // Receive tienePermiso as an
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
-    const [limit, setLimit] = useState(5);
+    const [limit, setLimit] = useState(10);
     const [search, setSearch] = useState('');
     const [sortBy, setSortBy] = useState('name');
     const [sortOrder, setSortOrder] = useState('ASC');
@@ -288,14 +288,14 @@ export const useCustomerList = (tienePermiso) => { // Receive tienePermiso as an
         if (event && event.target) {
             event.target.blur();
         }
-    }, []);
+    }, [setStartDate, setPage]);
     const handleEndDateChange = useCallback((value, event) => {
         setEndDate(value);
         setPage(1);
         if (event && event.target) {
             event.target.blur();
         }
-    }, []);
+    }, [setEndDate, setPage]);
     const handleDebtStatusChange = useCallback((value) => {
         setDebtStatus(value);
         setPage(1);

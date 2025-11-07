@@ -32,9 +32,7 @@ const CustomerPaymentsModel = db.define('customer_payments', {
         type: DataTypes.STRING(50),
         allowNull: false,
         defaultValue: 'efectivo',
-        validate: {
-            isIn: [['efectivo', 'tarjeta_debito', 'tarjeta_credito', 'transferencia', 'cheque', 'otro']]
-        }
+
     },
     notes: {
         type: DataTypes.TEXT,

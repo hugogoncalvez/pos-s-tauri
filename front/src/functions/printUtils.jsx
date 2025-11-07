@@ -103,16 +103,9 @@ export const printReceipt = (data, type, customerName = '') => {
 
         if (sale.sale_payments && sale.sale_payments.length > 0) {
             receiptContent += '<div class="payment-methods"><h4>Métodos de Pago</h4>';
-            let totalPaidInMethods = 0;
             sale.sale_payments.forEach(p => {
                 receiptContent += `<div class="payment-method-item"><span>${p.payment?.method || 'N/A'}</span><span>$${parseFloat(p.amount).toFixed(2)}</span></div>`;
-                totalPaidInMethods += parseFloat(p.amount);
             });
-
-            const creditAmount = parseFloat(sale.total_neto) - totalPaidInMethods;
-            if (creditAmount > 0.009) { // Usar un pequeño épsilon para evitar problemas de punto flotante
-                receiptContent += `<div class="payment-method-item"><span>Crédito</span><span>$${creditAmount.toFixed(2)}</span></div>`;
-            }
             receiptContent += '</div>';
         } else if (parseFloat(sale.total_neto) > 0) { // Si no hay pagos pero hay un total, es todo a crédito
             receiptContent += '<div class="payment-methods"><h4>Métodos de Pago</h4>';

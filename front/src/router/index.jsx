@@ -13,6 +13,7 @@ const StockManager = React.lazy(() => import('../components/StockManager'));
 const Ventas = React.lazy(() => import('../components/Ventas'));
 const AuditLogs = React.lazy(() => import('../components/AuditLogs'));
 const CashAdmin = React.lazy(() => import('../components/CashAdmin'));
+const Corte = React.lazy(() => import('../components/Corte'));
 const CajeroView = React.lazy(() => import('../components/CajeroView'));
 const Customers = React.lazy(() => import('../components/Customers'));
 const Informes = React.lazy(() => import('../components/Informes'));
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
       { path: 'clientes', element: <ProtectedRoute permission="ver_vista_clientes"><Customers /></ProtectedRoute> },
       { path: 'auditoria', element: <ProtectedRoute permission="ver_vista_auditoria"><AuditLogs /></ProtectedRoute> },
       { path: 'admin-cajas', element: <ProtectedRoute permission="ver_vista_caja_admin"><CashAdmin /></ProtectedRoute> },
+      { path: 'corte-de-caja', element: <ProtectedRoute permission="ver_vista_caja_admin"><Corte /></ProtectedRoute> },
       { path: 'mi-caja', element: <ProtectedRoute permission="ver_mi_caja"><CajeroView /></ProtectedRoute> },
       { path: 'informes', element: <ProtectedRoute permission="ver_vista_informes"><Informes /></ProtectedRoute> },
       { path: 'usuarios', element: <ProtectedRoute permission="ver_vista_usuarios"><Users /></ProtectedRoute> },

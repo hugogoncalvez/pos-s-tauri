@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import moment from 'moment';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
+import { StyledDatePicker } from '../styledComponents/ui/StyledDatePicker';
 import { motion } from 'framer-motion';
 import Swal from 'sweetalert2';
 
@@ -434,83 +437,89 @@ const Informes = () => {
                     </IconButton>
                 </Grid>
                 <Box sx={{ height: openFilterSection ? 'auto' : 0, overflow: 'hidden', transition: 'height 0.3s ease-in-out' }}>
-                    <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, mt: 2, backgroundColor: theme.palette.background.paper }}>
-                        <Grid container spacing={2} sx={{ justifyContent: 'center', padding: 2 }}>
+                    <LocalizationProvider dateAdapter={AdapterMoment}>
+                        <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, mt: 2, backgroundColor: theme.palette.background.paper }}>
+                            <Grid container spacing={2} sx={{ justifyContent: 'center', padding: 2 }}>
 
-                            <Grid item sx={{ width: 'clamp(250px, 30%, 400px)' }}>
-                                <Grid container direction="column" spacing={2}>
-                                    <Grid item>
-                                        <TextField
-                                            label="Fecha Desde"
-                                            type='date'
-                                            name='startDate'
-                                            value={(filters.startDate) ? filters.startDate.substr(0, 10) : ''}
-                                            onChange={handleFilterAndResetPage}
-                                            fullWidth
-                                            autoComplete='off'
-                                            InputLabelProps={{ shrink: true }}
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <IconButton size='small' onClick={() => resetFieldAndPage('startDate')}>
-                                                            <ClearIcon fontSize='small' color='error' />
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                )
-                                            }}
-                                        />
-                                    </Grid>
-                                    <Grid item>
-                                        <TextField
-                                            label="Fecha Hasta"
-                                            type='date'
-                                            name='endDate'
-                                            value={(filters.endDate) ? filters.endDate.substr(0, 10) : ''}
-                                            onChange={handleFilterAndResetPage}
-                                            fullWidth
-                                            autoComplete='off'
-                                            InputLabelProps={{ shrink: true }}
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <IconButton size='small' onClick={() => resetFieldAndPage('endDate')}>
-                                                            <ClearIcon fontSize='small' color='error' />
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                )
-                                            }}
-                                        />
+                                <Grid item sx={{ width: 'clamp(250px, 30%, 400px)' }}>
+                                    <Grid container direction="column" spacing={2}>
+                                        <Grid item>
+                                            <StyledDatePicker
+                                                label="Fecha Desde"
+                                                value={filters.startDate ? moment(filters.startDate) : null}
+                                                onChange={(newValue) => {
+                                                    handleFilterAndResetPage({ target: { name: 'startDate', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                                                }}
+                                                format="DD/MM/YYYY"
+                                                slotProps={{
+                                                    textField: {
+                                                        InputProps: {
+                                                            startAdornment: (
+                                                                <InputAdornment position="start">
+                                                                    <IconButton size='small' onClick={() => resetFieldAndPage('startDate')}>
+                                                                        <ClearIcon fontSize='small' color='error' />
+                                                                    </IconButton>
+                                                                </InputAdornment>
+                                                            )
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                        </Grid>
+                                        <Grid item>
+                                            <StyledDatePicker
+                                                label="Fecha Hasta"
+                                                value={filters.endDate ? moment(filters.endDate) : null}
+                                                onChange={(newValue) => {
+                                                    handleFilterAndResetPage({ target: { name: 'endDate', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                                                }}
+                                                format="DD/MM/YYYY"
+                                                slotProps={{
+                                                    textField: {
+                                                        InputProps: {
+                                                            startAdornment: (
+                                                                <InputAdornment position="start">
+                                                                    <IconButton size='small' onClick={() => resetFieldAndPage('endDate')}>
+                                                                        <ClearIcon fontSize='small' color='error' />
+                                                                    </IconButton>
+                                                                </InputAdornment>
+                                                            )
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                        </Grid>
                                     </Grid>
                                 </Grid>
-                            </Grid>
 
-                            <Grid item sx={{ width: 'clamp(250px, 30%, 400px)' }}>
-                                <Grid container direction="column" spacing={2}>
-                                    <Grid item>
-                                        <StyledAutocomplete
-                                            options={products || []}
-                                            getOptionLabel={(option) => option.name || ""}
-                                            getOptionKey={(option) => option.id}
-                                            isOptionEqualToValue={(option, value) => option.id === value.id}
-                                            onChange={(e, value) => {
-                                                handleFilterChange({ target: { name: 'productId', value: value?.id } });
-                                                setPage(0);
-                                            }}
-                                            onInputChange={(event, newInputValue) => {
-                                                debouncedSetProductSearchTerm(newInputValue);
-                                            }}
-                                            loading={productsLoading}
-                                            filterOptions={(x) => x}
-                                            renderInput={(params) => <TextField {...params} label="Producto" fullWidth InputProps={{ ...params.InputProps, endAdornment: (<>{productsLoading ? <CircularProgress color="inherit" size={20} /> : null}{params.InputProps.endAdornment}</>) }} />}
+                                <Grid item sx={{ width: 'clamp(250px, 30%, 400px)' }}>
+                                    <Grid container direction="column" spacing={2}>
+                                        <Grid item>
+                                            <StyledAutocomplete
+                                                options={products || []}
+                                                value={products.find(p => p.id === filters.productId) || null}
+                                                getOptionLabel={(option) => option.name || ""}
+                                                isOptionEqualToValue={(option, value) => option.id === value.id}
+                                                onChange={(e, value) => {
+                                                    handleFilterChange({ target: { name: 'productId', value: value?.id || null } });
+                                                    setPage(0);
+                                                }}
+                                                onInputChange={(event, newInputValue) => {
+                                                    debouncedSetProductSearchTerm(newInputValue);
+                                                }}
+                                                loading={productsLoading}
+                                                filterOptions={(x) => x}
+                                                renderInput={(params) => <TextField {...params} label="Producto" fullWidth InputProps={{ ...params.InputProps, endAdornment: (<>{productsLoading ? <CircularProgress color="inherit" size={20} /> : null}{params.InputProps.endAdornment}</>) }} />}
                                         />
                                     </Grid>
                                     <Grid item>
                                         <StyledAutocomplete
                                             options={Array.isArray(suppliers) ? suppliers : []}
+                                            value={suppliers.find(s => s.id === filters.supplierId) || null}
                                             getOptionLabel={(option) => option.nombre}
                                             isOptionEqualToValue={(option, value) => option.id === value.id}
                                             onChange={(e, value) => {
-                                                handleFilterChange({ target: { name: 'supplierId', value: value?.id } });
+                                                handleFilterChange({ target: { name: 'supplierId', value: value?.id || null } });
                                                 setPage(0);
                                             }}
                                             renderInput={(params) => <TextField {...params} label="Proveedor" fullWidth />}
@@ -548,13 +557,13 @@ const Informes = () => {
                                         >
                                             Imprimir Informe
                                         </Button>
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-                        </Grid>
-                    </Box>
-                </Box>
-            </StyledCard>
+                                                                            </Grid>
+                                                                        </Grid>
+                                                                    </Grid>
+                                                                </Grid>
+                                                            </Box>
+                                                        </LocalizationProvider>
+                                                    </Box>            </StyledCard>
 
             <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>

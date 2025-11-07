@@ -96,7 +96,7 @@ const authController = {
             };
 
             // GUARDAR LA SESIÓN EXPLÍCITAMENTE
-            req.session.save((err) => {
+            req.session.save(async (err) => {
                 if (err) {
                     console.error('❌ Error al guardar la sesión:', err);
                     return res.status(500).json({ error: 'Error al guardar la sesión.' });
@@ -106,11 +106,12 @@ const authController = {
                 usuarioSinPassword.permisos = permisosEfectivos;
                 usuarioSinPassword.theme_preference = usuario.theme_preference;
 
-                logAudit({
-                    action: 'Inicio de sesión exitoso',
-                    description: `Usuario: ${username}`,
+                await logAudit({
+                    action: 'LOGIN',
                     user_id: usuario.id,
-                    entity_type: 'user'
+                    entity_type: 'user',
+                    entity_id: usuario.id,
+                    details: `El usuario ${usuario.username} ha iniciado sesión.`
                 }, req);
 
                 // ESTABLECER EL HEADER CON EL SESSION ID

@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import moment from 'moment';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
+import { StyledDatePicker } from '../styledComponents/ui/StyledDatePicker';
 import { motion } from 'framer-motion';
 import Swal from 'sweetalert2';
 
@@ -280,37 +283,42 @@ function ProfitReport() {
             </Paper>
 
             <StyledCard elevation={2} sx={{ p: 2, mb: 3 }}>
-                <Grid container spacing={2} sx={{ justifyContent: 'center', padding: 2 }}>
-                    <Grid sx={{ width: 'clamp(250px, 25%, 350px)' }}>
-                        <StyledTextField
-                            label="Fecha Desde"
-                            type="date"
-                            name="startDate"
-                            value={filters.startDate}
-                            onChange={(e) => { handleDateFilterChange(e); e.target.blur(); }}
-                            fullWidth
-                            InputLabelProps={{ shrink: true }}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconButton size="small" onClick={() => resetFilter('startDate')}>
-                                            <ClearIcon fontSize="small" color="error" />
-                                        </IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(250px, 25%, 350px)' }}>
-                                    <StyledTextField
-                                        label="Fecha Hasta"
-                                        type="date"
-                                        name="endDate"
-                                        value={filters.endDate}
-                                        onChange={(e) => { handleDateFilterChange(e); e.target.blur(); }}
-                                        fullWidth
-                                        InputLabelProps={{ shrink: true }}
-                                        InputProps={{
+                <LocalizationProvider dateAdapter={AdapterMoment}>
+                    <Grid container spacing={2} sx={{ justifyContent: 'center', padding: 2 }}>
+                        <Grid sx={{ width: 'clamp(250px, 25%, 350px)' }}>
+                            <StyledDatePicker
+                                label="Fecha Desde"
+                                value={filters.startDate ? moment(filters.startDate) : null}
+                                onChange={(newValue) => {
+                                    handleDateFilterChange({ target: { name: 'startDate', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                                }}
+                                format="DD/MM/YYYY"
+                                slotProps={{
+                                    textField: {
+                                        InputProps: {
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <IconButton size="small" onClick={() => resetFilter('startDate')}>
+                                                        <ClearIcon fontSize="small" color="error" />
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            )
+                                        }
+                                    }
+                                }}
+                            />
+                        </Grid>
+                        <Grid sx={{ width: 'clamp(250px, 25%, 350px)' }}>
+                            <StyledDatePicker
+                                label="Fecha Hasta"
+                                value={filters.endDate ? moment(filters.endDate) : null}
+                                onChange={(newValue) => {
+                                    handleDateFilterChange({ target: { name: 'endDate', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                                }}
+                                format="DD/MM/YYYY"
+                                slotProps={{
+                                    textField: {
+                                        InputProps: {
                                             startAdornment: (
                                                 <InputAdornment position="start">
                                                     <IconButton size="small" onClick={() => resetFilter('endDate')}>
@@ -318,40 +326,44 @@ function ProfitReport() {
                                                     </IconButton>
                                                 </InputAdornment>
                                             )
-                                        }}
-                                    />                    </Grid>
-                    <Grid sx={{ width: 'clamp(150px, 15%, 250px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <StyledButton
-                            variant="contained"
-                            onClick={handleApplyFilters}
-                            startIcon={<SearchIcon />}
-                            fullWidth
-                        >
-                            Consultar
-                        </StyledButton>
+                                        }
+                                    }
+                                }}
+                            />
+                        </Grid>
+                        <Grid sx={{ width: 'clamp(150px, 15%, 250px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <StyledButton
+                                variant="contained"
+                                onClick={handleApplyFilters}
+                                startIcon={<SearchIcon />}
+                                fullWidth
+                            >
+                                Consultar
+                            </StyledButton>
+                        </Grid>
+                        <Grid sx={{ width: 'clamp(150px, 15%, 250px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <StyledButton
+                                variant="outlined"
+                                color="secondary"
+                                onClick={handleClearFilters}
+                                fullWidth
+                            >
+                                Limpiar Filtros
+                            </StyledButton>
+                        </Grid>
+                        <Grid sx={{ width: 'clamp(150px, 15%, 250px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <StyledButton
+                                variant="contained"
+                                color="success"
+                                onClick={handlePrint}
+                                startIcon={<PrintIcon />}
+                                fullWidth
+                            >
+                                Imprimir Reporte
+                            </StyledButton>
+                        </Grid>
                     </Grid>
-                    <Grid sx={{ width: 'clamp(150px, 15%, 250px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <StyledButton
-                            variant="outlined"
-                            color="secondary"
-                            onClick={handleClearFilters}
-                            fullWidth
-                        >
-                            Limpiar Filtros
-                        </StyledButton>
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(150px, 15%, 250px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <StyledButton
-                            variant="contained"
-                            color="success"
-                            onClick={handlePrint}
-                            startIcon={<PrintIcon />}
-                            fullWidth
-                        >
-                            Imprimir Reporte
-                        </StyledButton>
-                    </Grid>
-                </Grid>
+                </LocalizationProvider>
             </StyledCard>
 
             {profitMarginLoading ? (

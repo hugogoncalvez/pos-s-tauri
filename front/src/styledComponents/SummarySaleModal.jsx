@@ -230,7 +230,7 @@ const SummarySaleModal = ({
                   setMixedPayments([{ payment_method_id: null, amount: '' }, { payment_method_id: null, amount: '' }]);
                 }
               }}
-              options={Array.isArray(paymentMethods) ? [...paymentMethods.filter(pm => pm.method !== 'Mixto' && pm.nombre !== 'Mixto'), { id: 'mixed', method: 'Mixto', nombre: 'Mixto' }] : [{ id: 'mixed', method: 'Mixto', nombre: 'Mixto' }]}
+              options={Array.isArray(paymentMethods) ? [...paymentMethods.filter(pm => pm.active && pm.method !== 'Mixto' && pm.nombre !== 'Mixto'), { id: 'mixed', method: 'Mixto', nombre: 'Mixto' }] : [{ id: 'mixed', method: 'Mixto', nombre: 'Mixto' }]}
               getOptionLabel={(option) => option.method || option.nombre || 'Sin método'}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               loading={paymentLoading}
@@ -377,7 +377,7 @@ const SummarySaleModal = ({
                           newMixedPayments[index].payment_method_id = value ? value.id : null;
                           setMixedPayments(newMixedPayments);
                         }}
-                        options={Array.isArray(paymentMethods) ? paymentMethods.filter(pm => pm.method?.toLowerCase() !== 'mixto' && pm.nombre?.toLowerCase() !== 'mixto') : []}
+                        options={Array.isArray(paymentMethods) ? paymentMethods.filter(pm => pm.active && pm.method?.toLowerCase() !== 'mixto' && pm.nombre?.toLowerCase() !== 'mixto') : []}
                         getOptionLabel={(option) => option.method || option.nombre || ''}
                         isOptionEqualToValue={(option, value) => option.id === value.id}
                         size="small"

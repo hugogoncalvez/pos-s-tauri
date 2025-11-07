@@ -39,6 +39,10 @@ const BarcodePrinter = () => {
     const [snackbarMessage, setSnackbarMessage] = useState('');
     const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
+    const [presentationSearchInput, setPresentationSearchInput] = useState('');
+    const [comboSearchInput, setComboSearchInput] = useState('');
+
+
     const [filters, handleFilterChange, resetFilters] = useForm({
         presentationSearch: '',
         comboSearch: '',
@@ -46,6 +50,20 @@ const BarcodePrinter = () => {
         presentationCategory: '',
         promotionType: ''
     });
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            handleFilterChange({ target: { name: 'presentationSearch', value: presentationSearchInput } });
+        }, 500);
+        return () => clearTimeout(handler);
+    }, [presentationSearchInput]);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            handleFilterChange({ target: { name: 'comboSearch', value: comboSearchInput } });
+        }, 500);
+        return () => clearTimeout(handler);
+    }, [comboSearchInput]);
 
     // Fetch data for Presentations, Combos, and Promotions
     const { data: presentationsData, isLoading: isLoadingPresentations, isError: isErrorPresentations, error: errorPresentations } = UseFetchQuery(
@@ -400,12 +418,12 @@ const BarcodePrinter = () => {
                             <StyledTextField
                                 label="Buscar Presentación"
                                 name="presentationSearch"
-                                value={filters.presentationSearch || ''}
-                                onChange={handleFilterChange}
+                                value={presentationSearchInput}
+                                onChange={(e) => setPresentationSearchInput(e.target.value)}
                                 InputProps={{
                                     endAdornment: (
                                         <InputAdornment position="end">
-                                            <IconButton onClick={() => handleFilterChange({ target: { name: 'presentationSearch', value: '' } })}><ClearIcon /></IconButton>
+                                            <IconButton onClick={() => setPresentationSearchInput('')}><ClearIcon /></IconButton>
                                         </InputAdornment>
                                     )
                                 }}
@@ -421,7 +439,7 @@ const BarcodePrinter = () => {
                                 renderInput={(params) => (
                                     <StyledTextField
                                         {...params}
-                                        label="Filtrar por Categoría"
+                                        label="Filtrar Presentación por Categoría"
                                         InputProps={{
                                             ...params.InputProps,
                                             endAdornment: (
@@ -440,12 +458,12 @@ const BarcodePrinter = () => {
                             <StyledTextField
                                 label="Buscar Combo"
                                 name="comboSearch"
-                                value={filters.comboSearch || ''}
-                                onChange={handleFilterChange}
+                                value={comboSearchInput}
+                                onChange={(e) => setComboSearchInput(e.target.value)}
                                 InputProps={{
                                     endAdornment: (
                                         <InputAdornment position="end">
-                                            <IconButton onClick={() => handleFilterChange({ target: { name: 'comboSearch', value: '' } })}><ClearIcon /></IconButton>
+                                            <IconButton onClick={() => setComboSearchInput('')}><ClearIcon /></IconButton>
                                         </InputAdornment>
                                     )
                                 }}

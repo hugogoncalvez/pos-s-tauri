@@ -33,6 +33,8 @@ import { StyledButton } from '../styledComponents/ui/StyledButton';
 import PaymentMethodSurchargeManagerSkeleton from '../styledComponents/skeletons/PaymentMethodSurchargeManagerSkeleton';
 import { mostrarExito } from '../functions/mostrarExito';
 import { mostrarError } from '../functions/MostrarError';
+import { mostrarCarga } from '../functions/mostrarCarga';
+import Swal from 'sweetalert2';
 import { confirmAction } from '../functions/ConfirmDelete';
 
 const PaymentMethodSurchargeManager = () => {
@@ -75,13 +77,23 @@ const PaymentMethodSurchargeManager = () => {
     }, [newMethodModalOpen]);
 
     const onToggle = async (method) => {
-        await mutation.mutateAsync({
-            url: `/payments/${method.id}/surcharge`,
-            datos: {
-                surcharge_active: !method.surcharge_active,
-                surcharge_percentage: method.surcharge_percentage
-            }
-        }, { onSuccess: () => refetch() });
+        mostrarCarga('Actualizando estado del recargo...', theme);
+        try {
+            await mutation.mutateAsync({
+                url: `/payments/${method.id}/surcharge`,
+                datos: {
+                    surcharge_active: !method.surcharge_active,
+                    surcharge_percentage: method.surcharge_percentage
+                }
+            });
+            refetch();
+            Swal.close();
+            mostrarExito('Estado de recargo actualizado con éxito!', theme);
+        } catch (error) {
+            Swal.close();
+            console.error("Error al actualizar estado de recargo:", error);
+            mostrarError(error.response?.data?.message || 'Error al actualizar el estado del recargo.', theme);
+        }
     };
 
     const onSaveSurcharge = async (values) => {
@@ -89,6 +101,25 @@ const PaymentMethodSurchargeManager = () => {
             url: `/payments/${values.id}/surcharge`,
             datos: values
         }, { onSuccess: () => { refetch(); handleCloseSurchargeModal(); } });
+    };
+
+    const onToggleActive = async (method) => {
+        if (isSystemMethod(method.method)) return; // No permitir cambiar métodos del sistema
+
+        mostrarCarga('Actualizando estado del método de pago...', theme);
+        try {
+            await mutation.mutateAsync({
+                url: `/payment/${method.id}`,
+                datos: { active: !method.active }
+            });
+            refetch();
+            Swal.close();
+            mostrarExito('Estado del método de pago actualizado con éxito!', theme);
+        } catch (error) {
+            Swal.close();
+            console.error("Error al actualizar estado del método de pago:", error);
+            mostrarError(error.response?.data?.message || 'Error al actualizar el estado del método de pago.', theme);
+        }
     };
 
     const handleSaveMethod = async (values) => {
@@ -184,7 +215,16 @@ const PaymentMethodSurchargeManager = () => {
                                         </TableCell>
                                         <TableCell>{method.description}</TableCell>
                                         <TableCell align="center">
-                                            <Chip label={method.active ? 'Sí' : 'No'} color={method.active ? 'success' : 'error'} size="small" />
+                                            <Tooltip title={isSystemMethod(method.method) ? "Método del sistema (no se puede desactivar)" : "Clic para cambiar estado"}>
+                                                <Chip
+                                                    label={method.active ? 'Sí' : 'No'}
+                                                    color={method.active ? 'success' : 'error'}
+                                                    size="small"
+                                                    onClick={() => onToggleActive(method)}
+                                                    disabled={isSystemMethod(method.method)}
+                                                    sx={{ cursor: isSystemMethod(method.method) ? 'not-allowed' : 'pointer' }}
+                                                />
+                                            </Tooltip>
                                         </TableCell>
                                         <TableCell align="center">
                                             <Switch

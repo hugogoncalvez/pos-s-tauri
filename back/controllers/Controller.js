@@ -468,7 +468,17 @@ export const createFullPurchase = async (req, res) => {
         // 3. Si todo fue bien, confirmar la transacción
         await transaction.commit();
 
-        // 4. Devolver el objeto de la compra recién creada con sus detalles
+        // 4. Registrar en auditoría
+        await logAudit({
+            user_id: req.usuario.id, // Asume que el usuario está en req.usuario
+            action: 'CREAR_COMPRA',
+            entity_type: 'purchase',
+            entity_id: newPurchase.id,
+            new_values: { factura, supplier, cost },
+            details: `Se creó la compra con factura ${factura} del proveedor ${supplier} por un total de ${cost}.`
+        }, req);
+
+        // 5. Devolver el objeto de la compra recién creada con sus detalles
         const finalPurchase = await PurchaseModel.findByPk(newPurchase.id, {
             include: [{
                 model: PurchasesDetailsModel,
@@ -1005,15 +1015,21 @@ export const updateStock = async (req, res) => {
         const { presentations, ...productData } = req.body; // Extract presentations
         const productId = req.params.id;
 
-        // 1. Update the main product data
+        // 1. Obtener el estado anterior para la auditoría
+        const productBeforeUpdate = await StockModel.findByPk(productId, { transaction });
+        if (!productBeforeUpdate) {
+            await transaction.rollback();
+            return res.status(404).json({ message: 'Producto no encontrado' });
+        }
+        const oldValues = productBeforeUpdate.toJSON();
+
+        // 2. Actualizar el producto principal
         await StockModel.update(productData, {
             where: { id: productId },
             transaction
         });
 
-        // 2. Handle presentations: Delete all existing and then recreate from scratch
-        // This is a simpler "full replacement" strategy.
-        // It's safe because presentations are always sent as a complete list from frontend.
+        // 3. Manejar presentaciones (reemplazo completo)
         await ProductPresentationsModel.destroy({
             where: { stock_id: productId },
             transaction
@@ -1022,36 +1038,66 @@ export const updateStock = async (req, res) => {
         if (presentations && Array.isArray(presentations) && presentations.length > 0) {
             const presentationsToCreate = presentations.map(pres => ({
                 ...pres,
-                stock_id: productId // Ensure stock_id is set
+                stock_id: productId
             }));
             await ProductPresentationsModel.bulkCreate(presentationsToCreate, { transaction });
-
-        } else {
-            //console.log("Backend: No new presentations to create.");
         }
 
-        // After updating stock, check for low stock
-        await checkLowStockAndLog(productId, req.user ? req.user.id : null, transaction);
+        // 4. Registrar en auditoría
+        await logAudit({
+            user_id: req.usuario.id,
+            action: 'ACTUALIZAR_STOCK',
+            entity_type: 'stock',
+            entity_id: productId,
+            old_values: oldValues,
+            new_values: productData,
+            details: `Se actualizó el producto ${oldValues.name} (ID: ${productId}).`
+        }, req, transaction);
+
+        // 5. Verificar stock bajo y confirmar transacción
+        await checkLowStockAndLog(productId, req.usuario.id, transaction);
         await transaction.commit();
-        res.json({ "message": 'Registro actualizado correctamente' })
+        res.json({ "message": 'Registro actualizado correctamente' });
+
     } catch (error) {
         await transaction.rollback();
         console.error("Error en updateStock:", error);
-        res.status(500).json({ message: error.message })
+        res.status(500).json({ message: error.message });
     }
 }
 
 // no borrar
 export const deleteStock = async (req, res) => {
+    const transaction = await db.transaction();
     try {
-        await StockModel.destroy({
-            where: { id: req.params.id }
-        })
-        res.json({ message: 'Registro eliminado correctamente' })
+        const productId = req.params.id;
+
+        // Obtener datos para la auditoría ANTES de eliminar
+        const productToDelete = await StockModel.findByPk(productId, { transaction });
+        if (!productToDelete) {
+            await transaction.rollback();
+            return res.status(404).json({ message: 'Producto no encontrado' });
+        }
+
+        await productToDelete.destroy({ transaction });
+
+        // Registrar en auditoría
+        await logAudit({
+            user_id: req.usuario.id,
+            action: 'ELIMINAR_PRODUCTO',
+            entity_type: 'stock',
+            entity_id: productId,
+            old_values: productToDelete.toJSON(),
+            details: `Se eliminó el producto: ${productToDelete.name} (ID: ${productId}).`
+        }, req, transaction);
+
+        await transaction.commit();
+        res.json({ message: 'Registro eliminado correctamente' });
     } catch (error) {
-        res.json({ message: error.message })
+        await transaction.rollback();
+        res.status(500).json({ message: error.message });
     }
-}
+};
 
 export const importarStock = async (req, res) => {
     const transaction = await db.transaction();
@@ -1638,7 +1684,7 @@ export const deleteUser = async (req, res) => {
 
         // Regla 1: No se puede eliminar al super administrador
         if (userIdToDelete === 1) {
-            return res.status(403).json({ message: 'El super administrador (ID 1) no puede ser eliminado.' });
+            return res.status(403).json({ message: 'El administrador (ID 1) no puede ser eliminado.' });
         }
 
         // Regla 2: Un usuario no puede eliminarse a sí mismo
@@ -1647,34 +1693,51 @@ export const deleteUser = async (req, res) => {
         }
 
         // Regla 3: No se puede eliminar al último administrador visible
-        const userToDelete = await UsuarioModel.findByPk(userIdToDelete, { include: 'rol' });
+        const userToDelete = await UsuarioModel.findByPk(userIdToDelete, { include: 'rol', transaction });
+
+        // Regla 3: No se puede eliminar al último administrador visible
         if (userToDelete && userToDelete.rol.nombre === 'Administrador') {
-            const adminRole = await RoleModel.findOne({ where: { nombre: 'Administrador' } });
+            const adminRole = await RoleModel.findOne({ where: { nombre: 'Administrador' }, transaction });
             if (adminRole) {
                 const adminCount = await UsuarioModel.count({
                     where: {
                         rol_id: adminRole.id,
                         id: { [Op.ne]: 1 } // Excluir al super admin del conteo
-                    }
+                    },
+                    transaction
                 });
 
                 if (adminCount <= 1) {
+                    await transaction.rollback();
                     return res.status(403).json({ message: 'No se puede eliminar al último administrador del sistema.' });
                 }
             }
         }
 
         const deleted = await UsuarioModel.destroy({
-            where: { id: userIdToDelete }
+            where: { id: userIdToDelete },
+            transaction
         });
 
         if (deleted) {
+            // Registrar en auditoría
+            await logAudit({
+                user_id: requestingUserId,
+                action: 'ELIMINAR_USUARIO',
+                entity_type: 'user',
+                entity_id: userIdToDelete,
+                old_values: userToDelete.toJSON(),
+                details: `Se eliminó al usuario: ${userToDelete.username} (ID: ${userIdToDelete}).`
+            }, req, transaction);
+
+            await transaction.commit();
             res.status(204).send();
         } else {
+            await transaction.rollback();
             res.status(404).json({ message: 'Usuario no encontrado.' });
         }
     } catch (error) {
-        console.error("Error al eliminar usuario:", error);
+        await transaction.rollback();
         res.status(500).json({ message: 'Error interno al eliminar el usuario.', details: error.message });
     }
 };
@@ -1710,6 +1773,7 @@ export const createSale = async (req, res) => {
             console.time('createSale_total');
 
             const { total_amount, promotion_discount, customer_id, user_id, payments, tempValues, surcharge_amount } = req.body;
+    
             let { total_neto } = req.body;
 
             const activeSession = await CashSessionsModel.findOne({
@@ -1802,7 +1866,10 @@ export const createSale = async (req, res) => {
                     const { stock_id, promotion_id, quantity, final_price } = item;
                     const stockItem = stockItemsMap.get(stock_id);
                     saleDetailsToCreate.push({ sales_Id: newSale.id, stock_id: item.is_manual_entry ? null : stock_id, promotion_id: promotion_id || null, quantity, price: final_price / quantity, cost: stockItem?.cost || 0 });
-                    if (stock_id) {
+
+                    if (item.is_manual_entry) {
+                        auditLogsToCreate.push({ user_id, action: 'VENTA_PRODUCTO_MANUAL', entity_type: 'sale_item', entity_id: newSale.id, session_id: activeSession.id, new_values: { product_name: item.name, price: item.price, quantity: item.quantity }, details: `Venta de producto manual: ${item.quantity} x ${item.name}` });
+                    } else if (stock_id) {
                         stockUpdates.set(stock_id, (stockUpdates.get(stock_id) || 0) + quantity);
                         stocksToCheck.add(stock_id);
                         if (stockItem?.price !== item.price) {
@@ -1924,7 +1991,7 @@ export const getSaleDetails = async (req, res) => {
         }));
 
 
-        res.json(saleJSON);
+        res.json(sale);
     } catch (error) {
         console.error("Error al obtener detalles de la venta:", error);
         res.status(500).json({ message: error.message || 'Error al obtener los detalles de la venta.' });
@@ -3448,8 +3515,9 @@ export const deleteCustomer = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const customer = await CustomerModel.findByPk(id);
+        const customer = await CustomerModel.findByPk(id, { transaction });
         if (!customer) {
+            await transaction.rollback();
             return res.status(404).json({
                 success: false,
                 message: 'Cliente no encontrado'
@@ -3457,11 +3525,10 @@ export const deleteCustomer = async (req, res) => {
         }
 
         // Verificar si el cliente tiene ventas asociadas
-        const salesCount = await SaleModel.count({
-            where: { customer_id: id }
-        });
+        const salesCount = await SaleModel.count({ where: { customer_id: id }, transaction });
 
         if (salesCount > 0) {
+            await transaction.rollback();
             return res.status(400).json({
                 success: false,
                 message: 'No se puede eliminar el cliente porque tiene ventas asociadas'
@@ -3469,6 +3536,17 @@ export const deleteCustomer = async (req, res) => {
         }
 
         await customer.destroy({ transaction });
+
+        // Registrar en auditoría
+        await logAudit({
+            user_id: req.usuario.id,
+            action: 'ELIMINAR_CLIENTE',
+            entity_type: 'customer',
+            entity_id: id,
+            old_values: customer.toJSON(),
+            details: `Se eliminó al cliente: ${customer.name} (ID: ${id}).`
+        }, req, transaction);
+
         await transaction.commit();
 
         res.json({
@@ -3534,8 +3612,13 @@ export const getAllCustomers = async (req, res) => {
             search = '',
             sortBy = 'name',
             sortOrder = 'ASC',
-            debt_status = 'all' // Nuevo parámetro
+            debt_status = 'all',
+            start_date,
+            end_date
         } = req.query;
+
+        // Ensure sortOrder is always valid
+        const finalSortOrder = (sortOrder && (sortOrder.toUpperCase() === 'ASC' || sortOrder.toUpperCase() === 'DESC')) ? sortOrder.toUpperCase() : 'ASC';
 
         const offset = (page - 1) * limit;
 
@@ -3544,6 +3627,17 @@ export const getAllCustomers = async (req, res) => {
             // Excluir el cliente genérico "Consumidor Final"
             name: { [Op.ne]: 'Consumidor Final' }
         };
+
+        // Aplicar filtro por fechas de creación
+        if (start_date && end_date) {
+            whereConditions.createdAt = {
+                [Op.between]: [new Date(start_date), (() => {
+                    const d = new Date(end_date);
+                    d.setHours(23, 59, 59, 999);
+                    return d;
+                })()]
+            };
+        }
 
         // Aplicar filtro por estado de deuda
         if (debt_status === 'with_debt') {
@@ -3568,8 +3662,20 @@ export const getAllCustomers = async (req, res) => {
         }
 
         const { count, rows } = await CustomerModel.findAndCountAll({
+            attributes: [
+                'id',
+                'name',
+                'email',
+                'phone',
+                'address',
+                'dni',
+                'debt',
+                'credit_limit',
+                'discount_percentage',
+                'createdAt'
+            ],
             where: whereConditions,
-            order: [[sortBy, sortOrder]],
+            order: [[sortBy.replace(/`/g, ''), finalSortOrder]],
             limit: parseInt(limit),
             offset: parseInt(offset),
             include: [{
@@ -3930,6 +4036,7 @@ export const getCustomerCreditHistory = async (req, res) => {
                     attributes: ['username']
                 }
             ],
+            order: [['createdAt', 'DESC']],
             limit: parseInt(limit),
             offset: parseInt(offset),
             distinct: true,
@@ -4330,7 +4437,6 @@ export const getCustomerPurchaseHistory = async (req, res) => {
                     include: [{
                         model: PaymentModel,
                         as: 'payment',
-                        where: creditWhere,
                         required: true,
                         attributes: ['method']
                     }]
@@ -4341,7 +4447,6 @@ export const getCustomerPurchaseHistory = async (req, res) => {
                 }
             ],
             order: [['createdAt', 'DESC']],
-            limit: parseInt(limit),
             offset: parseInt(offset),
             distinct: true,
             subQuery: false // Solución definitiva para evitar la subconsulta problemática
@@ -4393,13 +4498,15 @@ export const updateCustomer = async (req, res) => {
             debt
         } = req.body;
 
-        const customer = await CustomerModel.findByPk(id);
+        const customer = await CustomerModel.findByPk(id, { transaction });
         if (!customer) {
+            await transaction.rollback();
             return res.status(404).json({
                 success: false,
                 message: 'Cliente no encontrado'
             });
         }
+        const oldDebt = customer.debt;
 
         // Verificar duplicados (excluyendo el cliente actual)
         if (email || phone || dni) {
@@ -4411,10 +4518,12 @@ export const updateCustomer = async (req, res) => {
                         phone ? { phone } : null,
                         dni ? { dni } : null
                     ].filter(Boolean)
-                }
+                },
+                transaction
             });
 
             if (existingCustomer) {
+                await transaction.rollback();
                 let duplicateField = '';
                 if (existingCustomer.email === email) duplicateField = 'email';
                 else if (existingCustomer.phone === phone) duplicateField = 'teléfono';
@@ -4439,6 +4548,20 @@ export const updateCustomer = async (req, res) => {
         if (debt !== undefined) updateData.debt = parseFloat(debt) || 0;
 
         await customer.update(updateData, { transaction });
+
+        // Log debt change if it happened
+        if (debt !== undefined && parseFloat(debt) !== parseFloat(oldDebt)) {
+            await logAudit({
+                user_id: req.usuario.id,
+                action: 'MANUAL_DEBT_UPDATE',
+                entity_type: 'customer',
+                entity_id: customer.id,
+                old_values: { debt: oldDebt },
+                new_values: { debt: parseFloat(debt) },
+                details: `Se modificó manualmente la deuda del cliente ${customer.name} (ID: ${customer.id}).`
+            }, req, transaction);
+        }
+
         await transaction.commit();
 
         res.json({
@@ -4984,16 +5107,60 @@ export const updatePromotion = async (req, res) => {
 
 // Eliminar una promoción
 export const deletePromotion = async (req, res) => {
+    const transaction = await db.transaction();
     try {
-        const deleted = await PromotionModel.destroy({
-            where: { id: req.params.id }
+        const promotionId = req.params.id;
+
+        // 1. Check if the promotion has been used in any sales details
+        const salesCount = await SaleDetailModel.count({
+            where: { promotion_id: promotionId },
+            transaction
         });
+
+        if (salesCount > 0) {
+            await transaction.rollback();
+            return res.status(400).json({ message: 'No se puede eliminar la promoción porque ha sido utilizada en ventas históricas.' });
+        }
+
+        // 2. Get promotion data for audit log before deleting
+        const promotionToDelete = await PromotionModel.findByPk(promotionId, { transaction });
+        if (!promotionToDelete) {
+            await transaction.rollback();
+            return res.status(404).json({ message: 'Promoción no encontrada' });
+        }
+
+        // 3. Delete associated product_promotions entries
+        await ProductPromotionsModel.destroy({
+            where: { promotion_id: promotionId },
+            transaction
+        });
+
+        // 4. Delete the promotion itself
+        const deleted = await PromotionModel.destroy({
+            where: { id: promotionId },
+            transaction
+        });
+
         if (deleted) {
-            res.status(204).json({ message: 'Promoción eliminada' });
+            // 5. Log audit
+            await logAudit({
+                user_id: req.usuario.id,
+                action: 'ELIMINAR_PROMOCION',
+                entity_type: 'promotion',
+                entity_id: promotionId,
+                old_values: promotionToDelete.toJSON(),
+                details: `Se eliminó la promoción: ${promotionToDelete.name} (ID: ${promotionId}).`
+            }, req, transaction);
+
+            await transaction.commit();
+            res.status(204).send();
         } else {
+            await transaction.rollback();
             res.status(404).json({ message: 'Promoción no encontrada' });
         }
     } catch (error) {
+        await transaction.rollback();
+        console.error("Error al eliminar promoción:", error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -5446,6 +5613,148 @@ export const getPromotionsSummary = async (req, res) => {
         res.json({ activeCount, latestPromotion });
     } catch (error) {
         res.status(500).json({ message: 'Error al obtener el resumen de promociones', error: error.message });
+    }
+};
+
+export const getDailyCutReport = async (req, res) => {
+    try {
+        const { date, userId } = req.query;
+
+        if (!date) {
+            return res.status(400).json({ message: 'La fecha es requerida para el reporte de corte de caja.' });
+        }
+
+        const startDate = new Date(date);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(date);
+        endDate.setHours(23, 59, 59, 999);
+
+        let cashSessionWhereClause = {
+            opened_at: {
+                [Op.between]: [startDate, endDate]
+            }
+        };
+
+        if (userId) {
+            cashSessionWhereClause.user_id = userId;
+        }
+
+        const cashSessions = await CashSessionsModel.findAll({
+            where: cashSessionWhereClause,
+            include: [
+                {
+                    model: UsuarioModel,
+                    attributes: ['id', 'username'],
+                    include: [{ model: RoleModel, as: 'rol', attributes: ['nombre'] }]
+                }
+            ]
+        });
+
+        if (cashSessions.length === 0) {
+            return res.status(200).json({ message: 'No se encontraron sesiones de caja para la fecha y usuario especificados.', report: {} });
+        }
+
+        let totalOpeningAmount = 0, totalCashSales = 0, totalCardSales = 0, totalOtherSales = 0;
+        let totalIncome = 0, totalExpense = 0, totalCustomerPayments = 0, totalSalesAmount = 0;
+        let totalProfit = 0, totalCost = 0, totalRevenue = 0;
+        const salesByCategory = {}, salesByPaymentMethod = {};
+        const detailedSessions = [];
+
+        for (const session of cashSessions) {
+            totalOpeningAmount += parseFloat(session.opening_amount || 0);
+
+            const movements = await CashSessionMovementModel.findAll({ where: { cash_session_id: session.id } });
+            const sessionIncome = movements.filter(m => m.type === 'ingreso').reduce((sum, m) => sum + parseFloat(m.amount), 0);
+            const sessionExpense = movements.filter(m => m.type === 'egreso').reduce((sum, m) => sum + parseFloat(m.amount), 0);
+            totalIncome += sessionIncome;
+            totalExpense += sessionExpense;
+
+            const sales = await SaleModel.findAll({
+                where: { cash_session_id: session.id },
+                include: [
+                    { model: SalePaymentModel, as: 'sale_payments', include: [{ model: PaymentModel, as: 'payment' }] },
+                    {
+                        model: SaleDetailModel,
+                        include: [
+                            { model: StockModel, include: [{ model: StockCategoryModel, as: 'stockCategory' }] },
+                            { model: ComboModel, include: [{ model: ComboItem, as: 'combo_items', include: [{ model: StockModel, as: 'stock' }] }] }
+                        ]
+                    }
+                ]
+            });
+
+            const currentSessionSales = sales.reduce((acc, sale) => acc + parseFloat(sale.total_neto || 0), 0);
+
+            for (const sale of sales) {
+                totalSalesAmount += parseFloat(sale.total_neto || 0);
+                totalRevenue += parseFloat(sale.total_amount || 0);
+
+                for (const payment of sale.sale_payments) {
+                    const methodName = payment.payment?.method || 'Desconocido';
+                    salesByPaymentMethod[methodName] = (salesByPaymentMethod[methodName] || 0) + parseFloat(payment.amount);
+                    if (methodName.toLowerCase().includes('efectivo')) {
+                        totalCashSales += parseFloat(payment.amount);
+                    } else if (methodName.toLowerCase().includes('tarjeta')) {
+                        totalCardSales += parseFloat(payment.amount);
+                    } else {
+                        totalOtherSales += parseFloat(payment.amount);
+                    }
+                }
+
+                for (const detail of sale.sale_details) {
+                    const categoryName = detail.stock?.stockCategory?.name || 'Sin Categoría';
+                    salesByCategory[categoryName] = (salesByCategory[categoryName] || 0) + (parseFloat(detail.quantity) * parseFloat(detail.price));
+                    if (detail.stock_id) {
+                        totalCost += parseFloat(detail.quantity) * parseFloat(detail.cost || 0);
+                    } else if (detail.combo_id && detail.combo?.combo_items) {
+                        let comboCost = 0;
+                        for (const comboItem of detail.combo.combo_items) {
+                            comboCost += parseFloat(comboItem.quantity) * parseFloat(comboItem.stock?.cost || 0);
+                        }
+                        totalCost += parseFloat(detail.quantity) * comboCost;
+                    }
+                }
+            }
+            
+            const customerPayments = await CustomerPaymentsModel.findAll({ where: { cash_session_id: session.id } });
+            totalCustomerPayments += customerPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+            detailedSessions.push({
+                ...session.toJSON(),
+                totalSalesAtClose: session.status === 'cerrada' ? parseFloat(session.total_sales_at_close || 0) : currentSessionSales
+            });
+        }
+
+        totalProfit = totalRevenue - totalCost;
+
+        const report = {
+            date: date,
+            cashier: userId ? cashSessions[0].usuario.username : 'Todos',
+            cashierId: userId || null,
+            totals: { openingAmount: totalOpeningAmount, totalIncome, totalExpense, totalCashSales, totalCardSales, totalOtherSales, totalSalesAmount, totalCustomerPayments, totalRevenue, totalCost, totalProfit },
+            salesByPaymentMethod: salesByPaymentMethod,
+            salesByCategory: salesByCategory,
+            sessions: detailedSessions.map(s => ({
+                id: s.id,
+                username: s.usuario?.username || 'Usuario Desconocido',
+                rol: s.usuario?.rol?.nombre || 'Rol Desconocido',
+                openingAmount: parseFloat(s.opening_amount || 0),
+                openedAt: s.opened_at,
+                closedAt: s.closed_at,
+                status: s.status,
+                cashierDeclaredAmount: parseFloat(s.cashier_declared_amount || 0),
+                adminVerifiedAmount: parseFloat(s.admin_verified_amount || 0),
+                finalDiscrepancy: parseFloat(s.final_discrepancy || 0),
+                preliminaryDiscrepancy: parseFloat(s.preliminary_discrepancy || 0),
+                totalSalesAtClose: s.totalSalesAtClose
+            }))
+        };
+
+        res.json({ success: true, report });
+
+    } catch (error) {
+        console.error("Error al generar el reporte de corte de caja:", error);
+        res.status(500).json({ message: 'Error al generar el reporte de corte de caja', error: error.message });
     }
 };
 

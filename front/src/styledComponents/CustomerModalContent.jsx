@@ -136,17 +136,7 @@ const CustomerModalContent = ({
                 onClear={() => handleInputChange({ target: { name: 'address', value: '' } })}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextFieldWithClear
-                fullWidth
-                label="Porcentaje de Descuento"
-                name="discount_percentage"
-                type="number"
-                value={String(formData.discount_percentage || '')}
-                onChange={(e) => handleInputChange({ target: { name: 'discount_percentage', value: e.target.value === '' ? 0 : parseFloat(e.target.value) } })}
-                onClear={() => handleInputChange({ target: { name: 'discount_percentage', value: 0 } })}
-              />
-            </Grid>
+
             <Grid item xs={12} sm={6}>
               <TextFieldWithClear
                 fullWidth
@@ -158,30 +148,17 @@ const CustomerModalContent = ({
                 onClear={() => handleInputChange({ target: { name: 'credit_limit', value: 0 } })}
               />
             </Grid>
-            {dialogMode === 'create' && (
-              <Grid item xs={12} sm={6}>
-                <TextFieldWithClear
-                  fullWidth
-                  label="Deuda Inicial"
-                  name="debt"
-                  type="number"
-                  value={String(formData.debt || '')}
-                  onChange={(e) => handleInputChange({ target: { name: 'debt', value: e.target.value === '' ? 0 : parseFloat(e.target.value) } })}
-                  onClear={() => handleInputChange({ target: { name: 'debt', value: 0 } })}
-                />
-              </Grid>
-            )}
-            {dialogMode === 'edit' && (
-              <Grid item xs={12}>
-                <TextFieldWithClear
-                  fullWidth
-                  label="Deuda Actual"
-                  name="debt"
-                  value={formData.debt || ''}
-                  readOnly
-                />
-              </Grid>
-            )}
+            <Grid item xs={12} sm={6}>
+              <TextFieldWithClear
+                fullWidth
+                label={dialogMode === 'create' ? "Deuda Inicial" : "Deuda Actual"}
+                name="debt"
+                type="number"
+                value={String(formData.debt || '')}
+                onChange={(e) => handleInputChange({ target: { name: 'debt', value: e.target.value === '' ? 0 : parseFloat(e.target.value) } })}
+                onClear={() => handleInputChange({ target: { name: 'debt', value: 0 } })}
+              />
+            </Grid>
           </Grid>
         </Box>
       ) : customer ? (
@@ -203,7 +180,9 @@ const CustomerModalContent = ({
                 <AccountBalanceIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                 Información Financiera
               </Typography>
-              <Typography variant="body2"><Typography component="span" fontWeight="bold">Descuento:</Typography> {customer.discount_percentage}%</Typography>
+              {customer.discount_percentage > 0 && (
+                <Typography variant="body2"><Typography component="span" fontWeight="bold">Descuento:</Typography> {customer.discount_percentage}%</Typography>
+              )}
               <Typography variant="body2"><Typography component="span" fontWeight="bold">Límite de Crédito:</Typography> ${customer.credit_limit}</Typography>
               <Box>
                 <Typography component="span" variant="body2" fontWeight="bold">Crédito Disponible:</Typography>
@@ -224,23 +203,7 @@ const CustomerModalContent = ({
                 />
               </Box>
             </Grid>
-            {customer.payments && customer.payments.length > 0 && (
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                  Últimos Pagos
-                </Typography>
-                <List dense>
-                  {customer.payments.slice(0, 5).map((payment, index) => (
-                    <ListItem key={index}>
-                      <ListItemText
-                        primary={`${payment.amount} - ${payment.payment_method}`}
-                        secondary={new Date(payment.payment_date).toLocaleDateString()}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Grid>
-            )}
+
           </Grid>
         </Box>
       ) : (
@@ -251,7 +214,7 @@ const CustomerModalContent = ({
       <Divider sx={{ mt: 2 }} />
       <Box sx={{ p: 2, backgroundColor: 'background.dialog', color: 'text.primary', display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
         <StyledButton variant='outlined' color="secondary" sx={{ padding: '2px 12px' }} onClick={onCancel}>
-          Cerrar
+          Cancelar
         </StyledButton>
         {(dialogMode === 'create' || dialogMode === 'edit') && (
           <StyledButton

@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import moment from 'moment';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
+import { StyledDatePicker } from '../styledComponents/ui/StyledDatePicker';
 import {
   Box,
   Typography,
@@ -84,6 +87,37 @@ const PromotionsManager = () => {
   const products = productsData?.products || [];
   const { data: presentations, isLoading: presentationsLoading } = UseFetchQuery('presentations', '/presentations');
 
+  const productOptions = useMemo(() => {
+    const selectedProducts = formValues.stocks || [];
+    const searchResults = products || [];
+
+    // Crear un mapa para evitar duplicados, dando prioridad a los resultados de búsqueda
+    const combined = new Map();
+    searchResults.forEach(p => combined.set(p.id, p));
+    selectedProducts.forEach(p => {
+      if (!combined.has(p.id)) {
+        combined.set(p.id, p);
+      }
+    });
+
+    return Array.from(combined.values());
+  }, [products, formValues.stocks]);
+
+  const presentationOptions = useMemo(() => {
+    const selected = formValues.presentations || [];
+    const all = presentations?.presentations || [];
+
+    const combined = new Map();
+    all.forEach(p => combined.set(p.id, p));
+    selected.forEach(p => {
+      if (!combined.has(p.id)) {
+        combined.set(p.id, p);
+      }
+    });
+
+    return Array.from(combined.values());
+  }, [presentations, formValues.presentations]);
+
   // --- Mutaciones ---
   const addPromotion = useSubmit('addPromotion');
   const updatePromotion = useUpdate('updatePromotion');
@@ -100,7 +134,7 @@ const PromotionsManager = () => {
       start_date: promotion?.start_date ? moment.utc(promotion.start_date).format('YYYY-MM-DD') : '',
       end_date: promotion?.end_date ? moment.utc(promotion.end_date).format('YYYY-MM-DD') : '',
       is_active: promotion ? String(promotion.is_active) : 'true',
-      products: promotion?.stocks || [],
+      stocks: promotion?.stocks || [],
       presentations: promotion?.presentations || [],
     };
     setFormValues(initialValues);
@@ -116,6 +150,13 @@ const PromotionsManager = () => {
 
   const handlePromotionSubmit = async (event) => {
     event.preventDefault();
+
+    // --- Validación de Productos/Presentaciones ---
+    if ((!formValues.stocks || formValues.stocks.length === 0) && (!formValues.presentations || formValues.presentations.length === 0)) {
+      mostrarError('La promoción debe aplicarse al menos a un producto o una presentación.', theme);
+      return; // Detener el envío si no hay ninguno
+    }
+
     const dataToSend = {
       ...formValues,
       is_active: formValues.is_active === 'true',
@@ -139,7 +180,8 @@ const PromotionsManager = () => {
     } catch (error) {
       Swal.close(); // Cerrar carga en error
       console.error("Error submitting promotion:", error);
-      mostrarError(error.response?.data?.message || 'Error al guardar la promoción.', theme); // Mostrar error
+      const errorMessage = error.response?.data?.message || error.message || 'Ocurrió un error inesperado al guardar la promoción.';
+      mostrarError(errorMessage, theme); // Mostrar error mejorado
     }
   };
 
@@ -148,7 +190,7 @@ const PromotionsManager = () => {
     if (result.isConfirmed) {
       mostrarCarga('Eliminando promoción...', theme); // Mostrar carga
       try {
-        await deletePromotion.mutateAsync({ url: `/promotions/${id}` });
+        await deletePromotion.mutateAsync({ url: '/promotions', id });
         refetchPromotions();
         Swal.close(); // Cerrar carga en éxito
         mostrarExito('Promoción eliminada con éxito!', theme);
@@ -191,6 +233,8 @@ const PromotionsManager = () => {
         return new Date(b.start_date) - new Date(a.start_date); // Ordenar por fecha de inicio más reciente
       });
   }, [promotions]);
+
+  console.log("Processed Promotions:", processedPromotions);
 
   const paginatedPromotions = useMemo(() => {
     return processedPromotions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -376,191 +420,203 @@ const PromotionsManager = () => {
           </IconButton>
         </DialogTitle>
         <Box component="form" onSubmit={handlePromotionSubmit}>
-          <DialogContent sx={{ backgroundColor: 'background.dialog' }}>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <StyledTextField
-                  fullWidth
-                  required
-                  label="Nombre de la Promoción"
-                  name="name"
-                  value={formValues.name || ''}
-                  onChange={handleInputChange}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
-                />
+          <LocalizationProvider dateAdapter={AdapterMoment}>
+            <DialogContent sx={{ backgroundColor: 'background.dialog' }}>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12} sm={6}>
+                  <StyledTextField
+                    fullWidth
+                    required
+                    label="Nombre de la Promoción"
+                    name="name"
+                    value={formValues.name || ''}
+                    onChange={handleInputChange}
+                    InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Autocomplete
+                    fullWidth
+                    required
+                    options={promotionTypeOptions}
+                    getOptionLabel={(option) => option.label}
+                    value={promotionTypeOptions.find(option => option.value === formValues.type) || null}
+                    onChange={(event, newValue) => {
+                      handleInputChange({ target: { name: 'type', value: newValue ? newValue.value : '' } });
+                    }}
+                    renderInput={(params) => (
+                      <StyledTextField
+                        {...params}
+                        label="Tipo de Promoción"
+                      />
+                    )}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <StyledTextField
+                    fullWidth
+                    required
+                    type="number"
+                    label={formValues.type === 'FIXED_PRICE_ON_NTH' ? 'Precio Fijo' : 'Valor del Descuento'}
+                    name="discount_value"
+                    value={formValues.discount_value || ''}
+                    onChange={handleInputChange}
+                    disabled={formValues.type === 'BOGO'}
+                    helperText={formValues.type === 'BOGO' ? 'No aplicable para promociones BOGO' : ''}
+                    InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'discount_value', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <StyledTextField
+                    fullWidth
+                    required
+                    type="number"
+                    label="Cantidad Requerida"
+                    name="required_quantity"
+                    value={formValues.required_quantity || ''}
+                    onChange={handleInputChange}
+                    InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'required_quantity', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <StyledDatePicker
+                    fullWidth
+                    required
+                    label="Fecha de Inicio"
+                    name="start_date"
+                    value={formValues.start_date ? moment(formValues.start_date) : null}
+                    onChange={(newValue) => {
+                      handleInputChange({ target: { name: 'start_date', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                    }}
+                    format="DD/MM/YYYY"
+                    slotProps={{
+                      textField: {
+                        InputProps: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <IconButton onClick={() => handleInputChange({ target: { name: 'start_date', value: '' } })}>
+                                <ClearIcon color='error' />
+                              </IconButton>
+                            </InputAdornment>
+                          )
+                        }
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <StyledDatePicker
+                    fullWidth
+                    required
+                    label="Fecha de Fin"
+                    name="end_date"
+                    value={formValues.end_date ? moment(formValues.end_date) : null}
+                    onChange={(newValue) => {
+                      handleInputChange({ target: { name: 'end_date', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                    }}
+                    format="DD/MM/YYYY"
+                    slotProps={{
+                      textField: {
+                        InputProps: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <IconButton onClick={() => handleInputChange({ target: { name: 'end_date', value: '' } })}>
+                                <ClearIcon color='error' />
+                              </IconButton>
+                            </InputAdornment>
+                          )
+                        }
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Autocomplete
+                    fullWidth
+                    required
+                    options={statusOptions}
+                    getOptionLabel={(option) => option.label}
+                    value={statusOptions.find(option => option.value === formValues.is_active) || null}
+                    onChange={(event, newValue) => {
+                      handleInputChange({ target: { name: 'is_active', value: newValue ? newValue.value : '' } });
+                    }}
+                    renderInput={(params) => (
+                      <StyledTextField
+                        {...params}
+                        label="Estado"
+                      />
+                    )}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Autocomplete
+                    multiple
+                    options={productOptions}
+                    getOptionLabel={(option) => option.name || ""}
+                    getOptionKey={(option) => option.id}
+                    isOptionEqualToValue={(option, value) => option.id === value.id} // <-- Añadir esta línea
+                    value={formValues.stocks || []}
+                    onChange={(event, newValue) => {
+                      setFormValues({ ...formValues, stocks: newValue });
+                    }}
+                    onInputChange={(event, newInputValue, reason) => {
+                      if (reason === 'input') {
+                        debouncedSetProductSearchTerm(newInputValue);
+                      }
+                    }}
+                    loading={productsLoading}
+                    filterOptions={(x) => x}
+                    renderInput={(params) => (
+                      <StyledTextField
+                        {...params}
+                        label="Productos Aplicables"
+                        placeholder="Escribe para buscar productos"
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <React.Fragment>
+                              {productsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                              {params.InputProps.endAdornment}
+                            </React.Fragment>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Autocomplete
+                    multiple
+                    options={presentationOptions}
+                    getOptionLabel={(option) => option.name}
+                    getOptionKey={(option) => option.id} // Asegurarse de que getOptionKey también esté presente
+                    isOptionEqualToValue={(option, value) => option.id === value.id} // <-- Añadir esta línea
+                    value={formValues.presentations || []}
+                    onChange={(event, newValue) => {
+                      setFormValues({ ...formValues, presentations: newValue });
+                    }}
+                    loading={presentationsLoading} // <--- ADDED THIS LINE
+                    renderInput={(params) => (
+                      <StyledTextField
+                        {...params}
+                        label="Presentaciones Aplicables"
+                        placeholder="Selecciona presentaciones"
+                        InputProps={{ // <--- ADDED THIS BLOCK
+                          ...params.InputProps,
+                          endAdornment: (
+                            <React.Fragment>
+                              {presentationsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                              {params.InputProps.endAdornment}
+                            </React.Fragment>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <Autocomplete
-                  fullWidth
-                  required
-                  options={promotionTypeOptions}
-                  getOptionLabel={(option) => option.label}
-                  value={promotionTypeOptions.find(option => option.value === formValues.type) || null}
-                  onChange={(event, newValue) => {
-                    handleInputChange({ target: { name: 'type', value: newValue ? newValue.value : '' } });
-                  }}
-                  renderInput={(params) => (
-                    <StyledTextField
-                      {...params}
-                      label="Tipo de Promoción"
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <StyledTextField
-                  fullWidth
-                  required
-                  type="number"
-                  label={formValues.type === 'FIXED_PRICE_ON_NTH' ? 'Precio Fijo' : 'Valor del Descuento'}
-                  name="discount_value"
-                  value={formValues.discount_value || ''}
-                  onChange={handleInputChange}
-                  disabled={formValues.type === 'BOGO'}
-                  helperText={formValues.type === 'BOGO' ? 'No aplicable para promociones BOGO' : ''}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'discount_value', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <StyledTextField
-                  fullWidth
-                  required
-                  type="number"
-                  label="Cantidad Requerida"
-                  name="required_quantity"
-                  value={formValues.required_quantity || ''}
-                  onChange={handleInputChange}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'required_quantity', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <StyledTextField
-                  fullWidth
-                  required
-                  type="date"
-                  label="Fecha de Inicio"
-                  name="start_date"
-                  value={formValues.start_date || ''}
-                  onChange={(e) => {
-                    handleInputChange(e);
-                    if (startDateRef.current) {
-                      startDateRef.current.blur();
-                    }
-                  }}
-                  InputLabelProps={{ shrink: true }}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'start_date', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
-                  inputRef={startDateRef}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <StyledTextField
-                  fullWidth
-                  required
-                  type="date"
-                  label="Fecha de Fin"
-                  name="end_date"
-                  value={formValues.end_date || ''}
-                  onChange={(e) => {
-                    handleInputChange(e);
-                    if (endDateRef.current) {
-                      endDateRef.current.blur();
-                    }
-                  }}
-                  InputLabelProps={{ shrink: true }}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'end_date', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
-                  inputRef={endDateRef}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Autocomplete
-                  fullWidth
-                  required
-                  options={statusOptions}
-                  getOptionLabel={(option) => option.label}
-                  value={statusOptions.find(option => option.value === formValues.is_active) || null}
-                  onChange={(event, newValue) => {
-                    handleInputChange({ target: { name: 'is_active', value: newValue ? newValue.value : '' } });
-                  }}
-                  renderInput={(params) => (
-                    <StyledTextField
-                      {...params}
-                      label="Estado"
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Autocomplete
-                  multiple
-                  options={products}
-                  getOptionLabel={(option) => option.name || ""}
-                  getOptionKey={(option) => option.id}
-                  isOptionEqualToValue={(option, value) => option.id === value.id} // <-- Añadir esta línea
-                  value={formValues.stocks || []}
-                  onChange={(event, newValue) => {
-                    setFormValues({ ...formValues, stocks: newValue });
-                  }}
-                  onInputChange={(event, newInputValue, reason) => {
-                    if (reason === 'input') {
-                      debouncedSetProductSearchTerm(newInputValue);
-                    }
-                  }}
-                  loading={productsLoading}
-                  filterOptions={(x) => x}
-                  renderInput={(params) => (
-                    <StyledTextField
-                      {...params}
-                      label="Productos Aplicables"
-                      placeholder="Escribe para buscar productos"
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <React.Fragment>
-                            {productsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                            {params.InputProps.endAdornment}
-                          </React.Fragment>
-                        ),
-                      }}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Autocomplete
-                  multiple
-                  options={presentations?.presentations || []}
-                  getOptionLabel={(option) => option.name}
-                  getOptionKey={(option) => option.id} // Asegurarse de que getOptionKey también esté presente
-                  isOptionEqualToValue={(option, value) => option.id === value.id} // <-- Añadir esta línea
-                  value={
-                    (formValues.presentations || []).filter(selectedPresentation =>
-                      (presentations?.presentations || []).some(option => option.id === selectedPresentation.id)
-                    )
-                  }
-                  onChange={(event, newValue) => {
-                    setFormValues({ ...formValues, presentations: newValue });
-                  }}
-                  loading={presentationsLoading} // <--- ADDED THIS LINE
-                  renderInput={(params) => (
-                    <StyledTextField
-                      {...params}
-                      label="Presentaciones Aplicables"
-                      placeholder="Selecciona presentaciones"
-                      InputProps={{ // <--- ADDED THIS BLOCK
-                        ...params.InputProps,
-                        endAdornment: (
-                          <React.Fragment>
-                            {presentationsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                            {params.InputProps.endAdornment}
-                          </React.Fragment>
-                        ),
-                      }}
-                    />
-                  )}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
+            </DialogContent>
+          </LocalizationProvider>
           <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog' }}>
             <StyledButton onClick={handleClosePromotionModal} variant="outlined" color="secondary" sx={{ padding: '2px 12px' }}>
               Cancelar

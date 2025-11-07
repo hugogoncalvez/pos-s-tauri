@@ -161,9 +161,9 @@ const cleanOldAuditLogs = async () => {
     try {
         //console.log('🧹 Limpiando logs de auditoría antiguos...');
 
-        // Eliminar logs de más de 90 días
+        // Eliminar logs de más de 30 días
         const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - 90);
+        cutoffDate.setDate(cutoffDate.getDate() - 30);
 
         const deletedCount = await db.query(
             'DELETE FROM audit_logs WHERE createdAt < ?',
