@@ -116,19 +116,25 @@ const Usuarios = () => {
   }, [currentUser, formValues, addUser, updateUser, refetchUsers, handleCloseUserModal, theme]);
 
   const handleDeleteUser = useCallback(async (id) => {
-    const result = await ConfirmDelete(() => {}, () => {}, theme);
-    if (result.isConfirmed) {
-      mostrarCarga('Eliminando usuario...', theme); // Mostrar carga
+    const onConfirm = async () => {
+      mostrarCarga('Eliminando usuario...', theme);
       try {
-        await deleteUser.mutateAsync({ url: '/users/', id: id });
+        await deleteUser.mutateAsync({ url: '/users', id });
         refetchUsers();
-        Swal.close(); // Cerrar carga en éxito
+        Swal.close();
       } catch (error) {
-        Swal.close(); // Cerrar carga en error
+        Swal.close();
         console.error("Error deleting user:", error);
-        mostrarError(error.response?.data?.message || 'Error al eliminar el usuario.', theme); // Mostrar error
+        mostrarError(error.response?.data?.message || 'Error al eliminar el usuario.', theme);
       }
-    }
+    };
+
+    ConfirmDelete(
+      onConfirm,
+      () => {},
+      '¿Estás seguro que deseas eliminar este usuario?',
+      theme
+    );
   }, [deleteUser, refetchUsers, theme]);
 
   // --- Procesamiento y Paginación ---
