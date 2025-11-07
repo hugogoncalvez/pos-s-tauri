@@ -7,6 +7,8 @@ import MySQLStore from 'express-mysql-session';
 import { randomUUID } from 'crypto';
 import dotenv from 'dotenv';
 import sessionHeaderMiddleware from './middleware/sessionHeaderMiddleware.js';
+import { sessionPool, closeSessionPool } from './database/sessionPool.js';
+import { closeConnection } from './database/db.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -14,14 +16,19 @@ dotenv.config();
 // Manejadores de errores globales para evitar que la aplicación se caiga
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  // Aquí podrías añadir un sistema de logging más robusto
+
+  // Si es un error de conexión de MySQL, los pools manejarán la reconexión
+  if (reason?.code === 'PROTOCOL_CONNECTION_LOST' ||
+    reason?.code === 'ECONNREFUSED' ||
+    reason?.code === 'ETIMEDOUT' ||
+    reason?.name?.includes('Sequelize')) {
+    console.warn('⚠️ Error de conexión detectado - los pools intentarán reconectar');
+  }
 });
 
 process.on('uncaughtException', (err, origin) => {
   console.error(`❌ Caught exception: ${err}\n` + `Exception origin: ${origin}`);
-  // Aquí podrías añadir un sistema de logging más robusto
 });
-
 
 // Importar la base de datos
 import db from './database/db.js';
@@ -110,23 +117,13 @@ app.use((req, res, next) => {
 // CRÍTICO: Middleware que procesa el header X-Session-ID
 app.use(sessionHeaderMiddleware);
 
-// Configuración de express-session
+// Configuración de express-session con pool resiliente
 const MySQLStoreSession = MySQLStore(session);
-const sessionStoreOptions = {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  // Añadir configuración de pool para robustez
-  pool: true, // Habilita el uso de un pool de conexiones
-  max: 5, // Máximo de 5 conexiones como en Sequelize
-  min: 0,
-  acquire: 60000, // 60 segundos para adquirir una conexión
-  idle: 60000,    // 60 segundos de inactividad antes de liberar
-
+export const sessionStore = new MySQLStoreSession({
+  clearExpired: true,
+  checkExpirationInterval: 900000, // 15 minutos
+  expiration: 86400000, // 24 horas
   createDatabaseTable: true,
-  charset: 'utf8mb4_bin',
   schema: {
     tableName: 'sessions',
     columnNames: {
@@ -135,8 +132,7 @@ const sessionStoreOptions = {
       data: 'data'
     }
   }
-};
-export const sessionStore = new MySQLStoreSession(sessionStoreOptions);
+}, sessionPool);
 
 const sessionKey = process.env.SESSION_KEY || 'pos_session_key';
 
@@ -178,7 +174,7 @@ async function startServer() {
     while (currentRetry < MAX_RETRIES) {
       try {
         await db.authenticate();
-        //console.log('✅ Conexión a la base de datos establecida correctamente.');
+        console.log('✅ Conexión a la base de datos establecida correctamente.');
         return; // Salir del bucle si la conexión es exitosa
       } catch (error) {
         currentRetry++;
@@ -199,13 +195,35 @@ async function startServer() {
 
   // Si llegamos aquí, la conexión a la DB fue exitosa.
   initScheduledTasks();
-  //console.log('✅ Tareas programadas inicializadas');
+  console.log('✅ Tareas programadas inicializadas');
 
   app.listen(PORT, '0.0.0.0', () => {
-    //console.log(`🚀 Servidor en ejecución en http://localhost:${PORT}/`);
-    //console.log(`🌐 Accesible desde la red en http://<TU_IP>:${PORT}/`);
+    console.log(`🚀 Servidor en ejecución en http://localhost:${PORT}/`);
+    console.log(`🌐 Accesible desde la red en http://<TU_IP>:${PORT}/`);
   });
 }
+
+// Manejo de cierre limpio de AMBOS pools
+const gracefulShutdown = async (signal) => {
+  console.log(`\n🛑 Recibida señal ${signal}. Cerrando conexiones...`);
+
+  try {
+    // Cerrar pool de sesiones
+    await closeSessionPool();
+
+    // Cerrar pool de Sequelize
+    await closeConnection();
+
+    console.log('✅ Todos los pools cerrados correctamente');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error durante el cierre:', error.message);
+    process.exit(1);
+  }
+};
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 // Llamar a la función para iniciar el servidor
 startServer();
