@@ -1678,6 +1678,7 @@ export const updateUser = async (req, res) => {
 
 // Eliminar un usuario
 export const deleteUser = async (req, res) => {
+    const transaction = await db.transaction();
     try {
         const userIdToDelete = parseInt(req.params.id, 10);
         const requestingUserId = req.usuario.id;
