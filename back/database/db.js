@@ -10,6 +10,7 @@ const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
     host: DB_HOST,
     port: DB_PORT,
     dialect: 'mysql',
+    timezone: 'America/Argentina/Buenos_Aires', // Añadido para que los timestamps se guarden en la zona horaria local
     
     pool: {
         max: 10,          // Aumentado para manejar más conexiones concurrentes

@@ -704,91 +704,131 @@ const CashAdmin = () => {
 
             <CloseCashSessionDialog open={closeDialogOpen} onClose={() => setCloseDialogOpen(false)} selectedSession={selectedSession} handleInitiateClosure={handleInitiateClosure} getUserName={getUserName} isLoading={isInitiatingClosure} />
             <FinalizeClosureDialog open={finalizeDialogOpen} onClose={() => { setFinalizeDialogOpen(false); setFinalizingSessionId(null); }} sessionData={sessionToFinalize} handleFinalizeClosure={handleFinalizeClosure} isLoading={isFetchingFinalize || isFinalizing} />
-            {detailsDialogOpen && (
-                <StyledDialog open={detailsDialogOpen} onClose={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }} maxWidth="md" fullWidth>
-                    <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
-                        <Box mb={-2}>
-                            Detalles de Sesión de Caja
-                            {sessionDetails && (
-                                <Typography variant="subtitle2" color="textSecondary" component="div">
-                                    Usuario: {getUserName(sessionDetails)}
-                                </Typography>
-                            )}
-                        </Box>
-                        <IconButton onClick={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }}>
-                            <CloseIcon color="error" />
-                        </IconButton>
-                    </DialogTitle>
-                    <DialogContent sx={{ backgroundColor: 'background.dialog' }}>
-                        {isFetchingDetails ? (
-                            <Typography sx={{ p: 3, textAlign: 'center' }}>Cargando detalles...</Typography>
-                        ) : sessionDetails && (
-                            <Box sx={{ mt: 2 }}>
-                                <Grid container spacing={1}>
-                                    <Grid xs={12} md>
-                                        <Typography textAlign={'center'} variant="h6" gutterBottom>Información General</Typography>
-                                        <Box mb={1}><Typography variant="body2" color="textSecondary">Apertura:</Typography><Typography variant="body1">{formatDate(sessionDetails.opened_at)}</Typography></Box>
-                                        <Box mb={1}><Typography variant="body2" color="textSecondary">Cierre:</Typography><Typography variant="body1">{sessionDetails.verified_at ? formatDate(sessionDetails.verified_at) : 'Sesión Activa'}</Typography></Box>
-                                        <Box mb={1}><Typography variant="body2" color="textSecondary">Duración:</Typography><Typography variant="body1">{calculateSessionDuration(sessionDetails.opened_at, sessionDetails.closed_at)}</Typography></Box>
-                                    </Grid>
-                                    <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' } }} />
-                                    <Grid xs={12} md>
-                                        <Typography textAlign={'center'} variant="h6" gutterBottom>Resumen Financiero</Typography>
-                                        <Box ml={2} mb={1}><Typography variant="body2" color="textSecondary">Monto Apertura:</Typography><Typography variant="h6" color="primary">{formatCurrency(sessionDetails.opening_amount)}</Typography></Box>
-                                        <Box ml={2} mb={1}><Typography variant="body2" color="textSecondary">Total Ventas:</Typography><Typography variant="h6" color="success.main">{formatCurrency(sessionDetails.total_sales || 0)}</Typography></Box>
-                                        {sessionDetails.payment_methods && Object.entries(sessionDetails.payment_methods).map(([method, amount]) => (
-                                            <Box key={method} sx={{ mb: 0.5, pl: 2 }}>
-                                                <Typography variant="body2" color="textSecondary" component="div" sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span>{method}:</span>
-                                                    <span>{formatCurrency(amount)}</span>
-                                                </Typography>
-                                            </Box>
-                                        ))}
-                                        {sessionDetails.closing_amount && <Box mb={1}><Typography variant="body2" color="textSecondary">Monto Cierre:</Typography><Typography variant="h6" color="info.main">{formatCurrency(sessionDetails.closing_amount)}</Typography></Box>}
-                                    </Grid>
-                                    <Grid xs={12}>
-                                        <Divider sx={{ my: 2 }} />
-                                    </Grid>
-                                    <Grid xs={12}>
-                                        <Typography variant="h6" gutterBottom sx={{ mt: 0 }}>Movimientos de Caja</Typography>
-                                        {sessionDetails.movements && sessionDetails.movements.length > 0 ? (
-                                            <TableContainer component={Paper} sx={{ background: 'transparent', border: `1px solid ${theme.palette.divider}` }}>
-                                                <Table size="small">
-                                                    <TableHead>
-                                                        <TableRow>
-                                                            <TableCell>Tipo</TableCell>
-                                                            <TableCell>Monto</TableCell>
-                                                            <TableCell>Descripción</TableCell>
-                                                            <TableCell>Fecha</TableCell>
-                                                        </TableRow>
-                                                    </TableHead>
-                                                    <TableBody>
-                                                        {sessionDetails.movements.map((movement, index) => (
-                                                            <TableRow key={index}>
-                                                                <TableCell>
-                                                                    <Chip
-                                                                        label={movement.type === 'ingreso' ? 'Ingreso' : 'Egreso'}
-                                                                        color={movement.type === 'ingreso' ? 'success' : 'error'}
-                                                                        size="small"
-                                                                    />
-                                                                </TableCell>
-                                                                <TableCell>{formatCurrency(movement.amount)}</TableCell>
-                                                                <TableCell>{movement.description}</TableCell>
-                                                                <TableCell>{formatDate(movement.createdAt)}</TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </TableContainer>
-                                        ) : (
-                                            <Typography variant="body2" color="text.secondary">No hay movimientos registrados.</Typography>
+                        {detailsDialogOpen && (
+                            <StyledDialog open={detailsDialogOpen} onClose={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }} maxWidth="lg" fullWidth>
+                                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
+                                    <Box mb={-2}>
+                                        Detalles de Sesión de Caja
+                                        {sessionDetails && (
+                                            <Typography variant="subtitle2" color="textSecondary" component="div">
+                                                Usuario: {getUserName(sessionDetails)}
+                                            </Typography>
                                         )}
-                                    </Grid>
-                                </Grid>
-                            </Box>
-                        )}
-                    </DialogContent>
-                    <DialogActions sx={{ backgroundColor: 'background.dialog' }}>
+                                    </Box>
+                                    <IconButton onClick={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }}>
+                                        <CloseIcon color="error" />
+                                    </IconButton>
+                                </DialogTitle>
+                                <DialogContent sx={{ backgroundColor: 'background.dialog' }}>
+                                    {isFetchingDetails ? (
+                                        <Typography sx={{ p: 3, textAlign: 'center' }}>Cargando detalles...</Typography>
+                                    ) : sessionDetails && (
+                                        <Box sx={{ mt: 2 }}>
+                                            <Grid container spacing={1}>
+                                                <Grid xs={12} md>
+                                                    <Typography textAlign={'center'} variant="h6" gutterBottom>Información General</Typography>
+                                                    <Box mb={1}><Typography variant="body2" color="textSecondary">Apertura:</Typography><Typography variant="body1">{formatDate(sessionDetails.opened_at)}</Typography></Box>
+                                                    <Box mb={1}><Typography variant="body2" color="textSecondary">Cierre:</Typography><Typography variant="body1">{sessionDetails.verified_at ? formatDate(sessionDetails.verified_at) : 'Sesión Activa'}</Typography></Box>
+                                                    <Box mb={1}><Typography variant="body2" color="textSecondary">Duración:</Typography><Typography variant="body1">{calculateSessionDuration(sessionDetails.opened_at, sessionDetails.closed_at)}</Typography></Box>
+                                                </Grid>
+                                                <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' } }} />
+                                                <Grid xs={12} md>
+                                                    <Typography textAlign={'center'} variant="h6" gutterBottom>Resumen Financiero</Typography>
+                                                    <Box ml={2} mb={1}><Typography variant="body2" color="textSecondary">Monto Apertura:</Typography><Typography variant="h6" color="primary">{formatCurrency(sessionDetails.opening_amount)}</Typography></Box>
+                                                    <Box ml={2} mb={1}><Typography variant="body2" color="textSecondary">Total Ventas:</Typography><Typography variant="h6" color="success.main">{formatCurrency(sessionDetails.total_sales || 0)}</Typography></Box>
+                                                    {sessionDetails.payment_methods && Object.entries(sessionDetails.payment_methods).map(([method, amount]) => (
+                                                        <Box key={method} sx={{ mb: 0.5, pl: 2 }}>
+                                                            <Typography variant="body2" color="textSecondary" component="div" sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                <span>{method}:</span>
+                                                                <span>{formatCurrency(amount)}</span>
+                                                            </Typography>
+                                                        </Box>
+                                                    ))}
+                                                    {sessionDetails.closing_amount && <Box mb={1}><Typography variant="body2" color="textSecondary">Monto Cierre:</Typography><Typography variant="h6" color="info.main">{formatCurrency(sessionDetails.closing_amount)}</Typography></Box>}
+                                                </Grid>
+                                                <Grid xs={12}>
+                                                    <Divider sx={{ my: 2 }} />
+                                                </Grid>
+                                                <Grid xs={12}>
+                                                    <Typography variant="h6" gutterBottom sx={{ mt: 0 }}>Movimientos de Caja</Typography>
+                                                    {sessionDetails.movements && sessionDetails.movements.length > 0 ? (
+                                                        <TableContainer component={Paper} sx={{ background: 'transparent', border: `1px solid ${theme.palette.divider}` }}>
+                                                            <Table size="small">
+                                                                <TableHead>
+                                                                    <TableRow>
+                                                                        <TableCell>Tipo</TableCell>
+                                                                        <TableCell>Monto</TableCell>
+                                                                        <TableCell>Descripción</TableCell>
+                                                                        <TableCell>Fecha</TableCell>
+                                                                    </TableRow>
+                                                                </TableHead>
+                                                                <TableBody>
+                                                                    {sessionDetails.movements.map((movement, index) => (
+                                                                        <TableRow key={index}>
+                                                                            <TableCell>
+                                                                                <Chip
+                                                                                    label={movement.type === 'ingreso' ? 'Ingreso' : 'Egreso'}
+                                                                                    color={movement.type === 'ingreso' ? 'success' : 'error'}
+                                                                                    size="small"
+                                                                                />
+                                                                            </TableCell>
+                                                                            <TableCell>{formatCurrency(movement.amount)}</TableCell>
+                                                                            <TableCell>{movement.description}</TableCell>
+                                                                            <TableCell>{formatDate(movement.createdAt)}</TableCell>
+                                                                        </TableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </TableContainer>
+                                                    ) : (
+                                                        <Typography variant="body2" color="text.secondary">No hay movimientos registrados.</Typography>
+                                                    )}
+                                                </Grid>
+                                                <Grid xs={12}>
+                                                    <Divider sx={{ my: 2 }} />
+                                                </Grid>
+                                                <Grid xs={12}>
+                                                    <Typography variant="h6" gutterBottom sx={{ mt: 0 }}>Ventas de la Sesión</Typography>
+                                                    {sessionDetails.sales && sessionDetails.sales.length > 0 ? (
+                                                        <TableContainer component={Paper} sx={{ maxHeight: 400, background: 'transparent', border: `1px solid ${theme.palette.divider}` }}>
+                                                                                                             <Table size="small" stickyHeader>
+                                                                                                                                                                    <TableHead sx={{ backgroundColor: theme.palette.background.paper }}>
+                                                                                                                                                                        <TableRow>
+                                                                                                                                                                            <TableCell align="center">Cliente</TableCell>
+                                                                                                                                                                            <TableCell align="center">Total</TableCell>
+                                                                                                                                                                            <TableCell align="center">Método(s) de Pago</TableCell>
+                                                                                                                                                                            <TableCell align="center">Fecha</TableCell>
+                                                                                                                                                                            <TableCell align="center">Items (Proveedor)</TableCell>
+                                                                                                                                                                        </TableRow>
+                                                                                                                                                                    </TableHead>
+                                                                                                                                                                    <TableBody>
+                                                                                                                                                                        {sessionDetails.sales.map((sale) => (
+                                                                                                                                                                            <TableRow key={sale.id}>
+                                                                                                                                                                                <TableCell align="center">{sale.Customer ? sale.Customer.name : 'Consumidor Final'}</TableCell>
+                                                                                                                                                                                <TableCell align="center">{formatCurrency(sale.total_neto)}</TableCell>
+                                                                                                                                                                                <TableCell align="center">
+                                                                                                                                                                                    {sale.sale_payments.map(sp => sp.payment.method).join(', ')}
+                                                                                                                                                                                </TableCell>
+                                                                                                                                                                                <TableCell align="center">{formatDate(sale.createdAt)}</TableCell>
+                                                                                                                                                                                <TableCell align="center">
+                                                                                                                                                                                    {sale.sale_details.map(d => {
+                                                                                                                                                                                        const itemName = d.stock ? d.stock.name : (d.combo ? d.combo.name : 'Producto manual');
+                                                                                                                                                                                        const supplierName = d.stock && d.stock.supplier ? ` (${d.stock.supplier.nombre})` : '';
+                                                                                                                                                                                        return `${itemName}${supplierName}`;
+                                                                                                                                                                                    }).join(', ')}
+                                                                                                                                                                                </TableCell>
+                                                                                                                                                                            </TableRow>
+                                                                                                                                                                        ))}
+                                                                                                                                                                    </TableBody>
+                                                                                                                                                                </Table>                                                        </TableContainer>
+                                                    ) : (
+                                                        <Typography variant="body2" color="text.secondary">No hay ventas registradas en esta sesión.</Typography>
+                                                    )}
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+                                    )}
+                                </DialogContent>                    <DialogActions sx={{ backgroundColor: 'background.dialog' }}>
                         <StyledButton sx={{ padding: '2px 12px' }} color='secondary' variant="outlined" onClick={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }}>
                             Cerrar
                         </StyledButton>

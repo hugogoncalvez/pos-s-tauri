@@ -2961,10 +2961,6 @@ export const getCashSessionSummary = async (req, res) => {
         const sales = await SaleModel.findAll({
             where: {
                 cash_session_id: session.id, // <--- ESTA ES LA CORRECCIÓN CLAVE
-                createdAt: {
-                    [Op.gte]: session.opened_at,
-                    [Op.lte]: session.closed_at || new Date()
-                }
             },
             include: [
                 {
@@ -2986,7 +2982,12 @@ export const getCashSessionSummary = async (req, res) => {
                     include: [
                         {
                             model: StockModel,
-                            attributes: ['name', 'price']
+                            attributes: ['name', 'price'],
+                            include: [{ model: SupplierModel, attributes: ['nombre'] }]
+                        },
+                        {
+                            model: ComboModel,
+                            attributes: ['name']
                         }
                     ]
                 }
@@ -4021,18 +4022,6 @@ export const getCustomerCreditHistory = async (req, res) => {
                 {
                     model: SaleDetailModel,
                     include: [{ model: StockModel, attributes: ['name', 'price'] }]
-                },
-                {
-                    model: SalePaymentModel,
-                    as: 'sale_payments',
-                    required: true,
-                    include: [{
-                        model: PaymentModel,
-                        as: 'payment',
-                        where: creditWhere,
-                        required: true,
-                        attributes: ['method']
-                    }]
                 },
                 {
                     model: UsuarioModel,
@@ -5627,10 +5616,9 @@ export const getDailyCutReport = async (req, res) => {
             return res.status(400).json({ message: 'La fecha es requerida para el reporte de corte de caja.' });
         }
 
-        const startDate = new Date(date);
-        startDate.setHours(0, 0, 0, 0);
-        const endDate = new Date(date);
-        endDate.setHours(23, 59, 59, 999);
+        const [year, month, day] = date.split('-').map(Number);
+        const startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+        const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
 
         let cashSessionWhereClause = {
             opened_at: {
