@@ -21,6 +21,7 @@ import {
   Divider
 } from '@mui/material';
 import { StyledTextField } from '../styledComponents/ui/StyledTextField';
+import { TextFieldWithClear } from '../styledComponents/ui/TextFieldWithClear';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
 import { StyledDialog } from '../styledComponents/ui/StyledDialog';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
@@ -34,6 +35,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { confirmAction as ConfirmDelete } from '../functions/ConfirmDelete';
 import { mostrarCarga } from '../functions/mostrarCarga';
 import { mostrarError } from '../functions/MostrarError';
+import { mostrarExito } from '../functions/mostrarExito';
 import Swal from 'sweetalert2'; // Importar Swal
 import PermissionManager from '../styledComponents/PermissionManager.jsx';
 import UsersSkeleton from '../styledComponents/skeletons/UsersSkeleton';
@@ -122,6 +124,7 @@ const Usuarios = () => {
         await deleteUser.mutateAsync({ url: '/users', id });
         refetchUsers();
         Swal.close();
+        mostrarExito('Usuario eliminado correctamente.', theme);
       } catch (error) {
         Swal.close();
         console.error("Error deleting user:", error);
@@ -295,7 +298,7 @@ const Usuarios = () => {
           <DialogContent sx={{ backgroundColor: 'background.dialog' }}>
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12}>
-                <StyledTextField
+                <TextFieldWithClear
                   fullWidth
                   required
                   id="nombre"
@@ -303,20 +306,12 @@ const Usuarios = () => {
                   name="nombre"
                   value={formValues.nombre || ''}
                   onChange={handleInputChange}
+                  onClear={() => handleInputChange({ target: { name: 'nombre', value: '' } })}
                   autoFocus
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <IconButton size="small" onClick={() => handleInputChange({ target: { name: 'nombre', value: '' } })}>
-                          <ClearIcon fontSize="small" color="error" />
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }}
                 />
               </Grid>
               <Grid item xs={12}>
-                <StyledTextField
+                <TextFieldWithClear
                   fullWidth
                   required
                   id="username"
@@ -324,19 +319,11 @@ const Usuarios = () => {
                   name="username"
                   value={formValues.username || ''}
                   onChange={handleInputChange}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <IconButton size="small" onClick={() => handleInputChange({ target: { name: 'username', value: '' } })}>
-                          <ClearIcon fontSize="small" color="error" />
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }}
+                  onClear={() => handleInputChange({ target: { name: 'username', value: '' } })}
                 />
               </Grid>
               <Grid item xs={12}>
-                <StyledTextField
+                <TextFieldWithClear
                   fullWidth
                   required={!currentUser}
                   name="password"
@@ -345,17 +332,9 @@ const Usuarios = () => {
                   id="password"
                   value={formValues.password || ''}
                   onChange={handleInputChange}
+                  onClear={() => handleInputChange({ target: { name: 'password', value: '' } })}
                   helperText={currentUser ? "Dejar en blanco para no cambiar" : ""}
                   autoComplete="new-password"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <IconButton size="small" onClick={() => handleInputChange({ target: { name: 'password', value: '' } })}>
-                          <ClearIcon fontSize="small" color="error" />
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }}
                 />
               </Grid>
               <Grid item xs={12}>

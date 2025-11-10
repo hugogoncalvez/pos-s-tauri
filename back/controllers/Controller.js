@@ -1721,15 +1721,18 @@ export const deleteUser = async (req, res) => {
         });
 
         if (deleted) {
-            // Registrar en auditoría
-            await logAudit({
+            // Registrar en auditoría (sin esperar a que termine)
+            logAudit({
                 user_id: requestingUserId,
                 action: 'ELIMINAR_USUARIO',
                 entity_type: 'user',
                 entity_id: userIdToDelete,
                 old_values: userToDelete.toJSON(),
                 details: `Se eliminó al usuario: ${userToDelete.username} (ID: ${userIdToDelete}).`
-            }, req, transaction);
+            }, req, transaction).catch(err => {
+                // Opcional: Loggear el error de auditoría si falla, pero no bloquear la respuesta.
+                console.error('Error al registrar la auditoría de eliminación de usuario (no bloqueante):', err);
+            });
 
             await transaction.commit();
             res.status(204).send();
