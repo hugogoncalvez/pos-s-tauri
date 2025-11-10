@@ -13,6 +13,7 @@ import { useTheme } from '@mui/material/styles'; // New import
 import { mostrarExito } from '../functions/mostrarExito'; // New import
 import { mostrarError } from '../functions/MostrarError'; // New import
 import { mostrarCarga } from '../functions/mostrarCarga';
+import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
 
 import { useCashRegister } from './useCashRegister';
 
@@ -162,7 +163,7 @@ export const useCustomerList = (tienePermiso) => { // Receive tienePermiso as an
             }
 
             Swal.close();
-            mostrarExito(successMessage, theme);
+            await mostrarExito(successMessage, theme);
 
             // Manual onSuccess logic
             setOpenDialog(false);
@@ -233,7 +234,7 @@ export const useCustomerList = (tienePermiso) => { // Receive tienePermiso as an
             });
 
             Swal.close();
-            mostrarExito('Pago registrado exitosamente', theme);
+            await mostrarExito('Pago registrado exitosamente', theme);
 
             setOpenPaymentDialog(false);
             refetchCustomers();
