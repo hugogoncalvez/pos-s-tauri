@@ -2021,7 +2021,7 @@ const Ventas = () => {
                       )
                     )
                   }}
-                  onInput={(e) => { if (!isQuantityMode && (!customQuantityMode || (customQuantityMode && customQuantity))) { e.target.value = (e.target.value).toString().slice(0, 13); } }}
+                  onInput={(e) => { if (!isQuantityMode && (!customQuantityMode || (customQuantityMode && customQuantity))) { e.target.value = (e.target.value).toString().slice(0, 14); } }}
                   type='number' value={values?.barcode || ''} name='barcode' autoComplete='off'
                   onKeyDown={handleScan} onChange={handleValuesChange}
                   label={customQuantityMode && !customQuantity ? 'Ingrese Cantidad' : isQuantityMode ? 'Ingrese Cantidad' : 'Codigo de Barras'}
