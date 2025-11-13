@@ -38,6 +38,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [permisos, setPermisos] = useState([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [selectedPointOfSale, setSelectedPointOfSale] = useState(null); // New state for selected PointOfSale
 
   // Usar useRef para los contadores para no disparar re-renders
   const errorCountRef = useRef(0);
@@ -301,7 +302,9 @@ export const AuthProvider = ({ children }) => {
     verificarSesion,
     updateUserTheme,
     isOnline,
-  }), [usuario, isAuthenticated, isLoading, permisos, isOnline, login, logout, logoutAndExit, verificarSesion, updateUserTheme]);
+    selectedPointOfSale, // Add to context value
+    setSelectedPointOfSale, // Add to context value
+  }), [usuario, isAuthenticated, isLoading, permisos, isOnline, login, logout, logoutAndExit, verificarSesion, updateUserTheme, selectedPointOfSale, setSelectedPointOfSale]);
 
   if (isTauriLoading) {
     return null;

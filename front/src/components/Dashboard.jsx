@@ -10,7 +10,7 @@ import SalesStatsSection from '../styledComponents/dashboard/SalesStatsSection.j
 import TablesSection from '../styledComponents/dashboard/TablesSection.jsx'; // Importar el componente de sección
 
 // Importar iconos
-import { MonetizationOn, ShoppingCart, People, Store, TrendingUp, Home, Assessment, Policy, CalendarMonth, DateRange, CalendarToday, ArrowUpward, ArrowDownward, TrendingFlat, UploadFile, ColorLens as ColorLensIcon, LocalOffer as LocalOfferIcon, Extension as ExtensionIcon, Print as PrintIcon, CreditCard as CreditCardIcon } from '@mui/icons-material';
+import { MonetizationOn, ShoppingCart, People, Store, TrendingUp, Home, Assessment, Policy, CalendarMonth, DateRange, CalendarToday, ArrowUpward, ArrowDownward, TrendingFlat, UploadFile, ColorLens as ColorLensIcon, LocalOffer as LocalOfferIcon, Extension as ExtensionIcon, Print as PrintIcon, CreditCard as CreditCardIcon, Gavel as GavelIcon } from '@mui/icons-material';
 import { usePermissions } from '../hooks/usePermissions';
 import NovedadesSection from '../styledComponents/dashboard/NovedadesSection.jsx';
 
@@ -279,6 +279,28 @@ const DashboardSidebar = () => {
                   justifyContent: 'center',
                 }}><ColorLensIcon sx={{ color: theme.palette.text.primary, fontSize: 'clamp(1.25rem, 2vw, 1.5rem)' }} /></ListItemIcon>
                 <ListItemText primary="Configurar Tema" sx={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }} />
+              </ListItemButton>
+            </ListItem>
+          )}
+          {tienePermiso('ver_configuracion_fiscal') && (
+            <ListItem disablePadding component={RouterLink} to="/admin-fiscal" sx={{ color: theme.palette.text.primary }}>
+              <ListItemButton sx={{
+                '&:hover .MuiListItemIcon-root': {
+                  transform: 'rotate(12deg) scale(1.1)',
+                  transition: 'transform 0.3s ease',
+                }
+              }}>
+                <ListItemIcon sx={{
+                  mr: 1,
+                  p: 1.5,
+                  borderRadius: '16px',
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main}20, ${theme.palette.secondary.main}20)`,
+                  border: `1px solid ${theme.palette.primary.main}30`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}><GavelIcon sx={{ color: theme.palette.text.primary, fontSize: 'clamp(1.25rem, 2vw, 1.5rem)' }} /></ListItemIcon>
+                <ListItemText primary="Admin. Fiscal" sx={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }} />
               </ListItemButton>
             </ListItem>
           )}

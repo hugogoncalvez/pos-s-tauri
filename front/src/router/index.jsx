@@ -26,6 +26,7 @@ const PromotionsManager = React.lazy(() => import('../components/PromotionsManag
 const ComboManager = React.lazy(() => import('../components/ComboManager'));
 const BarcodePrinter = React.lazy(() => import('../components/BarcodePrinter'));
 const PaymentMethodSurchargeManager = React.lazy(() => import('../components/PaymentMethodSurchargeManager'));
+const FiscalAdmin = React.lazy(() => import('../components/FiscalAdmin'));
 const Unauthorized = React.lazy(() => import('./Unauthorized')); // Importar componente de Acceso Denegado
 
 export const router = createBrowserRouter([
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
       { path: 'combos', element: <ProtectedRoute permission="ver_vista_combos"><ComboManager /></ProtectedRoute> },
       { path: 'barcode-printer', element: <ProtectedRoute permission="ver_vista_impresion_codigos"><BarcodePrinter /></ProtectedRoute> },
       { path: 'gestion-recargos', element: <ProtectedRoute permission="ver_vista_recargos_pagos"><PaymentMethodSurchargeManager /></ProtectedRoute> },
+      { path: 'admin-fiscal', element: <ProtectedRoute permission="ver_configuracion_fiscal"><FiscalAdmin /></ProtectedRoute> },
     ],
   },
   {

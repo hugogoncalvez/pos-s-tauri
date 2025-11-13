@@ -55,6 +55,7 @@ import {
     getCashSessionSummary
 } from "../controllers/Controller.js";
 import authRoutes from './auth.js';
+import fiscalRoutes from './fiscal.js';
 import db from '../database/db.js'; // Import the database instance
 
 const router = express.Router();
@@ -209,6 +210,9 @@ router.get('/theme', getThemeSettings); // Pública
 authenticatedRouter.put('/theme', checkPermission('ver_vista_editor_tema'), updateThemeSettings);
 authenticatedRouter.get('/elements', getAllElements); // Pública, los permisos se chequean en el front
 authenticatedRouter.put('/element', checkPermission('accion_gestionar_roles'), updateElement);
+
+// --- RUTAS DE CONFIGURACIÓN FISCAL ---
+authenticatedRouter.use('/fiscal', fiscalRoutes);
 
 // --- RUTAS DE ENTIDADES COMPLEJAS (PROMOCIONES, COMBOS, TICKETS) ---
 authenticatedRouter.get('/pending-tickets', checkPermission('accion_crear_venta'), getPendingTickets);

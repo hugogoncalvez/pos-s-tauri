@@ -25,6 +25,11 @@ import ComboModel from '../Models/ComboModel.js';
 import { ComboItem } from '../Models/ComboItemModel.js';
 import UserPermissionModel from '../Models/UserPermissionModel.js';
 import PermissionModel from '../Models/PermissionModel.js';
+import FiscalConfigModel from '../Models/FiscalConfigModel.js';
+import PointOfSaleModel from '../Models/PointOfSaleModel.js';
+import FiscalInvoicesModel from '../Models/FiscalInvoicesModel.js';
+import PendingFiscalJobsModel from '../Models/PendingFiscalJobsModel.js';
+import FiscalLogModel from '../Models/FiscalLogModel.js';
 
 
 StockCategoryModel.hasMany(StockModel, { foreignKey: 'category_id' });
@@ -98,6 +103,27 @@ UsuarioModel.hasMany(PendingTicketModel, { foreignKey: 'user_id', onDelete: 'SET
 
 PendingTicketModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id' });
 CashSessionsModel.hasMany(PendingTicketModel, { foreignKey: 'cash_session_id' });
+
+// --- NUEVAS ASOCIACIONES FISCALES ---
+
+// Sale <-> FiscalInvoices (One-to-Many)
+SaleModel.hasMany(FiscalInvoicesModel, { foreignKey: 'sale_id' });
+FiscalInvoicesModel.belongsTo(SaleModel, { foreignKey: 'sale_id' });
+
+// PointOfSale <-> FiscalInvoices (One-to-Many)
+PointOfSaleModel.hasMany(FiscalInvoicesModel, { foreignKey: 'point_of_sale_id' });
+FiscalInvoicesModel.belongsTo(PointOfSaleModel, { foreignKey: 'point_of_sale_id' });
+
+// Sale <-> PendingFiscalJobs (One-to-Many)
+SaleModel.hasMany(PendingFiscalJobsModel, { foreignKey: 'sale_id' });
+PendingFiscalJobsModel.belongsTo(SaleModel, { foreignKey: 'sale_id' });
+
+// PointOfSale <-> PendingFiscalJobs (One-to-Many)
+PointOfSaleModel.hasMany(PendingFiscalJobsModel, { foreignKey: 'point_of_sale_id' });
+PendingFiscalJobsModel.belongsTo(PointOfSaleModel, { foreignKey: 'point_of_sale_id' });
+
+// FiscalLog does not have direct FK associations, it references entities via reference_id
+
 
 
 // --- Asociaciones de Auditoría ---
@@ -195,5 +221,6 @@ export {
   SaleModel, SaleDetailModel, CustomerModel, PaymentModel, PromotionModel, UsuarioModel,
   CashSessionsModel, AuditLogModel, CustomerPaymentsModel, SupplierModel, RoleModel, SalePaymentModel,
   CashSessionMovementModel, ThemeSettingModel, PendingTicketModel, ProductPresentationsModel, ProductPromotionsModel,
-  ComboModel, ComboItem, UserPermissionModel, PermissionModel
+  ComboModel, ComboItem, UserPermissionModel, PermissionModel,
+  FiscalConfigModel, PointOfSaleModel, FiscalInvoicesModel, PendingFiscalJobsModel, FiscalLogModel
 };
