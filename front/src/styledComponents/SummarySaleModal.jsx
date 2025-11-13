@@ -195,6 +195,11 @@ const SummarySaleModal = ({
         </IconButton>
       </DialogTitle>
       <DialogContent sx={{ p: 2, backgroundColor: 'background.dialog' }}>
+        {saleCompletedId && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Venta #{saleCompletedId} registrada correctamente. Ahora puede generar el comprobante fiscal.
+          </Alert>
+        )}
         {summaryError && (
           <Alert severity="error" sx={{ mb: 2 }}>{summaryError}</Alert>
         )}

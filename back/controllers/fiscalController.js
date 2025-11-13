@@ -1,11 +1,13 @@
 import FiscalConfigModel from '../Models/FiscalConfigModel.js';
 import PointOfSaleModel from '../Models/PointOfSaleModel.js';
 import SaleModel from '../Models/SalesModel.js'; // Import SaleModel
+import CustomersModel from '../Models/CustomersModel.js'; // Import CustomersModel
 import FiscalInvoicesModel from '../Models/FiscalInvoicesModel.js'; // Import FiscalInvoicesModel
 import FiscalLogModel from '../Models/FiscalLogModel.js'; // Import FiscalLogModel
 import PendingFiscalJobsModel from '../Models/PendingFiscalJobsModel.js'; // Import PendingFiscalJobsModel
 import FiscalManager from '../services/fiscal/FiscalManager.js'; // Import FiscalManager
 import FiscalError from '../services/fiscal/FiscalError.js'; // Import FiscalError for consistent error handling
+import { AFIP_VOUCHER_TYPES } from '../constants/afipVoucherTypes.js'; // Import AFIP voucher types
 
 // --- FiscalConfig Controllers ---
 
@@ -192,16 +194,29 @@ export const generateFiscalInvoice = async (req, res) => {
             return res.status(404).json({ message: 'Punto de venta no encontrado.' });
         }
 
+        // Fetch customer details to determine voucher type
+        const customer = await CustomersModel.findByPk(sale.customer_id);
+        if (!customer) {
+            // This should ideally not happen if customer_id is always valid
+            return res.status(404).json({ message: 'Cliente no encontrado para la venta.' });
+        }
+
+        let voucherType = AFIP_VOUCHER_TYPES.FACTURA_A; // Default to Factura A
+        if (customer.id === 1) { // Assuming ID 1 is "Consumidor Final"
+            voucherType = AFIP_VOUCHER_TYPES.FACTURA_B; // Factura B for Consumidor Final
+        }
+        // Add more complex logic here if needed (e.g., based on customer's IVA condition)
+
         const fiscalManager = new FiscalManager(pointOfSale);
 
         // Prepare voucher data from sale details (this is a simplified example)
         // In a real scenario, you'd fetch SaleDetails and format them according to AFIP/Fiscal Printer requirements
         const voucherData = {
-            totalAmount: sale.total,
+            totalAmount: sale.total_neto, // Use total_neto for the final amount
             customerDocType: '99', // Consumidor Final (example)
             customerDocNumber: '0', // Consumidor Final (example)
             pointOfSaleId: pointOfSale.id,
-            voucherType: '01', // Factura A (example)
+            voucherType: voucherType, // Use the determined voucher type
             // ... other necessary data from sale and its details
         };
 
@@ -215,7 +230,11 @@ export const generateFiscalInvoice = async (req, res) => {
             source: pointOfSale.emission_type === 'FACTURA_ELECTRONICA' ? 'AFIP' : 'PRINTER',
             message: `Comprobante fiscal generado exitosamente para la venta ${sale.id}.`,
             reference_id: sale.id,
-            metadata: fiscalResponse,
+            metadata: {
+                ...fiscalResponse,
+                user_id: req.user.id, // Add user_id
+                pos_mode: pointOfSale.mode // Add POS mode
+            },
         });
 
         const fiscalInvoice = await FiscalInvoicesModel.create({
@@ -248,16 +267,19 @@ export const generateFiscalInvoice = async (req, res) => {
             });
             // Log recoverable error
             await FiscalLogModel.create({
-                level: 'WARN',
-                source: 'SYSTEM',
-                message: `Error recuperable al generar comprobante fiscal para la venta ${saleId}. Trabajo encolado.`,
-                reference_id: saleId,
-                metadata: {
-                    pointOfSaleId,
-                    error: error.message,
-                    stack: error.stack,
-                    ...(error instanceof FiscalError && { fiscalErrorCode: error.code, fiscalErrorSource: error.source, fiscalErrorMetadata: error.metadata })
-                },
+                            level: 'WARN',
+                            source: 'SYSTEM',
+                            message: `Error recuperable al generar comprobante fiscal para la venta ${saleId}. Trabajo encolado.`,
+                            reference_id: saleId,
+                            metadata: {
+                                pointOfSaleId,
+                                user_id: req.user.id, // Add user_id
+                                pos_mode: pointOfSale.mode, // Add POS mode
+                                error: error.message,
+                                stack: error.stack,
+                                ...(error instanceof FiscalError && { fiscalErrorCode: error.code, fiscalErrorSource: error.source, fiscalErrorMetadata: error.metadata })
+                            },
+                
             });
             return res.status(202).json({ message: 'Error temporal al generar el comprobante. Se intentará nuevamente en segundo plano.', jobStatus: 'PENDING' });
         } else {
@@ -269,6 +291,8 @@ export const generateFiscalInvoice = async (req, res) => {
                 reference_id: saleId,
                 metadata: {
                     pointOfSaleId,
+                    user_id: req.user.id, // Add user_id
+                    pos_mode: pointOfSale.mode, // Add POS mode
                     error: error.message,
                     stack: error.stack,
                     ...(error instanceof FiscalError && { fiscalErrorCode: error.code, fiscalErrorSource: error.source, fiscalErrorMetadata: error.metadata })

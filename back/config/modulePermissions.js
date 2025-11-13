@@ -11,7 +11,8 @@ const modulePermissions = {
       // Acciones de venta
       'accion_crear_venta',
       'accion_cancelar_venta',
-      'accion_aplicar_descuento'
+      'accion_aplicar_descuento',
+      'generar_comprobante_fiscal'
     ]
   },
   Caja: {

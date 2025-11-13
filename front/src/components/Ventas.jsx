@@ -461,12 +461,13 @@ const Ventas = () => {
           }
         }
 
-        clearSaleState();
-        setIsSummaryModalOpen(false);
+        // clearSaleState(); // State will be cleared on modal close
+        // setIsSummaryModalOpen(false); // Keep modal open for fiscal invoice generation
 
         if (data.source === 'api') {
           setSaleCompletedId(data.id);
         } else {
+          // For offline, we might still want to show a toast and then set the ID
           mostrarInfo('Venta guardada localmente. Se sincronizará al recuperar la conexión.', theme);
           setSaleCompletedId(data.localId);
         }
@@ -495,20 +496,23 @@ const Ventas = () => {
         
         mostrarCarga('Generando Comprobante Fiscal...', theme);
         
-        try {
-            await generateFiscalInvoiceMutation.mutateAsync({
-                url: `/fiscal/sales/${saleId}/generate-invoice`,
-                method: 'post',
-                values: { pointOfSaleId }
-            });
-            Swal.close();
-            mostrarExito('Comprobante fiscal generado correctamente.', theme);
-        } catch (error) {
-            Swal.close();
-            mostrarError(`Error al generar el comprobante fiscal: ${error.message || 'Error desconocido'}`, theme);
-        }
-        }, [generateFiscalInvoiceMutation, theme]);
-  // Función para guardar/actualizar ticket pendiente
+          try {
+              await generateFiscalInvoiceMutation.mutateAsync({
+                  url: `/fiscal/sales/${saleId}/generate-invoice`,
+                  method: 'post',
+                  values: { pointOfSaleId }
+              });
+              Swal.close();
+              await mostrarExito('Comprobante fiscal generado correctamente.', theme);
+              // Now close the modal and clear the state
+              setIsSummaryModalOpen(false);
+              clearSaleState();
+              setSaleCompletedId(null);
+          } catch (error) {
+              Swal.close();
+              mostrarError(`Error al generar el comprobante fiscal: ${error.message || 'Error desconocido'}`, theme);
+          }
+        }, [generateFiscalInvoiceMutation, theme, setIsSummaryModalOpen, clearSaleState, setSaleCompletedId]); // Added dependencies  // Función para guardar/actualizar ticket pendiente
   const handleSavePendingTicket = useCallback(async (fromSummaryModal = false) => {
     if (isLoadingActiveSession) {
       mostrarInfo('Verificando estado de la sesión de caja. Por favor, espere.', theme);
@@ -727,7 +731,7 @@ const Ventas = () => {
   }, [tempTable, combos]);
 
   const isConfirmButtonDisabled = useCallback(() => {
-    if (isSavingSale || tempTable.length === 0) {
+    if (isSavingSale || tempTable.length === 0 || saleCompletedId) { // Disable if sale is already completed
       return true;
     }
 
@@ -757,7 +761,8 @@ const Ventas = () => {
     selectedSinglePaymentType,
     amountReceived,
     totalFinal,
-    validateMixedPayments
+    validateMixedPayments,
+    saleCompletedId // Add dependency
   ]);
 
   // Efecto para atajos de teclado globales (versión 7 - keydown con preventDefault inmediato)
@@ -991,17 +996,7 @@ const Ventas = () => {
     }
   }, [paymentMethods]);
 
-  // Efecto para mostrar la alerta de éxito DESPUÉS de que el modal se haya cerrado
-  useEffect(() => {
-    if (saleCompletedId) {
-      mostrarExito(`Venta #${saleCompletedId} registrada correctamente`, theme).then(() => {
-        // Pequeño retraso para asegurar que Swal haya terminado su animación de cierre
-        // y liberado el control del foco antes de que intentemos moverlo.
-        focusBarcodeInput();
-        setSaleCompletedId(null); // Resetear el estado para futuras ventas
-      });
-    }
-  }, [saleCompletedId]);
+
 
   // Efecto para validar la combinación de pago y cliente en tiempo real
   useEffect(() => {
@@ -2173,9 +2168,8 @@ const Ventas = () => {
                   isSummaryModalOpen={isSummaryModalOpen}
                   onClose={() => {
                     setIsSummaryModalOpen(false);
-                    setTimeout(() => {
-                      inputRefCodigoBarra.current?.focus();
-                    }, 100);
+                    clearSaleState(); // Clear the state when the modal is closed
+                    setSaleCompletedId(null); // Also reset the completed ID
                   }}
                   tempTable={tempTable}
                   selectedCustomer={selectedCustomer}
@@ -2186,7 +2180,7 @@ const Ventas = () => {
                   setSelectedSinglePaymentType={setSelectedSinglePaymentType}
                   mixedPayments={mixedPayments}
                   setMixedPayments={setMixedPayments}
-                  ivaActivo={ivaActao}
+                  ivaActivo={ivaActivo}
                   setIvaActivo={setIvaActivo}
                   descuento={descuento}
                   setDescuento={setDescuento}

@@ -3,9 +3,10 @@
 import FiscalError from './FiscalError.js';
 
 class FiscalPrinterService {
+    static lastTicketNumber = 0; // Make it static to persist across instances
+
     constructor(environment = 'HOMOLOGACION') {
         this.environment = environment;
-        this.lastTicketNumber = 0; // Simulate correlativity
     }
 
     async _simulateDelay() {
@@ -26,7 +27,7 @@ class FiscalPrinterService {
         await this._simulateDelay();
         await this._checkEnvironment();
         console.log(`[Fiscal Printer Mock] Getting last ticket number.`);
-        return this.lastTicketNumber;
+        return FiscalPrinterService.lastTicketNumber;
     }
 
     /**
@@ -40,8 +41,8 @@ class FiscalPrinterService {
         console.log(`[Fiscal Printer Mock] Printing ticket in ${this.environment} with data:`, ticketData);
 
         // Simulate incrementing ticket number
-        this.lastTicketNumber++;
-        const currentTicketNumber = this.lastTicketNumber;
+        FiscalPrinterService.lastTicketNumber++; // Access static property
+        const currentTicketNumber = FiscalPrinterService.lastTicketNumber;
 
         // Simulate a successful printer response
         return {
