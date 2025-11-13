@@ -105,6 +105,9 @@ const SummarySaleModal = ({
   setValues,
   setSelectedProduct,
   confirmButtonRef,
+  selectedPointOfSale, // New prop
+  onGenerateFiscalInvoice, // New prop
+  saleCompletedId, // New prop
 }) => {
   //console.log('[SummarySaleModal] currentTicketId:', currentTicketId);
   //console.log('[SummarySaleModal] tempTable.length:', tempTable.length);
@@ -457,6 +460,20 @@ const SummarySaleModal = ({
                 {loadingSale ? 'Guardando...' : 'Confirmar Venta'}
               </StyledButton>
               <Chip label="Alt + V" size="small" sx={{ mt: 0.5 }} />
+            </Box>
+          </Grid>
+          <Grid item>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <StyledButton
+                variant="contained"
+                color="primary"
+                onClick={() => onGenerateFiscalInvoice(saleCompletedId, selectedPointOfSale.id)}
+                disabled={!selectedPointOfSale || !saleCompletedId}
+                startIcon={<ReceiptIcon />}
+              >
+                Generar Comprobante Fiscal
+              </StyledButton>
+              <Chip label="Alt + F" size="small" sx={{ mt: 0.5 }} />
             </Box>
           </Grid>
           <Grid item>

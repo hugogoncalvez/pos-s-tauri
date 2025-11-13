@@ -4,6 +4,7 @@ import { logAudit } from '../middleware/auditMiddleware.js';
 import { Op } from 'sequelize';
 import db from '../database/db.js';
 import { checkLowStockAndLog } from '../controllers/Controller.js'; // Importar la función helper
+import { processPendingFiscalJobs } from './fiscal/fiscalJobScheduler.js'; // Importar el procesador de trabajos fiscales
 
 // Helper para obtener un user_id válido para auditorías del sistema
 const getSystemUserId = async () => {
@@ -284,11 +285,17 @@ export const initScheduledTasks = () => {
         timezone: "America/Buenos_Aires"
     });
 
+    // Tarea programada para procesar trabajos fiscales pendientes (cada minuto)
+    cron.schedule('* * * * *', async () => {
+        await processPendingFiscalJobs();
+    });
+
     //console.log('✅ Tareas programadas configuradas:');
     //console.log('   - Cierre automático: Todos los días a las 00:00');
     //console.log('   - Limpieza de logs: Domingos a las 02:00');
     //console.log('   - Verificación de sesiones: Cada hora');
     //console.log('   - Verificación de stock bajo: Todos los días a la 01:00 AM');
+    //console.log('   - Procesamiento de trabajos fiscales: Cada minuto');
 };
 
 // Función para ejecutar cierre manual (para testing)

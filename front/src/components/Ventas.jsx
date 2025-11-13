@@ -49,6 +49,7 @@ import ManualEntryModal from '../styledComponents/ManualEntryModal';
 import { ProductPresentationModal } from '../styledComponents/ProductPresentationModal';
 import { applyPromotions } from '../functions/salesLogic';
 import VentasSkeleton from '../styledComponents/skeletons/VentasSkeleton';
+import PointOfSaleSelector from './PointOfSaleSelector'; // Import PointOfSaleSelector
 
 /**
  * Calcula los totales, recargos y saldos para una venta con pagos mixtos,
@@ -119,7 +120,7 @@ const Ventas = () => {
   const theme = useTheme(); // Inicializar el hook useTheme
   //const screenSize = { width: window.innerWidth };
 
-  const { usuario } = useContext(AuthContext);
+  const { usuario, selectedPointOfSale } = useContext(AuthContext);
   const queryClient = useQueryClient();
 
   // Hook para la mutación de ventas
@@ -472,18 +473,41 @@ const Ventas = () => {
       },
       onError: (error) => {
         Swal.close(); // Cerrar la alerta de carga
-        mostrarError(`Error al guardar la venta: ${error.message || 'Error desconocido'}`, theme);
-        inputRefCodigoBarra.current?.focus();
-      }
-    });
-  }, [
-    currentTicketId, tempTable, paymentOption, selectedSinglePaymentType, selectedCustomer,
-    totalFinal, mixedPayments, usuario, theme, subtotal,
-    descuentoAplicado, surchargeAmount, processedTempTable, isOnline, queryClient,
-    clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
-    mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets
-  ]);
-
+            mostrarError(`Error al guardar la venta: ${error.message || 'Error desconocido'}`, theme);
+            inputRefCodigoBarra.current?.focus();
+          }
+        });
+        }, [
+        currentTicketId, tempTable, paymentOption, selectedSinglePaymentType, selectedCustomer,
+        totalFinal, mixedPayments, usuario, theme, subtotal,
+        descuentoAplicado, surchargeAmount, processedTempTable, isOnline, queryClient,
+        clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
+        mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets
+        ]);
+        
+        const generateFiscalInvoiceMutation = useSubmit('generateFiscalInvoice'); // Assuming useSubmit can handle POST requests
+        
+        const handleGenerateFiscalInvoice = useCallback(async (saleId, pointOfSaleId) => {
+        if (!saleId || !pointOfSaleId) {
+            mostrarError('No se pudo generar el comprobante fiscal: faltan datos de venta o punto de venta.', theme);
+            return;
+        }
+        
+        mostrarCarga('Generando Comprobante Fiscal...', theme);
+        
+        try {
+            await generateFiscalInvoiceMutation.mutateAsync({
+                url: `/fiscal/sales/${saleId}/generate-invoice`,
+                method: 'post',
+                values: { pointOfSaleId }
+            });
+            Swal.close();
+            mostrarExito('Comprobante fiscal generado correctamente.', theme);
+        } catch (error) {
+            Swal.close();
+            mostrarError(`Error al generar el comprobante fiscal: ${error.message || 'Error desconocido'}`, theme);
+        }
+        }, [generateFiscalInvoiceMutation, theme]);
   // Función para guardar/actualizar ticket pendiente
   const handleSavePendingTicket = useCallback(async (fromSummaryModal = false) => {
     if (isLoadingActiveSession) {
@@ -1983,6 +2007,8 @@ const Ventas = () => {
                 <Chip label="Alt + P: Guardar" size="small" color="info" />
               </Box>
             </Box>
+            {/* Selector de Punto de Venta */}
+            <PointOfSaleSelector />
           </Grid>
           <Grid container rowSpacing={2} columnSpacing={2} sx={{ display: 'flex', justifyContent: 'center', alignContent: 'center' }}>
             {/* Indicador de modo actual */}
@@ -2143,55 +2169,57 @@ const Ventas = () => {
       {/* --- Modals Section (fuera del layout principal) --- */}
       <>
         {/* Modal de Resumen de la Venta */}
-        <SummarySaleModal
-          isSummaryModalOpen={isSummaryModalOpen}
-          onClose={() => {
-            setIsSummaryModalOpen(false);
-            setTimeout(() => {
-              inputRefCodigoBarra.current?.focus();
-            }, 100);
-          }}
-          tempTable={tempTable}
-          selectedCustomer={selectedCustomer}
-          setSelectedCustomer={setSelectedCustomer}
-          paymentOption={paymentOption}
-          setPaymentOption={setPaymentOption}
-          selectedSinglePaymentType={selectedSinglePaymentType}
-          setSelectedSinglePaymentType={setSelectedSinglePaymentType}
-          mixedPayments={mixedPayments}
-          setMixedPayments={setMixedPayments}
-          ivaActivo={ivaActivo}
-          setIvaActivo={setIvaActivo}
-          descuento={descuento}
-          setDescuento={setDescuento}
-          amountReceived={amountReceived}
-          setAmountReceived={setAmountReceived}
-          handleSaveSale={handleSaveSale}
-          handleSavePendingTicket={handleSavePendingTicket}
-          setShowPendingTickets={() => {
-            setPendingTicketsModalMode('infoOnly');
-            setShowPendingTickets(true);
-          }}
-          pendingTickets={pendingTickets}
-          calcularTotal={calcularTotal}
-          validateMixedPayments={validateMixedPayments}
-          isConfirmButtonDisabled={isConfirmButtonDisabled}
-          summaryError={summaryError} // <-- Pasar el error
-          loadingSale={isSavingSale} // <--- REEMPLAZAR AQUÍ
-          paymentMethods={paymentMethods}
-          customers={customers}
-          paymentLoading={paymentLoading}
-          customersLoading={customersLoading}
-          amountReceivedInputRef={amountReceivedInputRef} // <--- Pasar el ref
-          inputRefCodigoBarra={inputRefCodigoBarra}
-          setCurrentTicketId={setCurrentTicketId}
-          setTempTable={setTempTable}
-          setValues={setValues}
-          setSelectedProduct={setSelectedProduct}
-          confirmButtonRef={confirmButtonRef} // <-- Pasar el ref al modal
-          currentTicketId={currentTicketId}
-        />
-
+                  <SummarySaleModal
+                  isSummaryModalOpen={isSummaryModalOpen}
+                  onClose={() => {
+                    setIsSummaryModalOpen(false);
+                    setTimeout(() => {
+                      inputRefCodigoBarra.current?.focus();
+                    }, 100);
+                  }}
+                  tempTable={tempTable}
+                  selectedCustomer={selectedCustomer}
+                  setSelectedCustomer={setSelectedCustomer}
+                  paymentOption={paymentOption}
+                  setPaymentOption={setPaymentOption}
+                  selectedSinglePaymentType={selectedSinglePaymentType}
+                  setSelectedSinglePaymentType={setSelectedSinglePaymentType}
+                  mixedPayments={mixedPayments}
+                  setMixedPayments={setMixedPayments}
+                  ivaActivo={ivaActao}
+                  setIvaActivo={setIvaActivo}
+                  descuento={descuento}
+                  setDescuento={setDescuento}
+                  amountReceived={amountReceived}
+                  setAmountReceived={setAmountReceived}
+                  handleSaveSale={handleSaveSale}
+                  handleSavePendingTicket={handleSavePendingTicket}
+                  setShowPendingTickets={() => {
+                    setPendingTicketsModalMode('infoOnly');
+                    setShowPendingTickets(true);
+                  }}
+                  pendingTickets={pendingTickets}
+                  calcularTotal={calcularTotal}
+                  validateMixedPayments={validateMixedPayments}
+                  isConfirmButtonDisabled={isConfirmButtonDisabled}
+                  summaryError={summaryError} // <-- Pasar el error
+                  loadingSale={isSavingSale} // <--- REEMPLAZAR AQUÍ
+                  paymentMethods={paymentMethods}
+                  customers={customers}
+                  paymentLoading={paymentLoading}
+                  customersLoading={customersLoading}
+                  amountReceivedInputRef={amountReceivedInputRef} // <--- Pasar el ref
+                  inputRefCodigoBarra={inputRefCodigoBarra}
+                  setCurrentTicketId={setCurrentTicketId}
+                  setTempTable={setTempTable}
+                  setValues={setValues}
+                  setSelectedProduct={setSelectedProduct}
+                  confirmButtonRef={confirmButtonRef} // <-- Pasar el ref al modal
+                  currentTicketId={currentTicketId}
+                  selectedPointOfSale={selectedPointOfSale} // New prop
+                  onGenerateFiscalInvoice={handleGenerateFiscalInvoice} // New prop
+                  saleCompletedId={saleCompletedId} // New prop
+                />
         {/* Modal para entrada manual de productos */}
         <ManualEntryModal
           showManualEntryModal={showManualEntryModal}
