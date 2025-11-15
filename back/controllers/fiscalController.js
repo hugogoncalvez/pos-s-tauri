@@ -128,6 +128,14 @@ export const createPointOfSale = async (req, res) => {
         const newPointOfSale = await PointOfSaleModel.create(req.body);
         res.status(201).json(newPointOfSale);
     } catch (error) {
+
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            const isIdError = error.errors.some(e => e.path === 'PRIMARY');
+            if (isIdError) {
+                return res.status(400).json({ message: `El número de punto de venta '${req.body.id}' ya existe.` });
+            }
+            return res.status(400).json({ message: `Error de validación: ${error.errors.map(e => e.message).join(', ')}` });
+        }
         res.status(500).json({ message: 'Error al crear el punto de venta: ' + error.message });
     }
 };
@@ -148,8 +156,14 @@ export const updatePointOfSale = async (req, res) => {
         } else {
             res.status(404).json({ message: 'Punto de venta no encontrado para actualizar.' });
         }
-    }
- catch (error) {
+    } catch (error) {
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            const isIdError = error.errors.some(e => e.path === 'id');
+            if (isIdError) {
+                return res.status(400).json({ message: `El número de punto de venta '${req.body.id}' ya está en uso.` });
+            }
+            return res.status(400).json({ message: `Error de validación: ${error.errors.map(e => e.message).join(', ')}` });
+        }
         res.status(500).json({ message: 'Error al actualizar el punto de venta: ' + error.message });
     }
 };
@@ -183,48 +197,43 @@ export const generateFiscalInvoice = async (req, res) => {
     const { saleId } = req.params;
     const { pointOfSaleId } = req.body;
 
+    let sale;
+    let pointOfSale;
+    let voucherData;
+
     try {
-        const sale = await SaleModel.findByPk(saleId);
+        sale = await SaleModel.findByPk(saleId);
         if (!sale) {
             return res.status(404).json({ message: 'Venta no encontrada.' });
         }
 
-        const pointOfSale = await PointOfSaleModel.findByPk(pointOfSaleId);
+        pointOfSale = await PointOfSaleModel.findByPk(pointOfSaleId);
         if (!pointOfSale) {
             return res.status(404).json({ message: 'Punto de venta no encontrado.' });
         }
 
-        // Fetch customer details to determine voucher type
         const customer = await CustomersModel.findByPk(sale.customer_id);
         if (!customer) {
-            // This should ideally not happen if customer_id is always valid
             return res.status(404).json({ message: 'Cliente no encontrado para la venta.' });
         }
 
-        let voucherType = AFIP_VOUCHER_TYPES.FACTURA_A; // Default to Factura A
-        if (customer.id === 1) { // Assuming ID 1 is "Consumidor Final"
-            voucherType = AFIP_VOUCHER_TYPES.FACTURA_B; // Factura B for Consumidor Final
+        let voucherType = AFIP_VOUCHER_TYPES.FACTURA_A;
+        if (customer.id === 1) {
+            voucherType = AFIP_VOUCHER_TYPES.FACTURA_B;
         }
-        // Add more complex logic here if needed (e.g., based on customer's IVA condition)
 
         const fiscalManager = new FiscalManager(pointOfSale);
 
-        // Prepare voucher data from sale details (this is a simplified example)
-        // In a real scenario, you'd fetch SaleDetails and format them according to AFIP/Fiscal Printer requirements
-        const voucherData = {
-            totalAmount: sale.total_neto, // Use total_neto for the final amount
-            customerDocType: '99', // Consumidor Final (example)
-            customerDocNumber: '0', // Consumidor Final (example)
+        voucherData = {
+            totalAmount: sale.total_neto,
+            customerDocType: '99',
+            customerDocNumber: '0',
             pointOfSaleId: pointOfSale.id,
-            voucherType: voucherType, // Use the determined voucher type
-            // ... other necessary data from sale and its details
+            voucherType: voucherType,
         };
 
         const fiscalResponse = await fiscalManager.generateFiscalVoucher(voucherData);
 
-        //   const fiscalResponse = await fiscalManager.generateFiscalVoucher(voucherData);
-
-        // Log successful fiscal operation
         await FiscalLogModel.create({
             level: 'INFO',
             source: pointOfSale.emission_type === 'FACTURA_ELECTRONICA' ? 'AFIP' : 'PRINTER',
@@ -232,8 +241,8 @@ export const generateFiscalInvoice = async (req, res) => {
             reference_id: sale.id,
             metadata: {
                 ...fiscalResponse,
-                user_id: req.user.id, // Add user_id
-                pos_mode: pointOfSale.mode // Add POS mode
+                user_id: req.user.id,
+                pos_mode: pointOfSale.mode
             },
         });
 
@@ -241,13 +250,13 @@ export const generateFiscalInvoice = async (req, res) => {
             sale_id: sale.id,
             point_of_sale_id: pointOfSale.id,
             emission_method: pointOfSale.emission_type,
-            invoice_type: voucherData.voucherType, // Use the determined voucher type
-            invoice_number: fiscalResponse.CbteDesde || fiscalResponse.ticketNumber, // From AFIP or Printer response
+            invoice_type: voucherData.voucherType,
+            invoice_number: fiscalResponse.CbteDesde || fiscalResponse.ticketNumber,
             cae: fiscalResponse.CAE || null,
             cae_due_date: fiscalResponse.CAEFchVto ? new Date(fiscalResponse.CAEFchVto.slice(0, 4), fiscalResponse.CAEFchVto.slice(4, 6) - 1, fiscalResponse.CAEFchVto.slice(6, 8)) : null,
             afip_response_data: pointOfSale.emission_type === 'FACTURA_ELECTRONICA' ? fiscalResponse : null,
             fiscal_printer_data: pointOfSale.emission_type === 'CONTROLADOR_FISCAL' ? fiscalResponse : null,
-            status: 'EMITIDO', // Assuming successful emission
+            status: 'EMITIDO',
         });
 
         res.status(201).json(fiscalInvoice);
@@ -255,44 +264,41 @@ export const generateFiscalInvoice = async (req, res) => {
     } catch (error) {
         const isRecoverable = error instanceof FiscalError &&
             error.code !== 'INVALID_POS_DATA' &&
-            error.code !== 'UNSUPPORTED_EMISSION_TYPE'; // Add other non-recoverable codes as needed
+            error.code !== 'UNSUPPORTED_EMISSION_TYPE';
 
         if (isRecoverable) {
             await PendingFiscalJobsModel.create({
                 sale_id: sale.id,
                 point_of_sale_id: pointOfSale.id,
-                job_data: { saleId, pointOfSaleId, voucherData }, // Store data needed to retry
+                job_data: { saleId, pointOfSaleId, voucherData },
                 last_error: error.message,
                 status: 'PENDING',
             });
-            // Log recoverable error
             await FiscalLogModel.create({
-                            level: 'WARN',
-                            source: 'SYSTEM',
-                            message: `Error recuperable al generar comprobante fiscal para la venta ${saleId}. Trabajo encolado.`,
-                            reference_id: saleId,
-                            metadata: {
-                                pointOfSaleId,
-                                user_id: req.user.id, // Add user_id
-                                pos_mode: pointOfSale.mode, // Add POS mode
-                                error: error.message,
-                                stack: error.stack,
-                                ...(error instanceof FiscalError && { fiscalErrorCode: error.code, fiscalErrorSource: error.source, fiscalErrorMetadata: error.metadata })
-                            },
-                
+                level: 'WARN',
+                source: 'SYSTEM',
+                message: `Error recuperable al generar comprobante fiscal para la venta ${saleId}. Trabajo encolado.`,
+                reference_id: saleId,
+                metadata: {
+                    pointOfSaleId,
+                    user_id: req.user.id,
+                    pos_mode: pointOfSale.mode,
+                    error: error.message,
+                    stack: error.stack,
+                    ...(error instanceof FiscalError && { fiscalErrorCode: error.code, fiscalErrorSource: error.source, fiscalErrorMetadata: error.metadata })
+                },
             });
             return res.status(202).json({ message: 'Error temporal al generar el comprobante. Se intentará nuevamente en segundo plano.', jobStatus: 'PENDING' });
         } else {
-            // Log non-recoverable error
             await FiscalLogModel.create({
                 level: 'ERROR',
-                source: 'SYSTEM', // Or derive from error.source if it's a FiscalError
+                source: 'SYSTEM',
                 message: `Error al generar comprobante fiscal para la venta ${saleId}: ${error.message}`,
                 reference_id: saleId,
                 metadata: {
                     pointOfSaleId,
-                    user_id: req.user.id, // Add user_id
-                    pos_mode: pointOfSale.mode, // Add POS mode
+                    user_id: req.user.id,
+                    pos_mode: pointOfSale ? pointOfSale.mode : 'N/A', // Safe access
                     error: error.message,
                     stack: error.stack,
                     ...(error instanceof FiscalError && { fiscalErrorCode: error.code, fiscalErrorSource: error.source, fiscalErrorMetadata: error.metadata })

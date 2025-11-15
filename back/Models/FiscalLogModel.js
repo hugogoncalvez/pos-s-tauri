@@ -8,7 +8,7 @@ const FiscalLog = sequelize.define('fiscal_logs', {
         autoIncrement: true
     },
     level: {
-        type: DataTypes.ENUM('INFO', 'ERROR', 'DEBUG'),
+        type: DataTypes.ENUM('INFO', 'ERROR', 'DEBUG', 'WARN'),
         allowNull: false
     },
     source: {

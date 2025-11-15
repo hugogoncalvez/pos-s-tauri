@@ -42,7 +42,7 @@ export const processPendingFiscalJobs = async () => {
                     });
                     await FiscalLogModel.create({
                         level: 'ERROR',
-                        source: 'SCHEDULER',
+                        source: 'SYSTEM',
                         message: `Trabajo fiscal #${job.id} falló: Venta o Punto de Venta no encontrados.`,
                         reference_id: job.id,
                         metadata: { jobData: job.job_data },
@@ -91,7 +91,7 @@ export const processPendingFiscalJobs = async () => {
                     await job.update({ status: 'FAILED', last_error: errorMessage });
                     await FiscalLogModel.create({
                         level: 'ERROR',
-                        source: 'SCHEDULER',
+                        source: 'SYSTEM',
                         message: `Trabajo fiscal #${job.id} falló definitivamente después de ${job.attempts} intentos: ${errorMessage}`,
                         reference_id: job.id,
                         metadata: {
@@ -107,7 +107,7 @@ export const processPendingFiscalJobs = async () => {
                     await job.update({ status: 'PENDING', last_error: errorMessage });
                     await FiscalLogModel.create({
                         level: 'WARN',
-                        source: 'SCHEDULER',
+                        source: 'SYSTEM',
                         message: `Trabajo fiscal #${job.id} falló (reintento ${job.attempts}/${MAX_RETRIES}): ${errorMessage}`,
                         reference_id: job.id,
                         metadata: {
@@ -124,8 +124,8 @@ export const processPendingFiscalJobs = async () => {
     } catch (globalError) {
         console.error('[FiscalJobScheduler] Error global al procesar trabajos pendientes:', globalError);
         await FiscalLogModel.create({
-            level: 'CRITICAL',
-            source: 'SCHEDULER',
+            level: 'ERROR',
+            source: 'SYSTEM',
             message: `Error crítico en el scheduler de trabajos fiscales: ${globalError.message}`,
             metadata: { error: globalError.message, stack: globalError.stack },
         });

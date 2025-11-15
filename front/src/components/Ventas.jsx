@@ -511,6 +511,9 @@ const Ventas = () => {
           } catch (error) {
               Swal.close();
               mostrarError(`Error al generar el comprobante fiscal: ${error.message || 'Error desconocido'}`, theme);
+              // Close the modal on error as well
+              setIsSummaryModalOpen(false);
+              setSaleCompletedId(null);
           }
         }, [generateFiscalInvoiceMutation, theme, setIsSummaryModalOpen, clearSaleState, setSaleCompletedId]); // Added dependencies  // Función para guardar/actualizar ticket pendiente
   const handleSavePendingTicket = useCallback(async (fromSummaryModal = false) => {
