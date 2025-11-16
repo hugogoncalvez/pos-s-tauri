@@ -123,6 +123,12 @@ const modulePermissions = {
       'ver_puntos_de_venta',
       'gestionar_puntos_de_venta'
     ]
+  },
+  HistorialVentas: {
+    vista: 'ver_historial_ventas',
+    acciones: [
+      'ver_ventas_global'
+    ]
   }
 };
 
