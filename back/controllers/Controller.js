@@ -1937,18 +1937,101 @@ export const createSale = async (req, res) => {
 };
 
 
-// Obtener todas las ventas (con opción a incluir detalles básicos)
+// Obtener todas las ventas con filtros avanzados y paginación
 export const getSales = async (req, res) => {
     try {
-        const sales = await SaleModel.findAll({
-            include: [ // Incluir datos básicos de relaciones si se necesitan en la lista
-                { model: CustomerModel, attributes: ['id', /* 'name', ... */] }, // Ajusta atributos según necesites
+        const {
+            page = 1,
+            limit = 10,
+            startDate,
+            endDate,
+            userId,
+            customerId,
+            paymentMethodId,
+            minTotal,
+            maxTotal
+        } = req.query;
+
+        const userPermissions = req.usuario.permisos || [];
+        const canViewGlobal = userPermissions.includes('ver_ventas_global');
+
+        let whereClause = {};
+        let paymentInclude = {
+            model: SalePaymentModel,
+            as: 'sale_payments',
+            required: false,
+            include: [{
+                model: PaymentModel,
+                as: 'payment',
+                attributes: ['method']
+            }]
+        };
+
+        // Filtro por fecha
+        if (startDate && endDate) {
+            whereClause.createdAt = {
+                [Op.between]: [new Date(startDate), (() => {
+                    const d = new Date(endDate);
+                    d.setHours(23, 59, 59, 999);
+                    return d;
+                })()]
+            };
+        }
+
+        // Filtro por usuario
+        if (canViewGlobal) {
+            if (userId) {
+                whereClause.user_id = userId;
+            }
+        } else {
+            // Si no puede ver global, forzar a ver solo sus ventas
+            whereClause.user_id = req.usuario.id;
+        }
+
+        // Filtro por cliente
+        if (customerId) {
+            whereClause.customer_id = customerId;
+        }
+
+        // Filtro por método de pago
+        if (paymentMethodId) {
+            paymentInclude.where = { payment_method_id: paymentMethodId };
+            paymentInclude.required = true; // INNER JOIN para asegurar que solo salgan ventas con ese pago
+        }
+
+        // Filtro por total neto
+        if (minTotal && maxTotal) {
+            whereClause.total_neto = { [Op.between]: [parseFloat(minTotal), parseFloat(maxTotal)] };
+        } else if (minTotal) {
+            whereClause.total_neto = { [Op.gte]: parseFloat(minTotal) };
+        } else if (maxTotal) {
+            whereClause.total_neto = { [Op.lte]: parseFloat(maxTotal) };
+        }
+
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+
+        const { count, rows } = await SaleModel.findAndCountAll({
+            where: whereClause,
+            include: [
+                { model: CustomerModel, attributes: ['id', 'name'] },
                 { model: UsuarioModel, attributes: ['id', 'username'] },
-                // { model: PaymentModel, attributes: ['id', 'method'] } // Descomentar si es necesario
+                paymentInclude
             ],
-            order: [['createdAt', 'DESC']] // Ordenar por fecha descendente
+            order: [['createdAt', 'DESC']],
+            limit: parseInt(limit),
+            offset: offset,
+            distinct: true // Necesario cuando se usa `required: true` en un include
         });
-        res.json(sales);
+
+        res.json({
+            sales: rows,
+            pagination: {
+                total: count,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(count / limit)
+            }
+        });
     } catch (error) {
         console.error("Error al obtener las ventas:", error);
         res.status(500).json({ message: error.message || 'Error al obtener las ventas.' });
