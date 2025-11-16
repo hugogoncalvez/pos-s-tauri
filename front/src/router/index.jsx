@@ -26,6 +26,8 @@ const PromotionsManager = React.lazy(() => import('../components/PromotionsManag
 const ComboManager = React.lazy(() => import('../components/ComboManager'));
 const BarcodePrinter = React.lazy(() => import('../components/BarcodePrinter'));
 const PaymentMethodSurchargeManager = React.lazy(() => import('../components/PaymentMethodSurchargeManager'));
+const FiscalAdmin = React.lazy(() => import('../components/FiscalAdmin')); // Añadido
+const SalesHistory = React.lazy(() => import('../components/SalesHistory')); // Añadido
 const Unauthorized = React.lazy(() => import('./Unauthorized')); // Importar componente de Acceso Denegado
 
 export const router = createBrowserRouter([
@@ -49,6 +51,7 @@ export const router = createBrowserRouter([
       { path: 'admin-cajas', element: <ProtectedRoute permission="ver_vista_caja_admin"><CashAdmin /></ProtectedRoute> },
       { path: 'corte-de-caja', element: <ProtectedRoute permission="ver_vista_caja_admin"><Corte /></ProtectedRoute> },
       { path: 'mi-caja', element: <ProtectedRoute permission="ver_mi_caja"><CajeroView /></ProtectedRoute> },
+      { path: 'historial-ventas', element: <ProtectedRoute permission="ver_historial_ventas"><SalesHistory scope="all" /></ProtectedRoute> }, // Añadido
       { path: 'informes', element: <ProtectedRoute permission="ver_vista_informes"><Informes /></ProtectedRoute> },
       { path: 'usuarios', element: <ProtectedRoute permission="ver_vista_usuarios"><Users /></ProtectedRoute> },
       { path: 'profit-report', element: <ProtectedRoute permission="ver_vista_informes"><ProfitReport /></ProtectedRoute> },
@@ -57,6 +60,7 @@ export const router = createBrowserRouter([
       { path: 'combos', element: <ProtectedRoute permission="ver_vista_combos"><ComboManager /></ProtectedRoute> },
       { path: 'barcode-printer', element: <ProtectedRoute permission="ver_vista_impresion_codigos"><BarcodePrinter /></ProtectedRoute> },
       { path: 'gestion-recargos', element: <ProtectedRoute permission="ver_vista_recargos_pagos"><PaymentMethodSurchargeManager /></ProtectedRoute> },
+      { path: 'fiscal-admin', element: <ProtectedRoute permission="ver_configuracion_fiscal"><FiscalAdmin /></ProtectedRoute> }, // Añadido
     ],
   },
   {

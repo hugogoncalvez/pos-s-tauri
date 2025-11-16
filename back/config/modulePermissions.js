@@ -114,6 +114,20 @@ const modulePermissions = {
       'ver_vista_recargos_pagos',
       'accion_gestionar_recargos_pagos'
     ]
+  },
+  AdministracionFiscal: {
+    vista: 'ver_configuracion_fiscal',
+    acciones: [
+      'gestionar_configuracion_fiscal',
+      'ver_puntos_de_venta',
+      'gestionar_puntos_de_venta'
+    ]
+  },
+  HistorialVentas: {
+    vista: 'ver_historial_ventas',
+    acciones: [
+      'ver_ventas_global'
+    ]
   }
 };
 

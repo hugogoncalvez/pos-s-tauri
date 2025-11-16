@@ -7,6 +7,7 @@ import Toolbar from '@mui/material/Toolbar';
 import IconButton from '@mui/material/IconButton';
 import HomeIcon from '@mui/icons-material/Home';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import HistoryIcon from '@mui/icons-material/History';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { Typography, useMediaQuery, Tooltip, Button, Popper, Paper, MenuList, MenuItem, ClickAwayListener, Grow } from '@mui/material';
@@ -197,6 +198,19 @@ export default function DenseAppBar({ isOnline, pendingSyncCount, onSyncClick })
                   aria-label="gestión de caja"
                 >
                   <AccountBalanceWalletIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            {tienePermiso('ver_historial_ventas') && (
+              <Tooltip title="Historial de Ventas">
+                <IconButton
+                  size='small'
+                  onClick={() => navigate('/historial-ventas')}
+                  edge="start"
+                  color="inherit"
+                  aria-label="historial de ventas"
+                >
+                  <HistoryIcon />
                 </IconButton>
               </Tooltip>
             )}
