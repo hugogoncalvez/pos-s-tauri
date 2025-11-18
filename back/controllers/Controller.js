@@ -1940,15 +1940,73 @@ export const createSale = async (req, res) => {
 // Obtener todas las ventas (con opción a incluir detalles básicos)
 export const getSales = async (req, res) => {
     try {
-        const sales = await SaleModel.findAll({
-            include: [ // Incluir datos básicos de relaciones si se necesitan en la lista
-                { model: CustomerModel, attributes: ['id', /* 'name', ... */] }, // Ajusta atributos según necesites
-                { model: UsuarioModel, attributes: ['id', 'username'] },
-                // { model: PaymentModel, attributes: ['id', 'method'] } // Descomentar si es necesario
+        const {
+            page = 1,
+            limit = 10,
+            startDate,
+            endDate,
+            userId,
+            customerId,
+            paymentMethodId,
+            minTotal,
+            maxTotal
+        } = req.query;
+
+        let whereClause = {};
+        let includeWhereClause = {};
+
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            start.setUTCHours(0, 0, 0, 0);
+            const end = new Date(endDate);
+            end.setUTCHours(23, 59, 59, 999);
+            whereClause.createdAt = { [Op.between]: [start, end] };
+        }
+        if (userId) whereClause.user_id = userId;
+        if (customerId) whereClause.customer_id = customerId;
+        if (minTotal) whereClause.total_neto = { ...whereClause.total_neto, [Op.gte]: parseFloat(minTotal) };
+        if (maxTotal) whereClause.total_neto = { ...whereClause.total_neto, [Op.lte]: parseFloat(maxTotal) };
+
+        if (paymentMethodId) {
+            includeWhereClause = {
+                model: SalePaymentModel,
+                as: 'sale_payments',
+                where: { payment_method_id: paymentMethodId },
+                required: true
+            };
+        }
+
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+
+        const { count, rows } = await SaleModel.findAndCountAll({
+            where: whereClause,
+            include: [
+                { model: CustomerModel, attributes: ['id', 'name'] },
+                { model: UsuarioModel, as: 'usuario', attributes: ['id', 'username'] },
+                {
+                    model: SalePaymentModel,
+                    as: 'sale_payments',
+                    attributes: ['amount'],
+                    include: [{ model: PaymentModel, as: 'payment', attributes: ['method'] }],
+                    ...(paymentMethodId && { where: { payment_method_id: paymentMethodId }, required: true })
+                }
             ],
-            order: [['createdAt', 'DESC']] // Ordenar por fecha descendente
+            order: [['createdAt', 'DESC']],
+            limit: parseInt(limit),
+            offset: offset,
+            distinct: true, // Important for correct count with includes
+            subQuery: false // Important for correct count with includes
         });
-        res.json(sales);
+
+        res.json({
+            sales: rows,
+            pagination: {
+                total: count,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(count / limit)
+            }
+        });
     } catch (error) {
         console.error("Error al obtener las ventas:", error);
         res.status(500).json({ message: error.message || 'Error al obtener las ventas.' });

@@ -26,7 +26,6 @@ import PromotionsManager from '../components/PromotionsManager';
 import ComboManager from '../components/ComboManager';
 import BarcodePrinter from '../components/BarcodePrinter';
 import PaymentMethodSurchargeManager from '../components/PaymentMethodSurchargeManager';
-import FiscalAdmin from '../components/FiscalAdmin';
 import SalesHistory from '../components/SalesHistory';
 import Unauthorized from './Unauthorized'; // Importar componente de Acceso Denegado
 
@@ -60,7 +59,6 @@ export const router = createBrowserRouter([
       { path: 'combos', element: <ProtectedRoute permission="ver_vista_combos"><ComboManager /></ProtectedRoute> },
       { path: 'barcode-printer', element: <ProtectedRoute permission="ver_vista_impresion_codigos"><BarcodePrinter /></ProtectedRoute> },
       { path: 'gestion-recargos', element: <ProtectedRoute permission="ver_vista_recargos_pagos"><PaymentMethodSurchargeManager /></ProtectedRoute> },
-      { path: 'fiscal-admin', element: <ProtectedRoute permission="ver_configuracion_fiscal"><FiscalAdmin /></ProtectedRoute> }, // Añadido
     ],
   },
   {
