@@ -6,29 +6,29 @@ import Auth from '../auth/Auth';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicRoute } from './PublicRoute';
 
-// Componentes de las vistas con carga perezosa (lazy loading)
-const Landing = React.lazy(() => import('../components/Landing'));
-const PurchasesManager = React.lazy(() => import('../components/PurchasesManager'));
-const StockManager = React.lazy(() => import('../components/StockManager'));
-const Ventas = React.lazy(() => import('../components/Ventas'));
-const AuditLogs = React.lazy(() => import('../components/AuditLogs'));
-const CashAdmin = React.lazy(() => import('../components/CashAdmin'));
-const Corte = React.lazy(() => import('../components/Corte'));
-const CajeroView = React.lazy(() => import('../components/CajeroView'));
-const Customers = React.lazy(() => import('../components/Customers'));
-const Informes = React.lazy(() => import('../components/Informes'));
-const Dashboard = React.lazy(() => import('../components/Dashboard'));
-const Users = React.lazy(() => import('../components/Users'));
-const ImportarStock = React.lazy(() => import('../components/ImportarStock'));
-const ProfitReport = React.lazy(() => import('../components/ProfitReport'));
-const ThemeEditor = React.lazy(() => import('../components/ThemeEditor'));
-const PromotionsManager = React.lazy(() => import('../components/PromotionsManager'));
-const ComboManager = React.lazy(() => import('../components/ComboManager'));
-const BarcodePrinter = React.lazy(() => import('../components/BarcodePrinter'));
-const PaymentMethodSurchargeManager = React.lazy(() => import('../components/PaymentMethodSurchargeManager'));
-const FiscalAdmin = React.lazy(() => import('../components/FiscalAdmin')); // Añadido
-const SalesHistory = React.lazy(() => import('../components/SalesHistory')); // Añadido
-const Unauthorized = React.lazy(() => import('./Unauthorized')); // Importar componente de Acceso Denegado
+// Componentes de las vistas con carga estática (para evitar errores de "Importing a module script failed" en desarrollo)
+import Landing from '../components/Landing';
+import PurchasesManager from '../components/PurchasesManager';
+import StockManager from '../components/StockManager';
+import Ventas from '../components/Ventas';
+import AuditLogs from '../components/AuditLogs';
+import CashAdmin from '../components/CashAdmin';
+import Corte from '../components/Corte';
+import CajeroView from '../components/CajeroView';
+import Customers from '../components/Customers';
+import Informes from '../components/Informes';
+import Dashboard from '../components/Dashboard';
+import Users from '../components/Users';
+import ImportarStock from '../components/ImportarStock';
+import ProfitReport from '../components/ProfitReport';
+import ThemeEditor from '../components/ThemeEditor';
+import PromotionsManager from '../components/PromotionsManager';
+import ComboManager from '../components/ComboManager';
+import BarcodePrinter from '../components/BarcodePrinter';
+import PaymentMethodSurchargeManager from '../components/PaymentMethodSurchargeManager';
+import FiscalAdmin from '../components/FiscalAdmin';
+import SalesHistory from '../components/SalesHistory';
+import Unauthorized from './Unauthorized'; // Importar componente de Acceso Denegado
 
 export const router = createBrowserRouter([
   {
