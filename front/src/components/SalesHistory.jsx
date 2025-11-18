@@ -140,7 +140,7 @@ const SalesHistory = ({ scope = 'all' }) => {
                         <IconButton size="small" onClick={() => handleViewDetails(row.id)}><ViewIcon /></IconButton>
                     </Tooltip>
                     <Tooltip title="Imprimir Ticket">
-                        <IconButton size="small" onClick={() => { /* Handle Print */ }}><PrintIcon /></IconButton>
+                        <IconButton size="small" onClick={() => handleViewDetails(row.id)}><PrintIcon /></IconButton>
                     </Tooltip>
                 </>
             )
@@ -230,7 +230,7 @@ const SalesHistory = ({ scope = 'all' }) => {
                                 )}
                                 <Grid xs={12} sm={6} md={3}>
                                     <StyledAutocomplete
-                                        options={customersData || []}
+                                        options={customersData?.data || []}
                                         getOptionLabel={(option) => option.name || ''}
                                         onChange={(event, value) => handleFilterChange({ target: { name: 'customerId', value: value ? value.id : null } })}
                                         renderInput={(params) => <TextField {...params} label="Cliente" />}

@@ -6,7 +6,7 @@ import {
 import { Close as CloseIcon, Print as PrintIcon } from '@mui/icons-material';
 import { StyledButton } from './ui/StyledButton';
 import { UseFetchQuery } from '../hooks/useQuery';
-import { printSaleReceipt } from '../functions/printSaleReceipt';
+import { printReceipt } from '../functions/printUtils';
 import moment from 'moment';
 
 const TabPanel = (props) => {
@@ -128,7 +128,7 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
                 )}
             </DialogContent>
             <DialogActions>
-                <StyledButton onClick={() => printSaleReceipt(saleDetails)} color="primary" startIcon={<PrintIcon />} disabled={!saleDetails || isLoading}>
+                <StyledButton onClick={() => printReceipt(saleDetails, 'sale', saleDetails.Customer?.name || 'Consumidor Final')} color="primary" startIcon={<PrintIcon />} disabled={!saleDetails || isLoading}>
                     Imprimir
                 </StyledButton>
                 <StyledButton onClick={onClose} color="secondary">
