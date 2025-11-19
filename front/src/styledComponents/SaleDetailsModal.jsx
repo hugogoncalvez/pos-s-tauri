@@ -86,17 +86,17 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
                                         <TableRow>
                                             <TableCell>Producto</TableCell>
                                             <TableCell align="right">Cantidad</TableCell>
-                                            <TableCell align="right">Precio Unitario</TableCell>
+                                            <TableCell align="right">Precio Unit.</TableCell>
                                             <TableCell align="right">Subtotal</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {saleDetails.SaleDetails.map((detail) => (
-                                            <TableRow key={detail.id}>
-                                                <TableCell>{detail.ProductPresentation?.Product?.name} ({detail.ProductPresentation?.name})</TableCell>
-                                                <TableCell align="right">{detail.quantity}</TableCell>
-                                                <TableCell align="right">{formatCurrency(detail.price)}</TableCell>
-                                                <TableCell align="right">{formatCurrency(detail.subtotal)}</TableCell>
+                                        {saleDetails.sale_details?.map((item) => (
+                                            <TableRow key={item.id}>
+                                                <TableCell>{item.stock?.name || item.combo?.name || 'Producto Manual'}</TableCell>
+                                                <TableCell align="right">{item.quantity}</TableCell>
+                                                <TableCell align="right">{formatCurrency(item.price)}</TableCell>
+                                                <TableCell align="right">{formatCurrency(item.quantity * item.price)}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -104,21 +104,19 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
                             </TableContainer>
                         </TabPanel>
                         <TabPanel value={tabValue} index={2}>
-                            <Typography variant="h6">Pagos Realizados</Typography>
+                            <Typography variant="h6">Detalle de Pagos</Typography>
                             <TableContainer component={Paper}>
-                                <Table size="small">
+                                <Table>
                                     <TableHead>
                                         <TableRow>
-                                            <TableCell>Método</TableCell>
+                                            <TableCell>Método de Pago</TableCell>
                                             <TableCell align="right">Monto</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {saleDetails.SalePayments.map((payment) => (
-                                            <TableRow key={payment.id}>
-                                                <TableCell>
-                                                    <Chip label={payment.PaymentMethod.method} size="small" />
-                                                </TableCell>
+                                        {saleDetails.sale_payments?.map((payment) => (
+                                            <TableRow key={payment.payment.method}>
+                                                <TableCell>{payment.payment.method}</TableCell>
                                                 <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
                                             </TableRow>
                                         ))}
@@ -130,16 +128,9 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
                 )}
             </DialogContent>
             <DialogActions>
-                {saleDetails && (
-                    <StyledButton
-                        startIcon={<PrintIcon />}
-                        onClick={() => printReceipt(saleDetails)}
-                        color="primary"
-                        variant="contained"
-                    >
-                        Imprimir Recibo
-                    </StyledButton>
-                )}
+                <StyledButton onClick={() => printReceipt(saleDetails, 'sale', saleDetails.Customer?.name || 'Consumidor Final')} color="primary" startIcon={<PrintIcon />} disabled={!saleDetails || isLoading}>
+                    Imprimir
+                </StyledButton>
                 <StyledButton onClick={onClose} color="secondary">
                     Cerrar
                 </StyledButton>

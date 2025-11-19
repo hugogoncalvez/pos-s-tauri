@@ -1937,7 +1937,7 @@ export const createSale = async (req, res) => {
 };
 
 
-// Obtener todas las ventas (con opción a incluir detalles básicos)
+// Obtener todas las ventas con filtros avanzados y paginación
 export const getSales = async (req, res) => {
     try {
         const {
@@ -1952,28 +1952,60 @@ export const getSales = async (req, res) => {
             maxTotal
         } = req.query;
 
+        const userPermissions = req.usuario.permisos || [];
+        const canViewGlobal = userPermissions.includes('ver_ventas_global');
+
         let whereClause = {};
-        let includeWhereClause = {};
+        let paymentInclude = {
+            model: SalePaymentModel,
+            as: 'sale_payments',
+            required: false,
+            include: [{
+                model: PaymentModel,
+                as: 'payment',
+                attributes: ['method']
+            }]
+        };
 
+        // Filtro por fecha
         if (startDate && endDate) {
-            const start = new Date(startDate);
-            start.setUTCHours(0, 0, 0, 0);
-            const end = new Date(endDate);
-            end.setUTCHours(23, 59, 59, 999);
-            whereClause.createdAt = { [Op.between]: [start, end] };
-        }
-        if (userId) whereClause.user_id = userId;
-        if (customerId) whereClause.customer_id = customerId;
-        if (minTotal) whereClause.total_neto = { ...whereClause.total_neto, [Op.gte]: parseFloat(minTotal) };
-        if (maxTotal) whereClause.total_neto = { ...whereClause.total_neto, [Op.lte]: parseFloat(maxTotal) };
-
-        if (paymentMethodId) {
-            includeWhereClause = {
-                model: SalePaymentModel,
-                as: 'sale_payments',
-                where: { payment_method_id: paymentMethodId },
-                required: true
+            whereClause.createdAt = {
+                [Op.between]: [new Date(startDate), (() => {
+                    const d = new Date(endDate);
+                    d.setHours(23, 59, 59, 999);
+                    return d;
+                })()]
             };
+        }
+
+        // Filtro por usuario
+        if (canViewGlobal) {
+            if (userId) {
+                whereClause.user_id = userId;
+            }
+        } else {
+            // Si no puede ver global, forzar a ver solo sus ventas
+            whereClause.user_id = req.usuario.id;
+        }
+
+        // Filtro por cliente
+        if (customerId) {
+            whereClause.customer_id = customerId;
+        }
+
+        // Filtro por método de pago
+        if (paymentMethodId) {
+            paymentInclude.where = { payment_method_id: paymentMethodId };
+            paymentInclude.required = true; // INNER JOIN para asegurar que solo salgan ventas con ese pago
+        }
+
+        // Filtro por total neto
+        if (minTotal && maxTotal) {
+            whereClause.total_neto = { [Op.between]: [parseFloat(minTotal), parseFloat(maxTotal)] };
+        } else if (minTotal) {
+            whereClause.total_neto = { [Op.gte]: parseFloat(minTotal) };
+        } else if (maxTotal) {
+            whereClause.total_neto = { [Op.lte]: parseFloat(maxTotal) };
         }
 
         const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -1982,20 +2014,13 @@ export const getSales = async (req, res) => {
             where: whereClause,
             include: [
                 { model: CustomerModel, attributes: ['id', 'name'] },
-                { model: UsuarioModel, as: 'usuario', attributes: ['id', 'username'] },
-                {
-                    model: SalePaymentModel,
-                    as: 'sale_payments',
-                    attributes: ['amount'],
-                    include: [{ model: PaymentModel, as: 'payment', attributes: ['method'] }],
-                    ...(paymentMethodId && { where: { payment_method_id: paymentMethodId }, required: true })
-                }
+                { model: UsuarioModel, attributes: ['id', 'username'] },
+                paymentInclude
             ],
             order: [['createdAt', 'DESC']],
             limit: parseInt(limit),
             offset: offset,
-            distinct: true, // Important for correct count with includes
-            subQuery: false // Important for correct count with includes
+            distinct: true // Necesario cuando se usa `required: true` en un include
         });
 
         res.json({
