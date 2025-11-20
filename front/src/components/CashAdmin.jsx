@@ -92,6 +92,8 @@ const CashAdmin = () => {
 
     // Estados para la visibilidad de secciones y modales
     const [openFilterSection, setOpenFilterSection] = useState(false);
+    const [openSalesSectionInDetails, setOpenSalesSectionInDetails] = useState(false);
+    const [openMovementsSectionInDetails, setOpenMovementsSectionInDetails] = useState(false);
 
     // Estados para controlar la carga de datos bajo demanda
     const [viewingSessionId, setViewingSessionId] = useState(null);
@@ -750,80 +752,94 @@ const CashAdmin = () => {
                                                     <Divider sx={{ my: 2 }} />
                                                 </Grid>
                                                 <Grid xs={12}>
-                                                    <Typography variant="h6" gutterBottom sx={{ mt: 0 }}>Movimientos de Caja</Typography>
-                                                    {sessionDetails.movements && sessionDetails.movements.length > 0 ? (
-                                                        <TableContainer component={Paper} sx={{ background: 'transparent', border: `1px solid ${theme.palette.divider}` }}>
-                                                            <Table size="small">
-                                                                <TableHead>
-                                                                    <TableRow>
-                                                                        <TableCell>Tipo</TableCell>
-                                                                        <TableCell>Monto</TableCell>
-                                                                        <TableCell>Descripción</TableCell>
-                                                                        <TableCell>Fecha</TableCell>
-                                                                    </TableRow>
-                                                                </TableHead>
-                                                                <TableBody>
-                                                                    {sessionDetails.movements.map((movement, index) => (
-                                                                        <TableRow key={index}>
-                                                                            <TableCell>
-                                                                                <Chip
-                                                                                    label={movement.type === 'ingreso' ? 'Ingreso' : 'Egreso'}
-                                                                                    color={movement.type === 'ingreso' ? 'success' : 'error'}
-                                                                                    size="small"
-                                                                                />
-                                                                            </TableCell>
-                                                                            <TableCell>{formatCurrency(movement.amount)}</TableCell>
-                                                                            <TableCell>{movement.description}</TableCell>
-                                                                            <TableCell>{formatDate(movement.createdAt)}</TableCell>
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0 }}>
+                                                        <Typography variant="h6" gutterBottom sx={{ mt: 0 }}>Movimientos de Caja</Typography>
+                                                        <IconButton disableRipple size="small" onClick={() => setOpenMovementsSectionInDetails(!openMovementsSectionInDetails)} sx={{ p: 0 }}>
+                                                            <KeyboardArrowDown sx={{ transition: '0.5s', transform: openMovementsSectionInDetails ? 'rotate(-180deg)' : 'rotate(0)', backgroundColor: 'primary.main', color: 'primary.contrastText', borderRadius: '50%' }} />
+                                                        </IconButton>
+                                                    </Box>
+                                                    <Box sx={{ height: openMovementsSectionInDetails ? 'auto' : 0, overflow: 'hidden', transition: 'height 0.3s ease-in-out' }}>
+                                                        {sessionDetails.movements && sessionDetails.movements.length > 0 ? (
+                                                            <TableContainer component={Paper} sx={{ background: 'transparent', border: `1px solid ${theme.palette.divider}` }}>
+                                                                <Table size="small">
+                                                                    <TableHead>
+                                                                        <TableRow>
+                                                                            <TableCell>Tipo</TableCell>
+                                                                            <TableCell>Monto</TableCell>
+                                                                            <TableCell>Descripción</TableCell>
+                                                                            <TableCell>Fecha</TableCell>
                                                                         </TableRow>
-                                                                    ))}
-                                                                </TableBody>
-                                                            </Table>
-                                                        </TableContainer>
-                                                    ) : (
-                                                        <Typography variant="body2" color="text.secondary">No hay movimientos registrados.</Typography>
-                                                    )}
+                                                                    </TableHead>
+                                                                    <TableBody>
+                                                                        {sessionDetails.movements.map((movement, index) => (
+                                                                            <TableRow key={index}>
+                                                                                <TableCell>
+                                                                                    <Chip
+                                                                                        label={movement.type === 'ingreso' ? 'Ingreso' : 'Egreso'}
+                                                                                        color={movement.type === 'ingreso' ? 'success' : 'error'}
+                                                                                        size="small"
+                                                                                    />
+                                                                                </TableCell>
+                                                                                <TableCell>{formatCurrency(movement.amount)}</TableCell>
+                                                                                <TableCell>{movement.description}</TableCell>
+                                                                                <TableCell>{formatDate(movement.createdAt)}</TableCell>
+                                                                            </TableRow>
+                                                                        ))}
+                                                                    </TableBody>
+                                                                </Table>
+                                                            </TableContainer>
+                                                        ) : (
+                                                            <Typography variant="body2" color="text.secondary">No hay movimientos registrados.</Typography>
+                                                        )}
+                                                    </Box>
                                                 </Grid>
                                                 <Grid xs={12}>
                                                     <Divider sx={{ my: 2 }} />
                                                 </Grid>
                                                 <Grid xs={12}>
-                                                    <Typography variant="h6" gutterBottom sx={{ mt: 0 }}>Ventas de la Sesión</Typography>
-                                                    {sessionDetails.sales && sessionDetails.sales.length > 0 ? (
-                                                        <TableContainer component={Paper} sx={{ maxHeight: 400, background: 'transparent', border: `1px solid ${theme.palette.divider}` }}>
-                                                                                                             <Table size="small" stickyHeader>
-                                                                                                                                                                    <TableHead sx={{ backgroundColor: theme.palette.background.paper }}>
-                                                                                                                                                                        <TableRow>
-                                                                                                                                                                            <TableCell align="center">Cliente</TableCell>
-                                                                                                                                                                            <TableCell align="center">Total</TableCell>
-                                                                                                                                                                            <TableCell align="center">Método(s) de Pago</TableCell>
-                                                                                                                                                                            <TableCell align="center">Fecha</TableCell>
-                                                                                                                                                                            <TableCell align="center">Items (Proveedor)</TableCell>
-                                                                                                                                                                        </TableRow>
-                                                                                                                                                                    </TableHead>
-                                                                                                                                                                    <TableBody>
-                                                                                                                                                                        {sessionDetails.sales.map((sale) => (
-                                                                                                                                                                            <TableRow key={sale.id}>
-                                                                                                                                                                                <TableCell align="center">{sale.Customer ? sale.Customer.name : 'Consumidor Final'}</TableCell>
-                                                                                                                                                                                <TableCell align="center">{formatCurrency(sale.total_neto)}</TableCell>
-                                                                                                                                                                                <TableCell align="center">
-                                                                                                                                                                                    {sale.sale_payments.map(sp => sp.payment.method).join(', ')}
-                                                                                                                                                                                </TableCell>
-                                                                                                                                                                                <TableCell align="center">{formatDate(sale.createdAt)}</TableCell>
-                                                                                                                                                                                <TableCell align="center">
-                                                                                                                                                                                    {sale.sale_details.map(d => {
-                                                                                                                                                                                        const itemName = d.stock ? d.stock.name : (d.combo ? d.combo.name : 'Producto manual');
-                                                                                                                                                                                        const supplierName = d.stock && d.stock.supplier ? ` (${d.stock.supplier.nombre})` : '';
-                                                                                                                                                                                        return `${itemName}${supplierName}`;
-                                                                                                                                                                                    }).join(', ')}
-                                                                                                                                                                                </TableCell>
-                                                                                                                                                                            </TableRow>
-                                                                                                                                                                        ))}
-                                                                                                                                                                    </TableBody>
-                                                                                                                                                                </Table>                                                        </TableContainer>
-                                                    ) : (
-                                                        <Typography variant="body2" color="text.secondary">No hay ventas registradas en esta sesión.</Typography>
-                                                    )}
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0 }}>
+                                                        <Typography variant="h6" gutterBottom sx={{ mt: 0 }}>Ventas de la Sesión</Typography>
+                                                        <IconButton disableRipple size="small" onClick={() => setOpenSalesSectionInDetails(!openSalesSectionInDetails)} sx={{ p: 0 }}>
+                                                            <KeyboardArrowDown sx={{ transition: '0.5s', transform: openSalesSectionInDetails ? 'rotate(-180deg)' : 'rotate(0)', backgroundColor: 'primary.main', color: 'primary.contrastText', borderRadius: '50%' }} />
+                                                        </IconButton>
+                                                    </Box>
+                                                    <Box sx={{ height: openSalesSectionInDetails ? 'auto' : 0, overflow: 'hidden', transition: 'height 0.3s ease-in-out' }}>
+                                                        {sessionDetails.sales && sessionDetails.sales.length > 0 ? (
+                                                            <TableContainer component={Paper} sx={{ maxHeight: 400, background: 'transparent', border: `1px solid ${theme.palette.divider}` }}>
+                                                                                                                <Table size="small" stickyHeader>
+                                                                                                                                                                                        <TableHead sx={{ backgroundColor: theme.palette.background.paper }}>
+                                                                                                                                                                                            <TableRow>
+                                                                                                                                                                                                <TableCell align="center">Cliente</TableCell>
+                                                                                                                                                                                                <TableCell align="center">Total</TableCell>
+                                                                                                                                                                                                <TableCell align="center">Método(s) de Pago</TableCell>
+                                                                                                                                                                                                <TableCell align="center">Fecha</TableCell>
+                                                                                                                                                                                                <TableCell align="center">Items (Proveedor)</TableCell>
+                                                                                                                                                                                            </TableRow>
+                                                                                                                                                                                        </TableHead>
+                                                                                                                                                                                        <TableBody>
+                                                                                                                                                                                            {sessionDetails.sales.map((sale) => (
+                                                                                                                                                                                                <TableRow key={sale.id}>
+                                                                                                                                                                                                    <TableCell align="center">{sale.Customer ? sale.Customer.name : 'Consumidor Final'}</TableCell>
+                                                                                                                                                                                                    <TableCell align="center">{formatCurrency(sale.total_neto)}</TableCell>
+                                                                                                                                                                                                    <TableCell align="center">
+                                                                                                                                                                                                        {sale.sale_payments.map(sp => sp.payment.method).join(', ')}
+                                                                                                                                                                                                    </TableCell>
+                                                                                                                                                                                                    <TableCell align="center">{formatDate(sale.createdAt)}</TableCell>
+                                                                                                                                                                                                    <TableCell align="center">
+                                                                                                                                                                                                        {sale.sale_details.map(d => {
+                                                                                                                                                                                                            const itemName = d.stock ? d.stock.name : (d.combo ? d.combo.name : 'Producto manual');
+                                                                                                                                                                                                            const supplierName = d.stock && d.stock.supplier ? ` (${d.stock.supplier.nombre})` : '';
+                                                                                                                                                                                                            return `${itemName}${supplierName}`;
+                                                                                                                                                                                                        }).join(', ')}
+                                                                                                                                                                                                    </TableCell>
+                                                                                                                                                                                                </TableRow>
+                                                                                                                                                                                            ))}
+                                                                                                                                                                                        </TableBody>
+                                                                                                                                                                                    </Table>                                                        </TableContainer>
+                                                        ) : (
+                                                            <Typography variant="body2" color="text.secondary">No hay ventas registradas en esta sesión.</Typography>
+                                                        )}
+                                                    </Box>
                                                 </Grid>
                                             </Grid>
                                         </Box>

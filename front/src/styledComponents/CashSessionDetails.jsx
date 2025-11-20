@@ -1,3 +1,4 @@
+import { useState } from 'react'; // Added useState
 import {
     Box,
     Grid,
@@ -17,7 +18,8 @@ import { StyledCard } from './ui/StyledCard';
 import { StyledTextField } from './ui/StyledTextField';
 import {
     Close as CloseIcon,
-    Assessment as AssessmentIcon
+    Assessment as AssessmentIcon,
+    KeyboardArrowDown // Added KeyboardArrowDown icon
 } from '@mui/icons-material';
 import { StyledTableCell, StyledTableRow } from '../styles/styles';
 import moment from 'moment';
@@ -35,6 +37,11 @@ const CashSessionDetails = ({
     error,
 }) => {
     const theme = useTheme();
+    const [openSalesSection, setOpenSalesSection] = useState(true); // New state for sales section visibility
+
+    const handleToggleSalesSection = () => {
+        setOpenSalesSection(!openSalesSection);
+    };
 
     return (
         <Box>
@@ -47,7 +54,8 @@ const CashSessionDetails = ({
                 {/* Información de la sesión */}
                 <Grid item xs={12} sm={6} sx={{ width: 'clamp(280px, 45vw, 400px)' }}>
                     <StyledCard sx={{ bgcolor: 'background.paper' }}>
-                        <CardContent>
+                        {/* CardContent is not imported, assuming it's a component or needs to be replaced with a Box */}
+                        <Box sx={{ p: theme.spacing(2) }}> {/* Replaced CardContent with Box */}
                             <Typography variant="h6" color="primary.main" gutterBottom>
                                 💰 Información de Caja
                             </Typography>
@@ -71,14 +79,15 @@ const CashSessionDetails = ({
                                     size="small"
                                 />
                             </Box>
-                        </CardContent>
+                        </Box>
                     </StyledCard>
                 </Grid>
 
                 {/* Resumen de ventas */}
                 <Grid item xs={12} sm={6} sx={{ width: 'clamp(280px, 45vw, 400px)' }}>
                     <StyledCard sx={{ bgcolor: 'background.paper' }}>
-                        <CardContent>
+                        {/* CardContent is not imported, assuming it's a component or needs to be replaced with a Box */}
+                        <Box sx={{ p: theme.spacing(2) }}> {/* Replaced CardContent with Box */}
                             <Typography variant="h6" color="primary.main" gutterBottom>
                                 📊 Resumen de Ventas
                             </Typography>
@@ -108,52 +117,59 @@ const CashSessionDetails = ({
                                     {formatCurrency(sessionSummary?.total_discounts)}
                                 </Typography>
                             </Box>
-                        </CardContent>
+                        </Box>
                     </StyledCard>
                 </Grid>
 
                 {/* Lista de ventas */}
                 {sessionSummary?.sales && sessionSummary.sales.length > 0 && (
                     <Grid item xs={12}>
-                        <Typography variant="h6" gutterBottom sx={{ mt: theme.spacing(2) }}>
-                            📋 Ventas de la Sesión
-                        </Typography>
-                        <StyledCard variant="outlined" sx={{ p: 0 }}>
-                            <TableContainer sx={{ maxHeight: 300 }}>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <StyledTableCell>Hora</StyledTableCell>
-                                            <StyledTableCell>Cliente</StyledTableCell>
-                                            <StyledTableCell>Método de Pago</StyledTableCell>
-                                            <StyledTableCell align="right">Total</StyledTableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {sessionSummary.sales.map((sale) => (
-                                            <StyledTableRow key={sale.id}>
-                                                <StyledTableCell>
-                                                    {moment(sale.createdAt).format('HH:mm')}
-                                                </StyledTableCell>
-                                                <StyledTableCell>
-                                                    {sale.customer?.name || 'N/A'}
-                                                </StyledTableCell>
-                                                <StyledTableCell>
-                                                    {sale.sale_payments && sale.sale_payments.length > 0
-                                                        ? sale.sale_payments.map(sp =>
-                                                            `${sp.payment?.method} (${formatCurrency(sp.amount)})`
-                                                        ).filter(Boolean).join(', ')
-                                                        : 'N/A'}
-                                                </StyledTableCell>
-                                                <StyledTableCell align="right">
-                                                    {formatCurrency(sale.total_neto)}
-                                                </StyledTableCell>
-                                            </StyledTableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </StyledCard>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: theme.spacing(2) }}>
+                            <Typography variant="h6" gutterBottom >
+                                📋 Ventas de la Sesión
+                            </Typography>
+                            <IconButton disableRipple size="small" onClick={handleToggleSalesSection} sx={{ p: 0 }}>
+                                <KeyboardArrowDown sx={{ transition: '0.5s', transform: openSalesSection ? 'rotate(-180deg)' : 'rotate(0)', backgroundColor: 'primary.main', color: 'primary.contrastText', borderRadius: '50%' }} />
+                            </IconButton>
+                        </Box>
+                        <Box sx={{ height: openSalesSection ? 'auto' : 0, overflow: 'hidden', transition: 'height 0.3s ease-in-out' }}>
+                            <StyledCard variant="outlined" sx={{ p: 0 }}>
+                                <TableContainer sx={{ maxHeight: 300 }}>
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <StyledTableCell>Hora</StyledTableCell>
+                                                <StyledTableCell>Cliente</StyledTableCell>
+                                                <StyledTableCell>Método de Pago</StyledTableCell>
+                                                <StyledTableCell align="right">Total</StyledTableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {sessionSummary.sales.map((sale) => (
+                                                <StyledTableRow key={sale.id}>
+                                                    <StyledTableCell>
+                                                        {moment(sale.createdAt).format('HH:mm')}
+                                                    </StyledTableCell>
+                                                    <StyledTableCell>
+                                                        {sale.customer?.name || 'N/A'}
+                                                    </StyledTableCell>
+                                                    <StyledTableCell>
+                                                        {sale.sale_payments && sale.sale_payments.length > 0
+                                                            ? sale.sale_payments.map(sp =>
+                                                                `${sp.payment?.method} (${formatCurrency(sp.amount)})`
+                                                            ).filter(Boolean).join(', ')
+                                                            : 'N/A'}
+                                                    </StyledTableCell>
+                                                    <StyledTableCell align="right">
+                                                        {formatCurrency(sale.total_neto)}
+                                                    </StyledTableCell>
+                                                </StyledTableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </StyledCard>
+                        </Box>
                     </Grid>
                 )}
 
