@@ -1,5 +1,5 @@
 import { createContext, useMemo, useState, useEffect, useContext } from 'react';
-import { ThemeProvider } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles'; // Revertido
 import CssBaseline from '@mui/material/CssBaseline';
 import { esES } from '@mui/material/locale';
 import theme from '../theme/theme';
@@ -88,10 +88,10 @@ export const ThemeContextProvider = ({ children }) => {
 
   return (
     <ColorModeContext.Provider value={{ SetColorMode, Theme: currentTheme, mode, customPalette }}>
-      <ThemeProvider theme={currentTheme}>
-        <CssBaseline enableColorScheme />
-        {children}
-      </ThemeProvider>
+        <ThemeProvider theme={currentTheme}>
+          <CssBaseline enableColorScheme />
+          {children}
+        </ThemeProvider>
     </ColorModeContext.Provider>
   );
 };

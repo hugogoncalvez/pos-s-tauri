@@ -96,7 +96,7 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
                         <InfoItem label="Cliente" value={saleDetails.Customer?.name || 'Consumidor Final'} />
                         <InfoItem label="Cajero" value={saleDetails.usuario?.username || 'N/A'} />
                         <Grid xs={12}>
-                             <Paper elevation={2} sx={{ p: 2, mt: 2, textAlign: 'center', background: theme.palette.background.default }}>
+                            <Paper elevation={2} sx={{ p: 2, mt: 2, textAlign: 'center', background: theme.palette.background.default }}>
                                 <Typography variant="h6" color="text.secondary" sx={{ fontSize: 'clamp(1rem, 2vw, 1.1rem)' }}>
                                     Total de la Venta
                                 </Typography>
@@ -134,7 +134,7 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
                 </TabPanel>
                 <TabPanel value={tabValue} index={2}>
                     <Typography variant="h6" gutterBottom sx={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.25rem)' }}>Detalle de Pagos</Typography>
-                     <TableContainer component={Paper} elevation={2} sx={{ mt: 2, borderRadius: '8px' }}>
+                    <TableContainer component={Paper} elevation={2} sx={{ mt: 2, borderRadius: '8px' }}>
                         <Table>
                             <TableHead>
                                 <TableRow>
