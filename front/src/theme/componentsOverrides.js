@@ -1,15 +1,16 @@
-const componentsOverrides = (mode) => {
+const componentsOverrides = (mode, palette) => {
   const isLight = mode === 'light';
 
   return {
     MuiCssBaseline: {
-      styleOverrides: (theme) => ({
+      styleOverrides: {
         body: {
-          background: theme.palette.background.default,
+          // Use the direct palette object because the theme object is not fully available during createTheme
+          background: palette.background.default,
           minHeight: '100vh',
           margin: 0,
         },
-      }),
+      },
     },
     MuiAppBar: {
       styleOverrides: {

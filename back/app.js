@@ -165,42 +165,37 @@ app.use('/api', Routes);
 
 const PORT = process.env.PORT || 8000;
 
-// Función asíncrona para iniciar el servidor y la conexión a la DB
-async function startServer() {
-  const MAX_RETRIES = 5;
-  let currentRetry = 0;
-
-  const connectWithRetry = async () => {
-    while (currentRetry < MAX_RETRIES) {
-      try {
-        await db.authenticate();
-        console.log('✅ Conexión a la base de datos establecida correctamente.');
-        return; // Salir del bucle si la conexión es exitosa
-      } catch (error) {
-        currentRetry++;
-        const delay = Math.min(5000 * Math.pow(2, currentRetry - 1), 30000); // Backoff exponencial
-        console.error(`❌ Error al conectar a la DB. Intento ${currentRetry}/${MAX_RETRIES}. Reintentando en ${delay / 1000}s...`);
-
-        if (currentRetry >= MAX_RETRIES) {
-          console.error('❌ Se alcanzó el máximo de reintentos. El servidor no pudo iniciarse.');
-          process.exit(1);
-        }
-
-        await new Promise(res => setTimeout(res, delay));
-      }
-    }
-  };
-
-  await connectWithRetry();
-
-  // Si llegamos aquí, la conexión a la DB fue exitosa.
-  initScheduledTasks();
-  console.log('✅ Tareas programadas inicializadas');
-
+// Función para iniciar el servidor
+function startServer() {
+  // Iniciar el servidor de Express inmediatamente
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor en ejecución en http://localhost:${PORT}/`);
     console.log(`🌐 Accesible desde la red en http://<TU_IP>:${PORT}/`);
   });
+
+  // Intentar conectar a la base de datos en segundo plano, sin bloquear el inicio
+  const initializeDatabaseConnection = async () => {
+    try {
+      // db.js y sessionPool.js ya tienen su propia lógica de reintento,
+      // pero un intento inicial aquí nos permite inicializar las tareas
+      // programadas en el momento correcto.
+      await db.authenticate();
+      console.log('✅ Conexión a la base de datos establecida en el arranque.');
+
+      // Si la conexión es exitosa, inicializar tareas programadas
+      initScheduledTasks();
+      console.log('✅ Tareas programadas inicializadas.');
+    } catch (error) {
+      // Si la conexión inicial falla, el servidor ya está corriendo.
+      // Los módulos de la base de datos (db.js, sessionPool.js)
+      // se encargarán de reintentar la conexión en segundo plano.
+      console.error(`❌ Error en la conexión inicial a la DB: ${error.message}`);
+      console.warn('El servidor está en modo offline. Se reintentará la conexión automáticamente.');
+    }
+  };
+
+  // Ejecutar la inicialización de la DB sin esperar a que termine
+  initializeDatabaseConnection();
 }
 
 // Manejo de cierre limpio de AMBOS pools

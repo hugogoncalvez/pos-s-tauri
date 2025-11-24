@@ -42,6 +42,11 @@ const baseTheme = (mode, customPalette = {}, ...args) => {
   // Process the merged palette to convert complex objects to strings
   mergedPalette = processPaletteValues(mergedPalette);
 
+  // FIX: Ensure background.default is a plain color for CssBaseline compatibility with styled-components
+  // The custom gradient for 'default' is not compatible with what CssBaseline expects.
+  // We use the 'paper' background as a safe, plain color fallback.
+  mergedPalette.background.default = mergedPalette.background.paper;
+
   return createTheme({
     palette: {
       mode,
