@@ -1,5 +1,6 @@
 com.hugogoncalvez.possystem/
-
+mi_cert.crt
+testPOS.csr
 #archivos Gemini
 archivos_gemini/
 GEMINI.MD
