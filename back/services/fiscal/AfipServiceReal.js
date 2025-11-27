@@ -1,10 +1,8 @@
-// back/services/fiscal/AfipServiceReal.js
-
 import fs from 'fs';
 import path from 'path';
 import Afip from '@afipsdk/afip.js';
 import FiscalConfigModel from '../../Models/FiscalConfigModel.js';
-import FiscalError from './FiscalError.js'; // Assuming FiscalError is defined
+import FiscalError from './FiscalError.js';
 
 class AfipServiceReal {
     constructor(pointOfSaleId, environment) {
@@ -56,13 +54,11 @@ class AfipServiceReal {
                 CUIT: this.config.cuit,
                 cert: fs.readFileSync(certPath, 'utf8'),
                 key: fs.readFileSync(keyPath, 'utf8'),
-                access_token: this.config.afip_access_token, // Use token from DB
+                access_token: this.config.afip_access_token,
                 res_folder: path.resolve('afip_res'), // Folder to store WSAA tickets
                 ta_folder: path.resolve('afip_ta'), // Folder to store TA tickets
                 production: this.environment === 'PRODUCTION' ? true : false,
             });
-
-            console.log(`[AFIP Service Real] Initialized for CUIT: ${this.config.cuit}, environment: ${this.environment}`);
 
         } catch (error) {
             console.error("[AFIP Service Real] Initialization error:", error);
@@ -81,16 +77,13 @@ class AfipServiceReal {
         }
         try {
             const response = await this.afip.ElectronicBilling.getLastVoucher(pointOfSaleNumber, voucherType);
-            console.log('[AFIP Service Real] Raw response from getLastVoucher:', response); // Log the raw response
 
             let lastVoucher = 0;
-            // Attempt to convert to a number, defaulting to 0 if invalid
             const parsedResponse = parseInt(response, 10);
             if (!isNaN(parsedResponse)) {
                 lastVoucher = parsedResponse;
             }
             
-            console.log(`[AFIP Service Real] Fetched last voucher number: ${lastVoucher} for POS: ${pointOfSaleNumber}, type: ${voucherType}`);
             return lastVoucher;
         } catch (error) {
             console.error("[AFIP Service Real] Error getting last voucher number:", error);
@@ -108,26 +101,20 @@ class AfipServiceReal {
             throw new FiscalError('AFIP service not initialized.', 'AFIP_NOT_INITIALIZED', 'AFIP_SERVICE_REAL');
         }
         try {
-            // Mapping and getting next voucher number is now async
             const afipVoucherData = await this._mapVoucherDataToAfipFormat(voucherData);
             const res = await this.afip.ElectronicBilling.createVoucher(afipVoucherData);
             
-            console.log('[AFIP Service Real] Voucher created successfully. AFIP Response:', res);
-
-            // Return a merged object including the request data's CbteDesde
             return {
                 ...res,
                 CbteDesde: afipVoucherData.CbteDesde
             };
         } catch (error) {
             console.error("[AFIP Service Real] Error creating voucher:", error);
-            // Check if the error object from the library has more specific details
             const errorMessage = error.message || 'Unknown error';
             const errorStack = error.stack || '';
-            const afipErrors = error.errors || null; // The library might return specific AFIP errors
+            const afipErrors = error.errors || null;
             const afipObservations = error.observations || null;
 
-            // Log more details if available
             if (afipErrors) console.error("[AFIP Service Real] AFIP Errors:", afipErrors);
             if (afipObservations) console.error("[AFIP Service Real] AFIP Observations:", afipObservations);
 
@@ -141,8 +128,6 @@ class AfipServiceReal {
     }
 
     async _mapVoucherDataToAfipFormat(voucherData) {
-        console.log("[AFIP Service Real] Mapping voucher data:", voucherData);
-
         const {
             totalAmount,
             customerDocType,
@@ -154,7 +139,6 @@ class AfipServiceReal {
         // 1. Get the next voucher number
         const lastVoucher = await this.getLastVoucherNumber(voucherType, pointOfSaleId);
         const nextVoucherNumber = lastVoucher + 1;
-        console.log(`[AFIP Service Real] Last voucher was ${lastVoucher}. Next is ${nextVoucherNumber}.`);
 
         // 2. Prepare date
         const fecha = new Date(Date.now() - ((new Date()).getTimezoneOffset() * 60000)).toISOString().split('T')[0].replace(/-/g, '');
@@ -204,8 +188,6 @@ class AfipServiceReal {
             'Iva': ivaAlicuotas,
         };
 
-        console.log("[AFIP Service Real] Mapped AFIP Data:", JSON.stringify(afipData, null, 2));
-
         return afipData;
     }
 
@@ -218,7 +200,6 @@ class AfipServiceReal {
         try {
             return await this.afip.ElectronicBilling.getVoucherConcepts();
         } catch (error) {
-            console.error("[AFIP Service Real] Error getting voucher concepts:", error);
             throw new FiscalError(`Failed to get voucher concepts from AFIP: ${error.message}`, 'AFIP_GET_CONCEPTS_FAILED', 'AFIP_SERVICE_REAL', error.stack);
         }
     }
@@ -232,7 +213,6 @@ class AfipServiceReal {
         try {
             return await this.afip.ElectronicBilling.getDocumentTypes();
         } catch (error) {
-            console.error("[AFIP Service Real] Error getting document types:", error);
             throw new FiscalError(`Failed to get document types from AFIP: ${error.message}`, 'AFIP_GET_DOC_TYPES_FAILED', 'AFIP_SERVICE_REAL', error.stack);
         }
     }
@@ -246,7 +226,6 @@ class AfipServiceReal {
         try {
             return await this.afip.ElectronicBilling.getIvaTypes();
         } catch (error) {
-            console.error("[AFIP Service Real] Error getting IVA types:", error);
             throw new FiscalError(`Failed to get IVA types from AFIP: ${error.message}`, 'AFIP_GET_IVA_TYPES_FAILED', 'AFIP_SERVICE_REAL', error.stack);
         }
     }
@@ -260,7 +239,6 @@ class AfipServiceReal {
         try {
             return await this.afip.ElectronicBilling.getRecipientIVAConditionTypes();
         } catch (error) {
-            console.error("[AFIP Service Real] Error getting Recipient VAT Condition types:", error);
             throw new FiscalError(`Failed to get Recipient VAT Condition types from AFIP: ${error.message}`, 'AFIP_GET_RECEPTOR_IVA_TYPES_FAILED', 'AFIP_SERVICE_REAL', error.stack);
         }
     }

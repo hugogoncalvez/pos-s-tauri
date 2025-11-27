@@ -21,40 +21,29 @@ class FiscalManager {
     }
 
     async _initializeService() {
-        const { emission_type: raw_emission_type, mode: raw_mode, id: pointOfSaleId } = this.pointOfSale;
-        const emission_type = raw_emission_type?.trim();
-        const mode = raw_mode?.trim();
-
-        console.log(`[FiscalManager] Initializing service for POS ID: ${pointOfSaleId}, Emission Type: ${emission_type}, Mode: ${mode}`);
+        const { emission_type, mode, id: pointOfSaleId } = this.pointOfSale;
 
         if (emission_type === 'FACTURA_ELECTRONICA') {
-            console.log('[FiscalManager] Emission type is FACTURA_ELECTRONICA.');
             if (mode === 'SIMULADOR') {
-                console.log('[FiscalManager] Mode is SIMULADOR. Using mock service.');
                 this.service = new AfipService('HOMOLOGACION'); // Mock service, environment doesn't really matter
             } else if (mode === 'HOMOLOGACION' || mode === 'PRODUCCION') {
-                console.log(`[FiscalManager] Mode is ${mode}. Using real AFIP service.`);
                 const environment = mode; // 'HOMOLOGACION' or 'PRODUCCION'
                 const realAfipService = new AfipServiceReal(pointOfSaleId, environment);
                 await realAfipService.init();
                 this.service = realAfipService;
-                console.log('[FiscalManager] Real AFIP service initialized.');
             } else {
-                console.error(`[FiscalManager] Unsupported mode for electronic invoicing: ${mode}`);
                 throw new FiscalError(`Unsupported mode for electronic invoicing: ${mode}`, 'UNSUPPORTED_MODE', 'FISCAL_MANAGER');
             }
         } else if (emission_type === 'CONTROLADOR_FISCAL') {
-            console.log('[FiscalManager] Emission type is CONTROLADOR_FISCAL.');
             // Assuming fiscal printers also have modes
             const environment = (mode === 'PRODUCCION') ? 'PRODUCCION' : 'HOMOLOGACION';
             this.service = new FiscalPrinterService(environment);
         } else {
-            console.error(`[FiscalManager] Unsupported emission type: ${emission_type}`);
             throw new FiscalError(`Unsupported emission type: ${emission_type}`, 'UNSUPPORTED_EMISSION_TYPE', 'FISCAL_MANAGER');
         }
 
         if (!this.service) {
-            console.error('[FiscalManager] CRITICAL: Service was not initialized after _initializeService!');
+            throw new FiscalError('CRITICAL: Service was not initialized after _initializeService!', 'SERVICE_INIT_FAILED', 'FISCAL_MANAGER');
         }
     }
 
