@@ -7,6 +7,15 @@ const FiscalConfig = sequelize.define('fiscal_configs', {
         primaryKey: true,
         autoIncrement: true
     },
+    pointOfSaleId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'points_of_sale', // Nombre de la tabla de puntos de venta
+            key: 'id'
+        },
+        unique: true // Asegura una relación 1 a 1
+    },
     cuit: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -47,6 +56,10 @@ const FiscalConfig = sequelize.define('fiscal_configs', {
     },
     afip_last_token_at: {
         type: DataTypes.DATE,
+        allowNull: true
+    },
+    afip_access_token: {
+        type: DataTypes.STRING(512),
         allowNull: true
     }
 }, {

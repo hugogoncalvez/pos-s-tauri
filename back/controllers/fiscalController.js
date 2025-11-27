@@ -222,7 +222,7 @@ export const generateFiscalInvoice = async (req, res) => {
             voucherType = AFIP_VOUCHER_TYPES.FACTURA_B;
         }
 
-        const fiscalManager = new FiscalManager(pointOfSale);
+        const fiscalManager = await FiscalManager.build(pointOfSale);
 
         voucherData = {
             totalAmount: sale.total_neto,
@@ -253,7 +253,7 @@ export const generateFiscalInvoice = async (req, res) => {
             invoice_type: voucherData.voucherType,
             invoice_number: fiscalResponse.CbteDesde || fiscalResponse.ticketNumber,
             cae: fiscalResponse.CAE || null,
-            cae_due_date: fiscalResponse.CAEFchVto ? new Date(fiscalResponse.CAEFchVto.slice(0, 4), fiscalResponse.CAEFchVto.slice(4, 6) - 1, fiscalResponse.CAEFchVto.slice(6, 8)) : null,
+            cae_due_date: fiscalResponse.CAEFchVto ? new Date(fiscalResponse.CAEFchVto) : null,
             afip_response_data: pointOfSale.emission_type === 'FACTURA_ELECTRONICA' ? fiscalResponse : null,
             fiscal_printer_data: pointOfSale.emission_type === 'CONTROLADOR_FISCAL' ? fiscalResponse : null,
             status: 'EMITIDO',

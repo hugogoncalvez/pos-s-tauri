@@ -87,6 +87,19 @@ const FiscalConfigTab = () => {
                         disabled={!canEdit}
                     />
                 </Grid>
+                <Grid item xs={12}>
+                    <StyledTextField
+                        label="AFIP Access Token"
+                        name="afip_access_token"
+                        value={formValues.afip_access_token || ''}
+                        onChange={handleInputChange}
+                        disabled={!canEdit}
+                        multiline
+                        rows={4}
+                        fullWidth
+                        helperText="Pegue aquí el Access Token generado para la comunicación con AFIP."
+                    />
+                </Grid>
                 <Grid item xs={12} sm={6}>
                     <StyledAutocomplete
                         options={['RESPONSABLE_INSCRIPTO', 'MONOTRIBUTISTA', 'EXENTO', 'CONSUMIDOR_FINAL']}
