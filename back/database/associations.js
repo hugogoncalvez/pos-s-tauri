@@ -114,6 +114,10 @@ FiscalInvoicesModel.belongsTo(SaleModel, { foreignKey: 'sale_id' });
 PointOfSaleModel.hasMany(FiscalInvoicesModel, { foreignKey: 'point_of_sale_id' });
 FiscalInvoicesModel.belongsTo(PointOfSaleModel, { foreignKey: 'point_of_sale_id' });
 
+// PointOfSale <-> FiscalConfig (One-to-One)
+PointOfSaleModel.hasOne(FiscalConfigModel, { foreignKey: 'pointOfSaleId', as: 'fiscal_config' });
+FiscalConfigModel.belongsTo(PointOfSaleModel, { foreignKey: 'pointOfSaleId' });
+
 // Sale <-> PendingFiscalJobs (One-to-Many)
 SaleModel.hasMany(PendingFiscalJobsModel, { foreignKey: 'sale_id' });
 PendingFiscalJobsModel.belongsTo(SaleModel, { foreignKey: 'sale_id' });

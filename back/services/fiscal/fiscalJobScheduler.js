@@ -50,7 +50,7 @@ export const processPendingFiscalJobs = async () => {
                     continue; // Move to next job
                 }
 
-                const fiscalManager = new FiscalManager(pointOfSale);
+                const fiscalManager = await FiscalManager.build(pointOfSale);
                 const fiscalResponse = await fiscalManager.generateFiscalVoucher(voucherData);
 
                 // Log successful fiscal operation

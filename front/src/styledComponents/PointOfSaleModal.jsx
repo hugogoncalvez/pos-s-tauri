@@ -28,8 +28,9 @@ const emissionTypeOptions = [
 ];
 
 const modeOptions = [
-    { value: 'SIMULADOR', label: 'Simulador' },
-    { value: 'PRODUCCION', label: 'Producción' }
+    { value: 'SIMULADOR', label: 'Simulador (Local)' },
+    { value: 'HOMOLOGACION', label: 'Homologación (Pruebas AFIP)' },
+    { value: 'PRODUCCION', label: 'Producción (Real AFIP)' }
 ];
 
 const PointOfSaleModal = ({ open, onClose, pointOfSale = null, onSaveSuccess }) => {
@@ -147,7 +148,7 @@ const PointOfSaleModal = ({ open, onClose, pointOfSale = null, onSaveSuccess }) 
                             onChange={(e, newValue) => handleInputChange({ target: { name: 'mode', value: newValue ? newValue.value : '' } })}
                             isOptionEqualToValue={(option, value) => option.value === value.value}
                             renderInput={(params) => (
-                                <StyledTextField {...params} label="Modo (Simulador/Producción)" required />
+                                <StyledTextField {...params} label="Modo de Operación" required />
                             )}
                         />
                     </Grid>

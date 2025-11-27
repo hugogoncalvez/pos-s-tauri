@@ -16,7 +16,7 @@ const PointOfSale = sequelize.define('points_of_sale', {
         allowNull: false
     },
     mode: {
-        type: DataTypes.ENUM('SIMULADOR', 'PRODUCCION'),
+        type: DataTypes.ENUM('SIMULADOR', 'PRODUCCION', 'HOMOLOGACION'),
         allowNull: false,
         defaultValue: 'SIMULADOR'
     },

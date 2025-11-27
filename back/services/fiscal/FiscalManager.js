@@ -1,32 +1,60 @@
 // back/services/fiscal/FiscalManager.js
 
 import AfipService from './AfipService.js';
+import AfipServiceReal from './AfipServiceReal.js';
 import FiscalPrinterService from './FiscalPrinterService.js';
 import FiscalError from './FiscalError.js';
 
 class FiscalManager {
     constructor(pointOfSale) {
+        this.pointOfSale = pointOfSale;
+        this.service = null;
+    }
+
+    static async build(pointOfSale) {
         if (!pointOfSale || !pointOfSale.emission_type || !pointOfSale.mode) {
             throw new FiscalError('Invalid PointOfSale object provided to FiscalManager.', 'INVALID_POS_DATA', 'FISCAL_MANAGER');
         }
-        this.pointOfSale = pointOfSale;
-        this.service = this._initializeService();
+        const manager = new FiscalManager(pointOfSale);
+        await manager._initializeService();
+        return manager;
     }
 
-    _initializeService() {
-        const { emission_type, mode } = this.pointOfSale;
+    async _initializeService() {
+        const { emission_type: raw_emission_type, mode: raw_mode, id: pointOfSaleId } = this.pointOfSale;
+        const emission_type = raw_emission_type?.trim();
+        const mode = raw_mode?.trim();
 
-        // Determine the environment for the service (HOMOLOGACION or PRODUCCION)
-        const environment = mode === 'SIMULADOR' ? 'HOMOLOGACION' : 'PRODUCCION';
+        console.log(`[FiscalManager] Initializing service for POS ID: ${pointOfSaleId}, Emission Type: ${emission_type}, Mode: ${mode}`);
 
         if (emission_type === 'FACTURA_ELECTRONICA') {
-            // For now, we only have mock services. In the future, we'd choose RealAfipService or MockAfipService
-            return new AfipService(environment);
+            console.log('[FiscalManager] Emission type is FACTURA_ELECTRONICA.');
+            if (mode === 'SIMULADOR') {
+                console.log('[FiscalManager] Mode is SIMULADOR. Using mock service.');
+                this.service = new AfipService('HOMOLOGACION'); // Mock service, environment doesn't really matter
+            } else if (mode === 'HOMOLOGACION' || mode === 'PRODUCCION') {
+                console.log(`[FiscalManager] Mode is ${mode}. Using real AFIP service.`);
+                const environment = mode; // 'HOMOLOGACION' or 'PRODUCCION'
+                const realAfipService = new AfipServiceReal(pointOfSaleId, environment);
+                await realAfipService.init();
+                this.service = realAfipService;
+                console.log('[FiscalManager] Real AFIP service initialized.');
+            } else {
+                console.error(`[FiscalManager] Unsupported mode for electronic invoicing: ${mode}`);
+                throw new FiscalError(`Unsupported mode for electronic invoicing: ${mode}`, 'UNSUPPORTED_MODE', 'FISCAL_MANAGER');
+            }
         } else if (emission_type === 'CONTROLADOR_FISCAL') {
-            // For now, we only have mock services. In the future, we'd choose RealFiscalPrinterService or MockFiscalPrinterService
-            return new FiscalPrinterService(environment);
+            console.log('[FiscalManager] Emission type is CONTROLADOR_FISCAL.');
+            // Assuming fiscal printers also have modes
+            const environment = (mode === 'PRODUCCION') ? 'PRODUCCION' : 'HOMOLOGACION';
+            this.service = new FiscalPrinterService(environment);
         } else {
+            console.error(`[FiscalManager] Unsupported emission type: ${emission_type}`);
             throw new FiscalError(`Unsupported emission type: ${emission_type}`, 'UNSUPPORTED_EMISSION_TYPE', 'FISCAL_MANAGER');
+        }
+
+        if (!this.service) {
+            console.error('[FiscalManager] CRITICAL: Service was not initialized after _initializeService!');
         }
     }
 
