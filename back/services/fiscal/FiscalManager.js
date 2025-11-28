@@ -1,9 +1,11 @@
 // back/services/fiscal/FiscalManager.js
 
 import AfipService from './AfipService.js';
-import AfipServiceReal from './AfipServiceReal.js';
+// import AfipServiceReal from './AfipServiceReal.js'; // Eliminado
 import FiscalPrinterService from './FiscalPrinterService.js';
 import FiscalError from './FiscalError.js';
+import AfipServiceDirect from './AfipServiceDirect.js'; // Añadido
+import FiscalConfigModel from '../../Models/FiscalConfigModel.js'; // Añadido
 
 class FiscalManager {
     constructor(pointOfSale) {
@@ -21,16 +23,33 @@ class FiscalManager {
     }
 
     async _initializeService() {
-        const { emission_type, mode, id: pointOfSaleId } = this.pointOfSale;
+        const { emission_type, mode, id: pointOfSaleId, cuit } = this.pointOfSale; // Agregado cuit
 
         if (emission_type === 'FACTURA_ELECTRONICA') {
             if (mode === 'SIMULADOR') {
                 this.service = new AfipService('HOMOLOGACION'); // Mock service, environment doesn't really matter
             } else if (mode === 'HOMOLOGACION' || mode === 'PRODUCCION') {
                 const environment = mode; // 'HOMOLOGACION' or 'PRODUCCION'
-                const realAfipService = new AfipServiceReal(pointOfSaleId, environment);
-                await realAfipService.init();
-                this.service = realAfipService;
+
+                // Obtener la configuración fiscal de la base de datos
+                const fiscalConfig = await FiscalConfigModel.findOne({
+                    where: { cuit: cuit }, // Usar el cuit del punto de venta
+                });
+
+                if (!fiscalConfig || !fiscalConfig.cuit || !fiscalConfig.cert_path || !fiscalConfig.key_path) {
+                    throw new FiscalError('Configuración fiscal incompleta para AFIP (CUIT, Certificado o Clave privada).', 'INCOMPLETE_FISCAL_CONFIG', 'FISCAL_MANAGER');
+                }
+
+                // Crear un objeto de configuración que AfipServiceDirect espera
+                const afipServiceDirectConfig = {
+                    cuit: fiscalConfig.cuit,
+                    cert_path: fiscalConfig.cert_path,
+                    key_path: fiscalConfig.key_path,
+                    afip_environment: environment, // Pasa 'HOMOLOGACION' o 'PRODUCCION'
+                };
+
+                this.service = new AfipServiceDirect(afipServiceDirectConfig);
+                // AfipServiceDirect no necesita un método init() separado
             } else {
                 throw new FiscalError(`Unsupported mode for electronic invoicing: ${mode}`, 'UNSUPPORTED_MODE', 'FISCAL_MANAGER');
             }
