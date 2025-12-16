@@ -23,7 +23,7 @@ class FiscalManager {
     }
 
     async _initializeService() {
-        const { emission_type, mode, id: pointOfSaleId, cuit } = this.pointOfSale; // Agregado cuit
+        const { emission_type, mode, id: pointOfSaleId } = this.pointOfSale; // Eliminado cuit de aquí
 
         if (emission_type === 'FACTURA_ELECTRONICA') {
             if (mode === 'SIMULADOR') {
@@ -31,24 +31,21 @@ class FiscalManager {
             } else if (mode === 'HOMOLOGACION' || mode === 'PRODUCCION') {
                 const environment = mode; // 'HOMOLOGACION' or 'PRODUCCION'
 
-                // Obtener la configuración fiscal de la base de datos
-                const fiscalConfig = await FiscalConfigModel.findOne({
-                    where: { cuit: cuit }, // Usar el cuit del punto de venta
-                });
+                // Obtener la configuración fiscal (asumiendo que es única)
+                const fiscalConfig = await FiscalConfigModel.findOne();
 
-                if (!fiscalConfig || !fiscalConfig.cuit || !fiscalConfig.cert_path || !fiscalConfig.key_path) {
+                // Usar los nombres de campo correctos del modelo: afip_certificado_path y afip_clave_path
+                if (!fiscalConfig || !fiscalConfig.cuit || !fiscalConfig.afip_certificado_path || !fiscalConfig.afip_clave_path) {
                     throw new FiscalError('Configuración fiscal incompleta para AFIP (CUIT, Certificado o Clave privada).', 'INCOMPLETE_FISCAL_CONFIG', 'FISCAL_MANAGER');
                 }
 
-                // Crear un objeto de configuración que AfipServiceDirect espera
-                const afipServiceDirectConfig = {
-                    cuit: fiscalConfig.cuit,
-                    cert_path: fiscalConfig.cert_path,
-                    key_path: fiscalConfig.key_path,
-                    afip_environment: environment, // Pasa 'HOMOLOGACION' o 'PRODUCCION'
+                // Pass the whole config object and add the environment property
+                const serviceConfig = {
+                    ...fiscalConfig.get({ plain: true }), // Get plain object from Sequelize instance
+                    afip_environment: environment
                 };
 
-                this.service = new AfipServiceDirect(afipServiceDirectConfig);
+                this.service = new AfipServiceDirect(serviceConfig);
                 // AfipServiceDirect no necesita un método init() separado
             } else {
                 throw new FiscalError(`Unsupported mode for electronic invoicing: ${mode}`, 'UNSUPPORTED_MODE', 'FISCAL_MANAGER');

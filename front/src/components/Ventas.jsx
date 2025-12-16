@@ -375,6 +375,13 @@ const Ventas = () => {
   }, [mixedPayments, subtotal, descuento, paymentMethods, selectedCustomer]);
 
   const handleSaveSale = useCallback(async () => {
+    // Safeguard: Ensure a point of sale is selected
+    if (!selectedPointOfSale) {
+      mostrarError('Debe seleccionar un punto de venta para guardar la venta.', theme);
+      setIsSummaryModalOpen(false); // Close modal to force selection
+      return;
+    }
+
     const ticketIdToDelete = currentTicketId;
 
     if (tempTable.length === 0) {
@@ -483,7 +490,7 @@ const Ventas = () => {
         totalFinal, mixedPayments, usuario, theme, subtotal,
         descuentoAplicado, surchargeAmount, processedTempTable, isOnline, queryClient,
         clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
-        mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets
+        mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets, selectedPointOfSale
         ]);
         
         const generateFiscalInvoiceMutation = useSubmit('generateFiscalInvoice'); // Assuming useSubmit can handle POST requests
@@ -734,7 +741,7 @@ const Ventas = () => {
   }, [tempTable, combos]);
 
   const isConfirmButtonDisabled = useCallback(() => {
-    if (isSavingSale || tempTable.length === 0 || saleCompletedId) { // Disable if sale is already completed
+    if (isSavingSale || tempTable.length === 0 || saleCompletedId || !selectedPointOfSale) { // Disable if sale is already completed
       return true;
     }
 
@@ -765,7 +772,8 @@ const Ventas = () => {
     amountReceived,
     totalFinal,
     validateMixedPayments,
-    saleCompletedId // Add dependency
+    saleCompletedId, // Add dependency
+    selectedPointOfSale
   ]);
 
   // Efecto para atajos de teclado globales (versión 7 - keydown con preventDefault inmediato)
@@ -853,6 +861,10 @@ const Ventas = () => {
 
       if (e.altKey && key === 'f') {
         e.preventDefault();
+        if (!selectedPointOfSale) {
+          mostrarError('Debe seleccionar un punto de venta para finalizar la venta.', theme);
+          return;
+        }
         if (tempTable.length > 0) {
           setIsSummaryModalOpen(true);
         } else {
@@ -928,7 +940,7 @@ const Ventas = () => {
     tempTable, isCajaModalOpen, showManualEntryModal, showPendingTickets,
     isPesableModalOpen, isSummaryModalOpen, isPresentationModalOpen, handleSaveSale, handleSavePendingTicket,
     totalFinal, paymentMethods, selectedCustomer, isConfirmButtonDisabled, isLoadingActiveSession, activeSessionData,
-    currentTicketId, theme
+    currentTicketId, theme, selectedPointOfSale
   ]);
 
   useEffect(() => {
@@ -2124,7 +2136,17 @@ const Ventas = () => {
           {tempTable.length > 0 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}> {/* Added gap for spacing */}
               <StyledButton
-                variant="contained" color="success" onClick={() => setIsSummaryModalOpen(true)}
+                variant="contained" color="success" onClick={() => {
+                  if (!selectedPointOfSale) {
+                    mostrarError('Debe seleccionar un punto de venta para finalizar la venta.', theme);
+                    return;
+                  }
+                  if (tempTable.length > 0) {
+                    setIsSummaryModalOpen(true);
+                  } else {
+                    mostrarError('No hay productos en la venta para finalizar.', theme);
+                  }
+                }}
                 startIcon={<ShoppingCartIcon />} size="large"
                 sx={{
                   fontSize: 'clamp(0.9rem, 2vw, 1.1rem)', padding: 'clamp(8px, 2vw, 12px) clamp(16px, 4vw, 24px)',
