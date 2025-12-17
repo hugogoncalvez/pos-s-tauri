@@ -28,7 +28,7 @@ import {
     DialogActions,
     Divider
 } from '@mui/material';
-import Grid from '@mui/material/Unstable_Grid2';
+import Grid from '@mui/material/Grid';
 import { StyledCard } from '../styledComponents/ui/StyledCard';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
 import { StyledAutocomplete } from '../styledComponents/ui/StyledAutocomplete';

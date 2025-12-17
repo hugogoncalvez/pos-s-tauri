@@ -15,7 +15,7 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import ClearIcon from '@mui/icons-material/Clear';
 import { StyledDialog } from './ui/StyledDialog';
 import { StyledButton } from './ui/StyledButton';
-import Grid2 from '@mui/material/Unstable_Grid2';
+import Grid2 from '@mui/material/Grid';
 
 export const ProductPresentationModal = ({ open, onClose, product, onSelectPresentation }) => {
     const [selectedIndex, setSelectedIndex] = useState(0);

@@ -2,7 +2,7 @@ import React, { useMemo, useCallback, useEffect, useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import validator from 'validator';
 
-import Grid from '@mui/material/Unstable_Grid2';
+import Grid from '@mui/material/Grid';
 import {
     Autocomplete,
     Alert,
@@ -520,42 +520,50 @@ export const ProductModalContent = React.memo(({
         <>
             <DialogContent>
                 {productModalError && <Alert severity="error" sx={{ mb: 2 }}>{productModalError}</Alert>}
-                <Grid container spacing={2} sx={{ mt: 0 }} justifyContent="center">
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <TextFieldWithClear
-                            inputRef={barcodeInputRef}
-                            autoFocus
-                            label='Código de Barras'
-                            name='barcode'
-                            value={values?.barcode || ''}
-                            onChange={handleBarcodeChange}
-                            onKeyDown={handleBarcodeScan}
-                            onBlur={handleBarcodeBlur}
-                            inputProps={{ maxLength: 18, inputMode: 'numeric', pattern: '[0-9]*' }}
-                            onInput={(e) => { e.target.value = e.target.value.toString().slice(0, 18); }}
-                            error={!!barcodeError}
-                            helperText={barcodeError || barcodeWarning || barcodeSuccess || (isCheckingBarcode ? 'Verificando...' : '')}
-                            onClear={!isCheckingBarcode ? () => handleBarcodeChange({ target: { value: '' } }) : undefined}
-                            InputProps={{
-                                startAdornment: isCheckingBarcode ? (
-                                    <InputAdornment position="start">
-                                        <CircularProgress size={20} />
-                                    </InputAdornment>
-                                ) : undefined
-                            }}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <TextFieldWithClear
-                            label='Nombre'
-                            name='name'
-                            value={values?.name || ''}
-                            onChange={handleLocalInputChange}
-                            required
-                            onClear={() => handleLocalInputChange({ target: { name: 'name', value: '' } })}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 20vw, 300px)' }}>
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gridTemplateColumns: {
+                            xs: '1fr',
+                            sm: '1fr 1fr',
+                            md: '1fr 1fr 1fr',
+                            lg: '1fr 1fr 1fr 1fr'
+                        },
+                        gap: 2,
+                        mt: 0,
+                    }}
+                >
+                    <TextFieldWithClear
+                        inputRef={barcodeInputRef}
+                        autoFocus
+                        label='Código de Barras'
+                        name='barcode'
+                        value={values?.barcode || ''}
+                        onChange={handleBarcodeChange}
+                        onKeyDown={handleBarcodeScan}
+                        onBlur={handleBarcodeBlur}
+                        inputProps={{ maxLength: 18, inputMode: 'numeric', pattern: '[0-9]*' }}
+                        onInput={(e) => { e.target.value = e.target.value.toString().slice(0, 18); }}
+                        error={!!barcodeError}
+                        helperText={barcodeError || barcodeWarning || barcodeSuccess || (isCheckingBarcode ? 'Verificando...' : '')}
+                        onClear={!isCheckingBarcode ? () => handleBarcodeChange({ target: { value: '' } }) : undefined}
+                        InputProps={{
+                            startAdornment: isCheckingBarcode ? (
+                                <InputAdornment position="start">
+                                    <CircularProgress size={20} />
+                                </InputAdornment>
+                            ) : undefined
+                        }}
+                    />
+                    <TextFieldWithClear
+                        label='Nombre'
+                        name='name'
+                        value={values?.name || ''}
+                        onChange={handleLocalInputChange}
+                        required
+                        onClear={() => handleLocalInputChange({ target: { name: 'name', value: '' } })}
+                    />
+                    <Box sx={{ gridColumn: { xs: '1', sm: '1 / 3', md: '3 / 4', lg: '3 / 5' } }}>
                         <TextFieldWithClear
                             label='Descripción'
                             name='description'
@@ -563,241 +571,226 @@ export const ProductModalContent = React.memo(({
                             onChange={handleLocalInputChange}
                             onClear={() => handleLocalInputChange({ target: { name: 'description', value: '' } })}
                         />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <Autocomplete
-                            options={categoriesData || []}
-                            getOptionLabel={(option) => option.name || ''}
-                            value={categoriesData?.find(option => option.id === values?.category_id) || null}
-                            onChange={(event, newValue) => handleLocalInputChange({ target: { name: 'category_id', value: newValue ? newValue.id : '' } })}
-                            isOptionEqualToValue={(option, value) => option.id === value.id}
-                            renderInput={(params) => (
-                                <TextFieldWithClear
-                                    {...params}
-                                    label="Categoría"
-                                    name='category_id'
-                                    required
-                                    onClear={() => handleLocalInputChange({ target: { name: 'category_id', value: '' } })}
-                                />
-                            )}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(150px, 10vw, 180px)' }}>
-                        <TextFieldWithClear
-                            label='Stock'
-                            name='stock'
-                            type='number'
-                            value={values?.stock || ''}
-                            onChange={handleLocalInputChange}
-                            required
-                            onClear={() => handleLocalInputChange({ target: { name: 'stock', value: '' } })}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <Autocomplete
-                            options={tipoVentaOptions}
-                            getOptionLabel={(option) => option.label}
-                            value={tipoVentaOptions.find(option => option.value === values?.tipo_venta) || null}
-                            onChange={(event, newValue) => handleLocalInputChange({ target: { name: 'tipo_venta', value: newValue ? newValue.value : '' } })}
-                            isOptionEqualToValue={(option, value) => option.value === value.value}
-                            renderInput={(params) => (
-                                <TextFieldWithClear
-                                    {...params}
-                                    label="Tipo de Venta"
-                                    name='tipo_venta'
-                                    required
-                                    onClear={() => handleLocalInputChange({ target: { name: 'tipo_venta', value: '' } })}
-                                />
-                            )}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <Autocomplete
-                            options={unitsData || []}
-                            getOptionLabel={(option) => option.name || ''}
-                            value={unitsData?.find(option => option.id === values?.units_id) || null}
-                            onChange={(event, newValue) => handleLocalInputChange({ target: { name: 'units_id', value: newValue ? newValue.id : '' } })}
-                            isOptionEqualToValue={(option, value) => option.id === value.id}
-                            renderInput={(params) => (
-                                <TextFieldWithClear
-                                    {...params}
-                                    label="Unidad de medida"
-                                    name='units_id'
-                                    required
-                                    onClear={() => handleLocalInputChange({ target: { name: 'units_id', value: '' } })}
-                                />
-                            )}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <StyledAutocomplete
-                            options={Array.isArray(suppliersData) ? suppliersData : []}
-                            getOptionLabel={(option) => {
-                                if (typeof option === 'string') return option;
-                                if (option.inputValue) return option.nombre;
-                                return option.nombre || '';
-                            }}
-                            isOptionEqualToValue={(option, value) => option.id === value.id}
-                            onChange={(event, newValue) => {
-                                if (productModalError) setProductModalError('');
-                                if (typeof newValue === 'string') {
-                                    setNewSupplierName(newValue);
-                                    setSupplierDialogOpen(true);
-                                } else if (newValue && newValue.inputValue) {
-                                    setNewSupplierName(newValue.inputValue);
-                                    setSupplierDialogOpen(true);
-                                } else {
-                                    handleLocalInputChange({ target: { name: 'supplier_id', value: newValue ? newValue.id : null } });
-                                }
-                            }}
-                            value={suppliersData?.find(s => s.id === values?.supplier_id) || null}
-                            filterOptions={(options, params) => {
-                                const filter = createFilterOptions({
-                                    stringify: option => option.nombre,
+                    </Box>
+                    <Autocomplete
+                        options={categoriesData || []}
+                        getOptionLabel={(option) => option.name || ''}
+                        value={categoriesData?.find(option => option.id === values?.category_id) || null}
+                        onChange={(event, newValue) => handleLocalInputChange({ target: { name: 'category_id', value: newValue ? newValue.id : '' } })}
+                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        renderInput={(params) => (
+                            <TextFieldWithClear
+                                {...params}
+                                label="Categoría"
+                                name='category_id'
+                                required
+                                onClear={() => handleLocalInputChange({ target: { name: 'category_id', value: '' } })}
+                            />
+                        )}
+                    />
+                    <TextFieldWithClear
+                        label='Stock'
+                        name='stock'
+                        type='number'
+                        value={values?.stock || ''}
+                        onChange={handleLocalInputChange}
+                        required
+                        onClear={() => handleLocalInputChange({ target: { name: 'stock', value: '' } })}
+                    />
+                    <Autocomplete
+                        options={tipoVentaOptions}
+                        getOptionLabel={(option) => option.label}
+                        value={tipoVentaOptions.find(option => option.value === values?.tipo_venta) || null}
+                        onChange={(event, newValue) => handleLocalInputChange({ target: { name: 'tipo_venta', value: newValue ? newValue.value : '' } })}
+                        isOptionEqualToValue={(option, value) => option.value === value.value}
+                        renderInput={(params) => (
+                            <TextFieldWithClear
+                                {...params}
+                                label="Tipo de Venta"
+                                name='tipo_venta'
+                                required
+                                onClear={() => handleLocalInputChange({ target: { name: 'tipo_venta', value: '' } })}
+                            />
+                        )}
+                    />
+                    <Autocomplete
+                        options={unitsData || []}
+                        getOptionLabel={(option) => option.name || ''}
+                        value={unitsData?.find(option => option.id === values?.units_id) || null}
+                        onChange={(event, newValue) => handleLocalInputChange({ target: { name: 'units_id', value: newValue ? newValue.id : '' } })}
+                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        renderInput={(params) => (
+                            <TextFieldWithClear
+                                {...params}
+                                label="Unidad de medida"
+                                name='units_id'
+                                required
+                                onClear={() => handleLocalInputChange({ target: { name: 'units_id', value: '' } })}
+                            />
+                        )}
+                    />
+                    <StyledAutocomplete
+                        options={Array.isArray(suppliersData) ? suppliersData : []}
+                        getOptionLabel={(option) => {
+                            if (typeof option === 'string') return option;
+                            if (option.inputValue) return option.nombre;
+                            return option.nombre || '';
+                        }}
+                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        onChange={(event, newValue) => {
+                            if (productModalError) setProductModalError('');
+                            if (typeof newValue === 'string') {
+                                setNewSupplierName(newValue);
+                                setSupplierDialogOpen(true);
+                            } else if (newValue && newValue.inputValue) {
+                                setNewSupplierName(newValue.inputValue);
+                                setSupplierDialogOpen(true);
+                            } else {
+                                handleLocalInputChange({ target: { name: 'supplier_id', value: newValue ? newValue.id : null } });
+                            }
+                        }}
+                        value={suppliersData?.find(s => s.id === values?.supplier_id) || null}
+                        filterOptions={(options, params) => {
+                            const filter = createFilterOptions({
+                                stringify: option => option.nombre,
+                            });
+                            const filtered = filter(options, params);
+                            const { inputValue } = params;
+                            const isExisting = options.some((option) => inputValue === option.nombre);
+                            if (inputValue !== '' && !isExisting) {
+                                filtered.push({
+                                    inputValue: inputValue,
+                                    nombre: `Agregar "${inputValue}"`,
                                 });
-                                const filtered = filter(options, params);
-                                const { inputValue } = params;
-                                const isExisting = options.some((option) => inputValue === option.nombre);
-                                if (inputValue !== '' && !isExisting) {
-                                    filtered.push({
-                                        inputValue: inputValue,
-                                        nombre: `Agregar "${inputValue}"`,
-                                    });
-                                }
-                                return filtered;
-                            }}
-                            selectOnFocus
-                            clearOnBlur
-                            handleHomeEndKeys
-                            freeSolo
-                            renderOption={(props, option) => {
-                                const { key, ...rest } = props;
-                                return <li key={key} {...rest}>{option.nombre}</li>;
-                            }}
-                            renderInput={(params) => (
-                                <TextFieldWithClear
-                                    {...params}
-                                    label="Proveedor"
-                                    onClear={() => handleLocalInputChange({ target: { name: 'supplier_id', value: '' } })}
-                                />
-                            )}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <TextFieldWithClear
-                            label='Precio de Compra'
-                            name='cost'
-                            type='number'
-                            value={values?.cost || ''}
-                            onChange={handleLocalInputChange}
-                            required
-                            onClear={() => handleLocalInputChange({ target: { name: 'cost', value: '' } })}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <TextFieldWithClear
-                            label='Precio de Venta'
-                            name='price'
-                            type='number'
-                            value={values?.price || ''}
-                            onChange={handleLocalInputChange}
-                            required
-                            onClear={() => handleLocalInputChange({ target: { name: 'price', value: '' } })}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 220px)' }}>
-                        <TextFieldWithClear
-                            label='Stock mínimo'
-                            name='min_stock'
-                            type='number'
-                            value={values?.min_stock || ''}
-                            onChange={handleLocalInputChange}
-                            required
-                            onClear={() => handleLocalInputChange({ target: { name: 'min_stock', value: '' } })}
-                        />
-                    </Grid>
-                </Grid>
+                            }
+                            return filtered;
+                        }}
+                        selectOnFocus
+                        clearOnBlur
+                        handleHomeEndKeys
+                        freeSolo
+                        renderOption={(props, option) => {
+                            const { key, ...rest } = props;
+                            return <li key={key} {...rest}>{option.nombre}</li>;
+                        }}
+                        renderInput={(params) => (
+                            <TextFieldWithClear
+                                {...params}
+                                label="Proveedor"
+                                onClear={() => handleLocalInputChange({ target: { name: 'supplier_id', value: '' } })}
+                            />
+                        )}
+                    />
+                    <TextFieldWithClear
+                        label='Precio de Compra'
+                        name='cost'
+                        type='number'
+                        value={values?.cost || ''}
+                        onChange={handleLocalInputChange}
+                        required
+                        onClear={() => handleLocalInputChange({ target: { name: 'cost', value: '' } })}
+                    />
+                    <TextFieldWithClear
+                        label='Precio de Venta'
+                        name='price'
+                        type='number'
+                        value={values?.price || ''}
+                        onChange={handleLocalInputChange}
+                        required
+                        onClear={() => handleLocalInputChange({ target: { name: 'price', value: '' } })}
+                    />
+                    <TextFieldWithClear
+                        label='Stock mínimo'
+                        name='min_stock'
+                        type='number'
+                        value={values?.min_stock || ''}
+                        onChange={handleLocalInputChange}
+                        required
+                        onClear={() => handleLocalInputChange({ target: { name: 'min_stock', value: '' } })}
+                    />
+                </Box>
 
                 <Divider sx={{ my: 3 }} />
 
                 {/* Sección de Presentaciones */}
                 <Typography color={theme.palette.text.titlePrimary} variant="h6" gutterBottom>Presentaciones de Venta</Typography>
-                <Grid container spacing={2} justifyContent="center" alignItems="center">
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 250px)' }}>
-                        <TextFieldWithClear
-                            label='Nombre Presentación'
-                            name='name'
-                            value={presentationValues?.name || ''}
-                            onChange={handlePresentationInputChange}
-                            onClear={() => handlePresentationInputChange({ target: { name: 'name', value: '' } })}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 250px)' }}>
-                        <TextFieldWithClear
-                            label='Cantidad en Unidades Base'
-                            name='quantity_in_base_units'
-                            type='number'
-                            value={presentationValues?.quantity_in_base_units ?? ''}
-                            onChange={handlePresentationInputChange}
-                            disabled={values?.tipo_venta === 'pesable'}
-                            onClear={() => handlePresentationInputChange({ target: { name: 'quantity_in_base_units', value: '' } })}
-                            InputProps={{
-                                endAdornment: (
-                                    values?.tipo_venta === 'pesable' && (
-                                        <InputAdornment position="end">
-                                            <Tooltip title="Para pesables, la cantidad es siempre 1 (ej: 1 horma). El stock se descuenta por peso en la venta.">
-                                                <IconButton tabIndex={-1} sx={{ color: theme.palette.info.main }}>
-                                                    <HelpOutlineIcon />
-                                                </IconButton>
-                                            </Tooltip>
-                                        </InputAdornment>
-                                    )
-                                )
-                            }}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 250px)' }}>
-                        <TextFieldWithClear
-                            label='Precio Presentación'
-                            name='price'
-                            type='number'
-                            value={presentationValues?.price || ''}
-                            onChange={handlePresentationInputChange}
-                            onClear={() => handlePresentationInputChange({ target: { name: 'price', value: '' } })}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(200px, 15vw, 250px)' }}>
-                        <TextFieldWithClear
-                            label='Código de Barras (Presentación)'
-                            name='barcode'
-                            value={presentationValues?.barcode || ''}
-                            onChange={handlePresentationInputChange}
-                            onInput={(e) => { e.target.value = e.target.value.toString().slice(0, 13); }}
-                            inputProps={{ maxLength: 13, readOnly: true }}
-                            onClear={() => handlePresentationInputChange({ target: { name: 'barcode', value: '' } })}
-                            InputProps={{
-                                readOnly: true, // Add this line
-                                endAdornment: (
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gridTemplateColumns: {
+                            xs: '1fr',
+                            sm: '1fr 1fr',
+                            md: '1fr 1fr 1fr 1fr auto'
+                        },
+                        gap: 2,
+                        alignItems: 'center'
+                    }}
+                >
+                    <TextFieldWithClear
+                        label='Nombre Presentación'
+                        name='name'
+                        value={presentationValues?.name || ''}
+                        onChange={handlePresentationInputChange}
+                        onClear={() => handlePresentationInputChange({ target: { name: 'name', value: '' } })}
+                    />
+                    <TextFieldWithClear
+                        label='Cantidad en Unidades Base'
+                        name='quantity_in_base_units'
+                        type='number'
+                        value={presentationValues?.quantity_in_base_units ?? ''}
+                        onChange={handlePresentationInputChange}
+                        disabled={values?.tipo_venta === 'pesable'}
+                        onClear={() => handlePresentationInputChange({ target: { name: 'quantity_in_base_units', value: '' } })}
+                        InputProps={{
+                            endAdornment: (
+                                values?.tipo_venta === 'pesable' && (
                                     <InputAdornment position="end">
-                                        <Tooltip title="Generar Código de Barras">
-                                            <IconButton
-                                                onClick={handleGenerateBarcode}
-                                                disabled={isGeneratingBarcode}
-                                            >
-                                                {isGeneratingBarcode ? <CircularProgress size={24} /> : <AutorenewIcon />}
+                                        <Tooltip title="Para pesables, la cantidad es siempre 1 (ej: 1 horma). El stock se descuenta por peso en la venta.">
+                                            <IconButton tabIndex={-1} sx={{ color: theme.palette.info.main }}>
+                                                <HelpOutlineIcon />
                                             </IconButton>
                                         </Tooltip>
                                     </InputAdornment>
                                 )
-                            }}
-                        />
-                    </Grid>
-                    <Grid sx={{ width: 'clamp(150px, 10vw, 180px)' }}>
-                        <StyledButton variant="contained" onClick={handleAddPresentation}>
-                            {editingPresentationIndex !== null ? 'Actualizar Presentación' : 'Agregar Presentación'}
-                        </StyledButton>
-                    </Grid>
-                </Grid>
+                            )
+                        }}
+                    />
+                    <TextFieldWithClear
+                        label='Precio Presentación'
+                        name='price'
+                        type='number'
+                        value={presentationValues?.price || ''}
+                        onChange={handlePresentationInputChange}
+                        onClear={() => handlePresentationInputChange({ target: { name: 'price', value: '' } })}
+                    />
+                    <TextFieldWithClear
+                        label='Código de Barras (Presentación)'
+                        name='barcode'
+                        value={presentationValues?.barcode || ''}
+                        onChange={handlePresentationInputChange}
+                        onInput={(e) => { e.target.value = e.target.value.toString().slice(0, 13); }}
+                        inputProps={{ maxLength: 13, readOnly: true }}
+                        onClear={() => handlePresentationInputChange({ target: { name: 'barcode', value: '' } })}
+                        InputProps={{
+                            readOnly: true, // Add this line
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <Tooltip title="Generar Código de Barras">
+                                        <IconButton
+                                            onClick={handleGenerateBarcode}
+                                            disabled={isGeneratingBarcode}
+                                        >
+                                            {isGeneratingBarcode ? <CircularProgress size={24} /> : <AutorenewIcon />}
+                                        </IconButton>
+                                    </Tooltip>
+                                </InputAdornment>
+                            )
+                        }}
+                    />
+                    <StyledButton variant="contained" onClick={handleAddPresentation}>
+                        {editingPresentationIndex !== null ? 'Actualizar' : 'Agregar'}
+                    </StyledButton>
+                </Box>
 
                 {presentations.length > 0 && (
                     <Box sx={{ mt: 3 }}>

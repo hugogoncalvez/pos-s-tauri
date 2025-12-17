@@ -26,7 +26,7 @@ import { StyledCard } from '../styledComponents/ui/StyledCard';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
 import { StyledDialog } from '../styledComponents/ui/StyledDialog';
 import { StyledTextField } from '../styledComponents/ui/StyledTextField';
-import Grid from '@mui/material/Unstable_Grid2';
+import Grid from '@mui/material/Grid';
 import {
     AccountBalanceWallet as CashIcon,
     History as HistoryIcon,

@@ -85,133 +85,127 @@ export const NewProductModal = ({ open, handleClose, onProductAdded, initialName
             </DialogTitle>
             <DialogContent sx={{ p: 0, backgroundColor: 'background.paper' }}>
                 <Box sx={{ backgroundColor: 'background.dialog', color: 'text.primary', p: 3 }}>
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <TextFieldWithClear
-                                autoFocus
-                                name="name"
-                                label="Nombre del Producto"
-                                fullWidth
-                                value={values.name || ''}
-                                onChange={handleInputChange}
-                                required
-                                onClear={() => reset('name')}
-                            />
-                        </Grid>
-                        <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <TextFieldWithClear
-                                name="description"
-                                label="Descripción"
-                                fullWidth
-                                value={values.description || ''}
-                                onChange={handleInputChange}
-                                required
-                                onClear={() => reset('description')}
-                            />
-                        </Grid>
-                        <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <TextFieldWithClear
-                                name="barcode"
-                                label="Código de Barras"
-                                fullWidth
-                                type="number"
-                                onInput={(e) => { e.target.value = (e.target.value).toString().slice(0, 13) }}
-                                value={values.barcode || ''}
-                                onChange={handleInputChange}
-                                onClear={() => reset('barcode')}
-                            />
-                        </Grid>
-                        <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <Autocomplete
-                                options={categories || []}
-                                getOptionLabel={(option) => option.name || ''}
-                                value={categories?.find(option => option.id === values.category_id) || null}
-                                onChange={(event, newValue) => handleInputChange({ target: { name: 'category_id', value: newValue ? newValue.id : '' } })}
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                slotProps={{
-                                    clearButton: { tabIndex: -1 },
-                                    popupIndicator: { tabIndex: -1 },
-                                }}
-                                renderInput={(params) => (
-                                    <StyledTextField
-                                        {...params}
-                                        label="Categoría"
-                                        fullWidth
-                                        required
-                                    />
-                                )}
-                            />
-                        </Grid>
-                        <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <Autocomplete
-                                options={units || []}
-                                getOptionLabel={(option) => option.name || ''}
-                                value={units?.find(option => option.id === values.units_id) || null}
-                                onChange={(event, newValue) => handleInputChange({ target: { name: 'units_id', value: newValue ? newValue.id : '' } })}
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                slotProps={{
-                                    clearButton: { tabIndex: -1 },
-                                    popupIndicator: { tabIndex: -1 },
-                                }}
-                                renderInput={(params) => (
-                                    <StyledTextField
-                                        {...params}
-                                        label="Unidad de Medida"
-                                        fullWidth
-                                        required
-                                    />
-                                )}
-                            />
-                        </Grid>
-                        <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <TextFieldWithClear
-                                name="stock"
-                                label="Stock Inicial"
-                                type="number"
-                                fullWidth
-                                value={values.stock || ''}
-                                onChange={handleInputChange}
-                                required
-                                helperText="Este será el stock inicial."
-                                onClear={() => reset('stock')}
-                            />
-                        </Grid>
-                        <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <TextFieldWithClear
-                                name="cost"
-                                label="Precio de Costo"
-                                type="number"
-                                fullWidth
-                                value={values.cost || ''}
-                                onChange={handleInputChange}
-                                required
-                                onClear={() => reset('cost')}
-                            />
-                        </Grid>
-                        <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <TextFieldWithClear
-                                name="price"
-                                label="Precio de Venta"
-                                type="number"
-                                fullWidth
-                                value={values.price || ''}
-                                onChange={handleInputChange}
-                                required
-                                onClear={() => reset('price')}
-                            />
-                        </Grid>
-                        <Grid item xs={6} sm={6} md={4} lg={3}>
-                            <TextFieldWithClear
-                                name="min_stock"
-                                label="Stock Mínimo"
-                                type="number"
-                                fullWidth
-                                value={values.min_stock || ''}
-                                onChange={handleInputChange}
-                                onClear={() => reset('min_stock')}
-                            />
-                        </Grid>
-                    </Grid>
+                    <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: {
+                            xs: '1fr 1fr',
+                            sm: '1fr 1fr',
+                            md: '1fr 1fr 1fr',
+                            lg: '1fr 1fr 1fr 1fr'
+                        },
+                        gap: 2,
+                        mt: 1
+                    }}>
+                        <TextFieldWithClear
+                            autoFocus
+                            name="name"
+                            label="Nombre del Producto"
+                            fullWidth
+                            value={values.name || ''}
+                            onChange={handleInputChange}
+                            required
+                            onClear={() => reset('name')}
+                        />
+                        <TextFieldWithClear
+                            name="description"
+                            label="Descripción"
+                            fullWidth
+                            value={values.description || ''}
+                            onChange={handleInputChange}
+                            required
+                            onClear={() => reset('description')}
+                        />
+                        <TextFieldWithClear
+                            name="barcode"
+                            label="Código de Barras"
+                            fullWidth
+                            type="number"
+                            onInput={(e) => { e.target.value = (e.target.value).toString().slice(0, 13) }}
+                            value={values.barcode || ''}
+                            onChange={handleInputChange}
+                            onClear={() => reset('barcode')}
+                        />
+                        <Autocomplete
+                            options={categories || []}
+                            getOptionLabel={(option) => option.name || ''}
+                            value={categories?.find(option => option.id === values.category_id) || null}
+                            onChange={(event, newValue) => handleInputChange({ target: { name: 'category_id', value: newValue ? newValue.id : '' } })}
+                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                            slotProps={{
+                                clearButton: { tabIndex: -1 },
+                                popupIndicator: { tabIndex: -1 },
+                            }}
+                            fullWidth
+                            renderInput={(params) => (
+                                <StyledTextField
+                                    {...params}
+                                    label="Categoría"
+                                    fullWidth
+                                    required
+                                />
+                            )}
+                        />
+                        <Autocomplete
+                            options={units || []}
+                            getOptionLabel={(option) => option.name || ''}
+                            value={units?.find(option => option.id === values.units_id) || null}
+                            onChange={(event, newValue) => handleInputChange({ target: { name: 'units_id', value: newValue ? newValue.id : '' } })}
+                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                            slotProps={{
+                                clearButton: { tabIndex: -1 },
+                                popupIndicator: { tabIndex: -1 },
+                            }}
+                            fullWidth
+                            renderInput={(params) => (
+                                <StyledTextField
+                                    {...params}
+                                    label="Unidad de Medida"
+                                    fullWidth
+                                    required
+                                />
+                            )}
+                        />
+                        <TextFieldWithClear
+                            name="stock"
+                            label="Stock Inicial"
+                            type="number"
+                            fullWidth
+                            value={values.stock || ''}
+                            onChange={handleInputChange}
+                            required
+                            helperText="Este será el stock inicial."
+                            onClear={() => reset('stock')}
+                        />
+                        <TextFieldWithClear
+                            name="cost"
+                            label="Precio de Costo"
+                            type="number"
+                            fullWidth
+                            value={values.cost || ''}
+                            onChange={handleInputChange}
+                            required
+                            onClear={() => reset('cost')}
+                        />
+                        <TextFieldWithClear
+                            name="price"
+                            label="Precio de Venta"
+                            type="number"
+                            fullWidth
+                            value={values.price || ''}
+                            onChange={handleInputChange}
+                            required
+                            onClear={() => reset('price')}
+                        />
+                        <TextFieldWithClear
+                            name="min_stock"
+                            label="Stock Mínimo"
+                            type="number"
+                            fullWidth
+                            value={values.min_stock || ''}
+                            onChange={handleInputChange}
+                            onClear={() => reset('min_stock')}
+                        />
+                    </Box>
                 </Box>
             </DialogContent>
             <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog' }}>

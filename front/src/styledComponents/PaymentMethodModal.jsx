@@ -38,26 +38,29 @@ const PaymentMethodModal = ({ open, onClose, onSave, isLoading, method }) => {
                 <IconButton onClick={onClose}><CloseIcon color="error" /></IconButton>
             </DialogTitle>
             <DialogContent dividers sx={{ backgroundColor: 'background.dialog' }}>
-                <Grid container spacing={2} sx={{ mt: 1 }}>
-                    <Grid item xs={12}>
-                        <StyledTextField
-                            autoFocus
-                            name="method"
-                            label="Nombre del Método"
-                            value={values?.method || ''}
-                            onChange={handleInputChange}
-                            required
-                        />
-                    </Grid>
-                    <Grid item xs={12}>
-                        <StyledTextField
-                            name="description"
-                            label="Descripción"
-                            value={values?.description || ''}
-                            onChange={handleInputChange}
-                        />
-                    </Grid>
-                </Grid>
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr',
+                        gap: 2,
+                        mt: 1
+                    }}
+                >
+                    <StyledTextField
+                        autoFocus
+                        name="method"
+                        label="Nombre del Método"
+                        value={values?.method || ''}
+                        onChange={handleInputChange}
+                        required
+                    />
+                    <StyledTextField
+                        name="description"
+                        label="Descripción"
+                        value={values?.description || ''}
+                        onChange={handleInputChange}
+                    />
+                </Box>
             </DialogContent>
             <DialogActions sx={{ backgroundColor: 'background.dialog' }}>
                 <StyledButton onClick={onClose} variant="outlined" color="secondary">Cancelar</StyledButton>

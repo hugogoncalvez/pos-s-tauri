@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Paper, Skeleton, useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import Grid from '@mui/material/Unstable_Grid2';
+import Grid from '@mui/material/Grid';
 
 const SalesHistorySkeleton = () => {
     const theme = useTheme();

@@ -72,65 +72,69 @@ const CustomerModalContent = ({
     <Box sx={{ backgroundColor: 'background.dialog', padding: 2 }}>
       {(dialogMode === 'create' || dialogMode === 'edit') ? (
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          <Grid container spacing={2} sx={{ backgroundColor: 'background.dialog', maxWidth: '900px' }}>
-                          <Grid item xs={12} sm={6}>
-                          <TextFieldWithClear
-                            fullWidth
-                            label="Nombre *"
-                            name="name"
-                            value={formData.name || ''}
-                            onChange={handleInputChange}
-                            required
-                            autoFocus
-                            onClear={() => handleInputChange({ target: { name: 'name', value: '' } })}
-                            inputProps={{ minLength: 2 }}
-                            error={String(formData.name || '').trim().length > 0 && String(formData.name || '').trim().length < 2}
-                            helperText={String(formData.name || '').trim().length > 0 && String(formData.name || '').trim().length < 2 ? 'El nombre debe tener al menos 2 caracteres' : ''}
-                          />
-                        </Grid>            <Grid item xs={12} sm={6}>
-              <TextFieldWithClear
-                fullWidth
-                label="DNI"
-                name="dni"
-                value={formData.dni || ''}
-                onChange={(e) => {
-                  handleInputChange(e);
-                  checkDuplicate('dni', e.target.value, customer?.id);
-                }}
-                error={!!dniExistsError || (String(formData.dni || '').trim().length > 0 && (String(formData.dni || '').trim().length < 6 || String(formData.dni || '').trim().length > 9))}
-                helperText={dniExistsError || (String(formData.dni || '').trim().length > 0 && (String(formData.dni || '').trim().length < 6 || String(formData.dni || '').trim().length > 9) ? 'El DNI debe tener entre 6 y 9 caracteres' : '')}
-                onClear={() => handleInputChange({ target: { name: 'dni', value: '' } })}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextFieldWithClear
-                fullWidth
-                label="Teléfono"
-                name="phone"
-                value={formData.phone || ''}
-                onChange={handleInputChange}
-                onClear={() => handleInputChange({ target: { name: 'phone', value: '' } })}
-                error={String(formData.phone || '').trim().length > 0 && (String(formData.phone || '').trim().length < 8 || String(formData.phone || '').trim().length > 20)}
-                helperText={String(formData.phone || '').trim().length > 0 && (String(formData.phone || '').trim().length < 8 || String(formData.phone || '').trim().length > 20) ? 'El teléfono debe tener entre 8 y 20 caracteres' : ''}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextFieldWithClear
-                fullWidth
-                label="Email"
-                name="email"
-                type="email"
-                value={formData.email || ''}
-                onChange={(e) => {
-                  handleInputChange(e);
-                  checkDuplicate('email', e.target.value, customer?.id);
-                }}
-                error={!!emailExistsError || (String(formData.email || '').trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))}
-                helperText={emailExistsError || (String(formData.email || '').trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) ? 'Formato de email no válido' : '')}
-                onClear={() => handleInputChange({ target: { name: 'email', value: '' } })}
-              />
-            </Grid>
-            <Grid item xs={12}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: '1fr 1fr'
+              },
+              gap: 2,
+              backgroundColor: 'background.dialog',
+              maxWidth: '900px'
+            }}
+          >
+            <TextFieldWithClear
+              fullWidth
+              label="Nombre *"
+              name="name"
+              value={formData.name || ''}
+              onChange={handleInputChange}
+              required
+              autoFocus
+              onClear={() => handleInputChange({ target: { name: 'name', value: '' } })}
+              inputProps={{ minLength: 2 }}
+              error={String(formData.name || '').trim().length > 0 && String(formData.name || '').trim().length < 2}
+              helperText={String(formData.name || '').trim().length > 0 && String(formData.name || '').trim().length < 2 ? 'El nombre debe tener al menos 2 caracteres' : ''}
+            />
+            <TextFieldWithClear
+              fullWidth
+              label="DNI"
+              name="dni"
+              value={formData.dni || ''}
+              onChange={(e) => {
+                handleInputChange(e);
+                checkDuplicate('dni', e.target.value, customer?.id);
+              }}
+              error={!!dniExistsError || (String(formData.dni || '').trim().length > 0 && (String(formData.dni || '').trim().length < 6 || String(formData.dni || '').trim().length > 9))}
+              helperText={dniExistsError || (String(formData.dni || '').trim().length > 0 && (String(formData.dni || '').trim().length < 6 || String(formData.dni || '').trim().length > 9) ? 'El DNI debe tener entre 6 y 9 caracteres' : '')}
+              onClear={() => handleInputChange({ target: { name: 'dni', value: '' } })}
+            />
+            <TextFieldWithClear
+              fullWidth
+              label="Teléfono"
+              name="phone"
+              value={formData.phone || ''}
+              onChange={handleInputChange}
+              onClear={() => handleInputChange({ target: { name: 'phone', value: '' } })}
+              error={String(formData.phone || '').trim().length > 0 && (String(formData.phone || '').trim().length < 8 || String(formData.phone || '').trim().length > 20)}
+              helperText={String(formData.phone || '').trim().length > 0 && (String(formData.phone || '').trim().length < 8 || String(formData.phone || '').trim().length > 20) ? 'El teléfono debe tener entre 8 y 20 caracteres' : ''}
+            />
+            <TextFieldWithClear
+              fullWidth
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email || ''}
+              onChange={(e) => {
+                handleInputChange(e);
+                checkDuplicate('email', e.target.value, customer?.id);
+              }}
+              error={!!emailExistsError || (String(formData.email || '').trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))}
+              helperText={emailExistsError || (String(formData.email || '').trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) ? 'Formato de email no válido' : '')}
+              onClear={() => handleInputChange({ target: { name: 'email', value: '' } })}
+            />
+            <Box sx={{ gridColumn: { xs: '1', sm: '1 / 3' } }}>
               <TextFieldWithClear
                 fullWidth
                 label="Dirección"
@@ -139,37 +143,32 @@ const CustomerModalContent = ({
                 onChange={handleInputChange}
                 onClear={() => handleInputChange({ target: { name: 'address', value: '' } })}
               />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextFieldWithClear
-                fullWidth
-                label="Límite de Crédito"
-                name="credit_limit"
-                type="number"
-                value={String(formData.credit_limit || '')}
-                onChange={(e) => handleInputChange({ target: { name: 'credit_limit', value: e.target.value === '' ? 0 : parseFloat(e.target.value) } })}
-                onClear={() => handleInputChange({ target: { name: 'credit_limit', value: 0 } })}
-                error={parseFloat(formData.credit_limit || 0) < 0}
-                helperText={parseFloat(formData.credit_limit || 0) < 0 ? 'El límite de crédito no puede ser negativo' : ''}
-                inputProps={{ min: 0 }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextFieldWithClear
-                fullWidth
-                label={dialogMode === 'create' ? "Deuda Inicial" : "Deuda Actual"}
-                name="debt"
-                type="number"
-                value={String(formData.debt || '')}
-                onChange={(e) => handleInputChange({ target: { name: 'debt', value: e.target.value === '' ? 0 : parseFloat(e.target.value) } })}
-                onClear={() => handleInputChange({ target: { name: 'debt', value: 0 } })}
-                error={parseFloat(formData.debt || 0) < 0}
-                helperText={parseFloat(formData.debt || 0) < 0 ? 'La deuda no puede ser negativa' : ''}
-                inputProps={{ min: 0 }}
-              />
-            </Grid>
-          </Grid>
+            </Box>
+            <TextFieldWithClear
+              fullWidth
+              label="Límite de Crédito"
+              name="credit_limit"
+              type="number"
+              value={String(formData.credit_limit || '')}
+              onChange={(e) => handleInputChange({ target: { name: 'credit_limit', value: e.target.value === '' ? 0 : parseFloat(e.target.value) } })}
+              onClear={() => handleInputChange({ target: { name: 'credit_limit', value: 0 } })}
+              error={parseFloat(formData.credit_limit || 0) < 0}
+              helperText={parseFloat(formData.credit_limit || 0) < 0 ? 'El límite de crédito no puede ser negativo' : ''}
+              inputProps={{ min: 0 }}
+            />
+            <TextFieldWithClear
+              fullWidth
+              label={dialogMode === 'create' ? "Deuda Inicial" : "Deuda Actual"}
+              name="debt"
+              type="number"
+              value={String(formData.debt || '')}
+              onChange={(e) => handleInputChange({ target: { name: 'debt', value: e.target.value === '' ? 0 : parseFloat(e.target.value) } })}
+              onClear={() => handleInputChange({ target: { name: 'debt', value: 0 } })}
+              error={parseFloat(formData.debt || 0) < 0}
+              helperText={parseFloat(formData.debt || 0) < 0 ? 'La deuda no puede ser negativa' : ''}
+              inputProps={{ min: 0 }}
+            />
+          </Box>
         </Box>
       ) : customer ? (
         <Box sx={{ pt: 2 }}>

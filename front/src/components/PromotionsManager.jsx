@@ -422,115 +422,113 @@ const PromotionsManager = () => {
         <Box component="form" onSubmit={handlePromotionSubmit}>
           <LocalizationProvider dateAdapter={AdapterMoment}>
             <DialogContent sx={{ backgroundColor: 'background.dialog' }}>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12} sm={6}>
-                  <StyledTextField
-                    fullWidth
-                    required
-                    label="Nombre de la Promoción"
-                    name="name"
-                    value={formValues.name || ''}
-                    onChange={handleInputChange}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Autocomplete
-                    fullWidth
-                    required
-                    options={promotionTypeOptions}
-                    getOptionLabel={(option) => option.label}
-                    value={promotionTypeOptions.find(option => option.value === formValues.type) || null}
-                    onChange={(event, newValue) => {
-                      handleInputChange({ target: { name: 'type', value: newValue ? newValue.value : '' } });
-                    }}
-                    renderInput={(params) => (
-                      <StyledTextField
-                        {...params}
-                        label="Tipo de Promoción"
-                      />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledTextField
-                    fullWidth
-                    required
-                    type="number"
-                    label={formValues.type === 'FIXED_PRICE_ON_NTH' ? 'Precio Fijo' : 'Valor del Descuento'}
-                    name="discount_value"
-                    value={formValues.discount_value || ''}
-                    onChange={handleInputChange}
-                    disabled={formValues.type === 'BOGO'}
-                    helperText={formValues.type === 'BOGO' ? 'No aplicable para promociones BOGO' : ''}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'discount_value', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledTextField
-                    fullWidth
-                    required
-                    type="number"
-                    label="Cantidad Requerida"
-                    name="required_quantity"
-                    value={formValues.required_quantity || ''}
-                    onChange={handleInputChange}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'required_quantity', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledDatePicker
-                    fullWidth
-                    required
-                    label="Fecha de Inicio"
-                    name="start_date"
-                    value={formValues.start_date ? moment(formValues.start_date) : null}
-                    onChange={(newValue) => {
-                      handleInputChange({ target: { name: 'start_date', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
-                    }}
-                    format="DD/MM/YYYY"
-                    slotProps={{
-                      textField: {
-                        InputProps: {
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <IconButton onClick={() => handleInputChange({ target: { name: 'start_date', value: '' } })}>
-                                <ClearIcon color='error' />
-                              </IconButton>
-                            </InputAdornment>
-                          )
-                        }
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: '1fr 1fr'
+                  },
+                  gap: 2,
+                  mt: 1,
+                }}
+              >
+                <StyledTextField
+                  fullWidth
+                  required
+                  label="Nombre de la Promoción"
+                  name="name"
+                  value={formValues.name || ''}
+                  onChange={handleInputChange}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                />
+                <Autocomplete
+                  fullWidth
+                  required
+                  options={promotionTypeOptions}
+                  getOptionLabel={(option) => option.label}
+                  value={promotionTypeOptions.find(option => option.value === formValues.type) || null}
+                  onChange={(event, newValue) => {
+                    handleInputChange({ target: { name: 'type', value: newValue ? newValue.value : '' } });
+                  }}
+                  renderInput={(params) => (
+                    <StyledTextField
+                      {...params}
+                      label="Tipo de Promoción"
+                    />
+                  )}
+                />
+                <StyledTextField
+                  fullWidth
+                  required
+                  type="number"
+                  label={formValues.type === 'FIXED_PRICE_ON_NTH' ? 'Precio Fijo' : 'Valor del Descuento'}
+                  name="discount_value"
+                  value={formValues.discount_value || ''}
+                  onChange={handleInputChange}
+                  disabled={formValues.type === 'BOGO'}
+                  helperText={formValues.type === 'BOGO' ? 'No aplicable para promociones BOGO' : ''}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'discount_value', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                />
+                <StyledTextField
+                  fullWidth
+                  required
+                  type="number"
+                  label="Cantidad Requerida"
+                  name="required_quantity"
+                  value={formValues.required_quantity || ''}
+                  onChange={handleInputChange}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'required_quantity', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                />
+                <StyledDatePicker
+                  fullWidth
+                  required
+                  label="Fecha de Inicio"
+                  name="start_date"
+                  value={formValues.start_date ? moment(formValues.start_date) : null}
+                  onChange={(newValue) => {
+                    handleInputChange({ target: { name: 'start_date', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                  }}
+                  format="DD/MM/YYYY"
+                  slotProps={{
+                    textField: {
+                      InputProps: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <IconButton onClick={() => handleInputChange({ target: { name: 'start_date', value: '' } })}>
+                              <ClearIcon color='error' />
+                            </IconButton>
+                          </InputAdornment>
+                        )
                       }
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledDatePicker
-                    fullWidth
-                    required
-                    label="Fecha de Fin"
-                    name="end_date"
-                    value={formValues.end_date ? moment(formValues.end_date) : null}
-                    onChange={(newValue) => {
-                      handleInputChange({ target: { name: 'end_date', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
-                    }}
-                    format="DD/MM/YYYY"
-                    slotProps={{
-                      textField: {
-                        InputProps: {
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <IconButton onClick={() => handleInputChange({ target: { name: 'end_date', value: '' } })}>
-                                <ClearIcon color='error' />
-                              </IconButton>
-                            </InputAdornment>
-                          )
-                        }
+                    }
+                  }}
+                />
+                <StyledDatePicker
+                  fullWidth
+                  required
+                  label="Fecha de Fin"
+                  name="end_date"
+                  value={formValues.end_date ? moment(formValues.end_date) : null}
+                  onChange={(newValue) => {
+                    handleInputChange({ target: { name: 'end_date', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                  }}
+                  format="DD/MM/YYYY"
+                  slotProps={{
+                    textField: {
+                      InputProps: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <IconButton onClick={() => handleInputChange({ target: { name: 'end_date', value: '' } })}>
+                              <ClearIcon color='error' />
+                            </IconButton>
+                          </InputAdornment>
+                        )
                       }
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12}>
+                    }
+                  }}
+                />
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <Autocomplete
                     fullWidth
                     required
@@ -547,8 +545,8 @@ const PromotionsManager = () => {
                       />
                     )}
                   />
-                </Grid>
-                <Grid item xs={12}>
+                </Box>
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <Autocomplete
                     multiple
                     options={productOptions}
@@ -583,8 +581,8 @@ const PromotionsManager = () => {
                       />
                     )}
                   />
-                </Grid>
-                <Grid item xs={12}>
+                </Box>
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <Autocomplete
                     multiple
                     options={presentationOptions}
@@ -613,8 +611,8 @@ const PromotionsManager = () => {
                       />
                     )}
                   />
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </DialogContent>
           </LocalizationProvider>
           <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog' }}>

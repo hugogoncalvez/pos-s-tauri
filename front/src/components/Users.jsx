@@ -296,86 +296,83 @@ const Usuarios = () => {
         <Divider />
         <Box component="form" onSubmit={handleUserSubmit}>
           <DialogContent sx={{ backgroundColor: 'background.dialog' }}>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextFieldWithClear
-                  fullWidth
-                  required
-                  id="nombre"
-                  label="Nombre Completo"
-                  name="nombre"
-                  value={formValues.nombre || ''}
-                  onChange={handleInputChange}
-                  onClear={() => handleInputChange({ target: { name: 'nombre', value: '' } })}
-                  autoFocus
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextFieldWithClear
-                  fullWidth
-                  required
-                  id="username"
-                  label="Nombre de Usuario"
-                  name="username"
-                  value={formValues.username || ''}
-                  onChange={handleInputChange}
-                  onClear={() => handleInputChange({ target: { name: 'username', value: '' } })}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextFieldWithClear
-                  fullWidth
-                  required={!currentUser}
-                  name="password"
-                  label="Contraseña"
-                  type="password"
-                  id="password"
-                  value={formValues.password || ''}
-                  onChange={handleInputChange}
-                  onClear={() => handleInputChange({ target: { name: 'password', value: '' } })}
-                  helperText={currentUser ? "Dejar en blanco para no cambiar" : ""}
-                  autoComplete="new-password"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Autocomplete
-                  options={roles || []}
-                  getOptionLabel={(option) => option.nombre || ''}
-                  value={(roles || []).find(r => r.id === formValues.roleId) || null}
-                  onChange={(event, newValue) => {
-                    handleInputChange({ target: { name: 'roleId', value: newValue ? newValue.id : '' } });
-                  }}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  renderInput={(params) => (
-                    <StyledTextField
-                      {...params}
-                      label="Rol"
-                      required
-                    />
-                  )}
-                  disablePortal // Buena práctica dentro de diálogos
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Autocomplete
-                  options={[{ value: 'true', label: 'Activo' }, { value: 'false', label: 'Inactivo' }]}
-                  getOptionLabel={(option) => option.label}
-                  value={formValues.activo === 'true' ? { value: 'true', label: 'Activo' } : { value: 'false', label: 'Inactivo' }}
-                  onChange={(event, newValue) => {
-                    handleInputChange({ target: { name: 'activo', value: newValue ? newValue.value : 'true' } });
-                  }}
-                  isOptionEqualToValue={(option, value) => option.value === value.value}
-                  renderInput={(params) => (
-                    <StyledTextField
-                      {...params}
-                      label="Estado"
-                      required
-                    />
-                  )}
-                  disablePortal
-                />
-              </Grid>
-            </Grid>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '1fr',
+                gap: 2,
+                mt: 1
+              }}
+            >
+              <TextFieldWithClear
+                fullWidth
+                required
+                id="nombre"
+                label="Nombre Completo"
+                name="nombre"
+                value={formValues.nombre || ''}
+                onChange={handleInputChange}
+                onClear={() => handleInputChange({ target: { name: 'nombre', value: '' } })}
+                autoFocus
+              />
+              <TextFieldWithClear
+                fullWidth
+                required
+                id="username"
+                label="Nombre de Usuario"
+                name="username"
+                value={formValues.username || ''}
+                onChange={handleInputChange}
+                onClear={() => handleInputChange({ target: { name: 'username', value: '' } })}
+              />
+              <TextFieldWithClear
+                fullWidth
+                required={!currentUser}
+                name="password"
+                label="Contraseña"
+                type="password"
+                id="password"
+                value={formValues.password || ''}
+                onChange={handleInputChange}
+                onClear={() => handleInputChange({ target: { name: 'password', value: '' } })}
+                helperText={currentUser ? "Dejar en blanco para no cambiar" : ""}
+                autoComplete="new-password"
+              />
+              <Autocomplete
+                options={roles || []}
+                getOptionLabel={(option) => option.nombre || ''}
+                value={(roles || []).find(r => r.id === formValues.roleId) || null}
+                onChange={(event, newValue) => {
+                  handleInputChange({ target: { name: 'roleId', value: newValue ? newValue.id : '' } });
+                }}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                renderInput={(params) => (
+                  <StyledTextField
+                    {...params}
+                    label="Rol"
+                    required
+                  />
+                )}
+                disablePortal // Buena práctica dentro de diálogos
+              />
+              <Autocomplete
+                options={[{ value: 'true', label: 'Activo' }, { value: 'false', label: 'Inactivo' }]}
+                getOptionLabel={(option) => option.label}
+                value={formValues.activo === 'true' ? { value: 'true', label: 'Activo' } : { value: 'false', label: 'Inactivo' }}
+                onChange={(event, newValue) => {
+                  handleInputChange({ target: { name: 'activo', value: newValue ? newValue.value : 'true' } });
+                }}
+                isOptionEqualToValue={(option, value) => option.value === value.value}
+                renderInput={(params) => (
+                  <StyledTextField
+                    {...params}
+                    label="Estado"
+                    required
+                  />
+                )}
+                disablePortal
+              />
+            </Box>
             <Divider sx={{ mt: 2 }} />
           </DialogContent>
 

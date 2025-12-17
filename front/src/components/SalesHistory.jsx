@@ -1,7 +1,7 @@
 import React, { useContext, useState, useMemo } from 'react';
 import { Box, Paper, Typography, useMediaQuery, IconButton, TextField, MenuItem, InputAdornment, Tooltip, Chip } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import Grid from '@mui/material/Unstable_Grid2';
+import Grid from '@mui/material/Grid';
 import { motion } from 'framer-motion';
 import { variants } from '../styles/variants';
 import SalesHistorySkeleton from '../styledComponents/skeletons/SalesHistorySkeleton';

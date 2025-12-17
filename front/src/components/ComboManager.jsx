@@ -500,216 +500,217 @@ const ComboManager = () => {
         <Box component="form" onSubmit={handleComboSubmit}>
           <LocalizationProvider dateAdapter={AdapterMoment}>
             <DialogContent sx={{ backgroundColor: 'background.dialog' }}>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
-                <Grid item xs={12} sm={6}>
-                  <StyledTextField
-                    fullWidth
-                    required
-                    label="Nombre del Combo"
-                    name="name"
-                    value={formValues.name || ''}
-                    onChange={handleInputChange}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledTextField
-                    fullWidth
-                    required
-                    label="Código de Barras"
-                    name="barcode"
-                    value={formValues.barcode || ''}
-                    onChange={handleInputChange}
-                    InputProps={{
-                      readOnly: true,
-                      startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'barcode', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment>,
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <Tooltip title="Generar Código de Barras">
-                            <IconButton
-                              onClick={handleGenerateBarcode}
-                              disabled={isGeneratingBarcode}
-                            >
-                              {isGeneratingBarcode ? <CircularProgress size={24} /> : <AutorenewIcon />}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: '1fr 1fr'
+                  },
+                  gap: 2,
+                  mt: 1,
+                }}
+              >
+                <StyledTextField
+                  fullWidth
+                  required
+                  label="Nombre del Combo"
+                  name="name"
+                  value={formValues.name || ''}
+                  onChange={handleInputChange}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'name', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                />
+                <StyledTextField
+                  fullWidth
+                  required
+                  label="Código de Barras"
+                  name="barcode"
+                  value={formValues.barcode || ''}
+                  onChange={handleInputChange}
+                  InputProps={{
+                    readOnly: true,
+                    startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'barcode', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment>,
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title="Generar Código de Barras">
+                          <IconButton
+                            onClick={handleGenerateBarcode}
+                            disabled={isGeneratingBarcode}
+                          >
+                            {isGeneratingBarcode ? <CircularProgress size={24} /> : <AutorenewIcon />}
+                          </IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                <StyledTextField
+                  fullWidth
+                  required
+                  type="number"
+                  label="Precio del Combo"
+                  name="price"
+                  value={formValues.price || ''}
+                  onChange={handleInputChange}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'price', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
+                />
+                <StyledDatePicker
+                  fullWidth
+                  required
+                  label="Fecha de Inicio"
+                  name="start_date"
+                  value={formValues.start_date ? moment(formValues.start_date) : null}
+                  onChange={(newValue) => {
+                    handleInputChange({ target: { name: 'start_date', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                  }}
+                  format="DD/MM/YYYY"
+                  slotProps={{
+                    textField: {
+                      InputProps: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <IconButton onClick={() => handleInputChange({ target: { name: 'start_date', value: '' } })}>
+                              <ClearIcon color='error' />
                             </IconButton>
-                          </Tooltip>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledTextField
-                    fullWidth
-                    required
-                    type="number"
-                    label="Precio del Combo"
-                    name="price"
-                    value={formValues.price || ''}
-                    onChange={handleInputChange}
-                    InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => handleInputChange({ target: { name: 'price', value: '' } })}><ClearIcon color='error' /></IconButton></InputAdornment> }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledDatePicker
-                    fullWidth
-                    required
-                    label="Fecha de Inicio"
-                    name="start_date"
-                    value={formValues.start_date ? moment(formValues.start_date) : null}
-                    onChange={(newValue) => {
-                      handleInputChange({ target: { name: 'start_date', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
-                    }}
-                    format="DD/MM/YYYY"
-                    slotProps={{
-                      textField: {
-                        InputProps: {
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <IconButton onClick={() => handleInputChange({ target: { name: 'start_date', value: '' } })}>
-                                <ClearIcon color='error' />
-                              </IconButton>
-                            </InputAdornment>
-                          )
-                        }
+                          </InputAdornment>
+                        )
                       }
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledDatePicker
-                    fullWidth
-                    required
-                    label="Fecha de Fin"
-                    name="end_date"
-                    value={formValues.end_date ? moment(formValues.end_date) : null}
-                    onChange={(newValue) => {
-                      handleInputChange({ target: { name: 'end_date', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
-                    }}
-                    format="DD/MM/YYYY"
-                    slotProps={{
-                      textField: {
-                        InputProps: {
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <IconButton onClick={() => handleInputChange({ target: { name: 'end_date', value: '' } })}>
-                                <ClearIcon color='error' />
-                              </IconButton>
-                            </InputAdornment>
-                          )
-                        }
+                    }
+                  }}
+                />
+                <StyledDatePicker
+                  fullWidth
+                  required
+                  label="Fecha de Fin"
+                  name="end_date"
+                  value={formValues.end_date ? moment(formValues.end_date) : null}
+                  onChange={(newValue) => {
+                    handleInputChange({ target: { name: 'end_date', value: newValue ? newValue.format('YYYY-MM-DD') : '' } });
+                  }}
+                  format="DD/MM/YYYY"
+                  slotProps={{
+                    textField: {
+                      InputProps: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <IconButton onClick={() => handleInputChange({ target: { name: 'end_date', value: '' } })}>
+                              <ClearIcon color='error' />
+                            </IconButton>
+                          </InputAdornment>
+                        )
                       }
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Autocomplete
-                    fullWidth
-                    options={statusOptions}
-                    getOptionLabel={(option) => option.label}
-                    value={statusOptions.find(option => option.value === formValues.is_active) || null}
-                    onChange={(event, newValue) => {
-                      handleInputChange({ target: { name: 'is_active', value: newValue ? newValue.value : '' } });
-                    }}
-                    renderInput={(params) => (
-                      <StyledTextField
-                        {...params}
-                        label="Estado"
-                        required
-                      />
-                    )}
-                  />
-                </Grid>
+                    }
+                  }}
+                />
+                <Autocomplete
+                  fullWidth
+                  options={statusOptions}
+                  getOptionLabel={(option) => option.label}
+                  value={statusOptions.find(option => option.value === formValues.is_active) || null}
+                  onChange={(event, newValue) => {
+                    handleInputChange({ target: { name: 'is_active', value: newValue ? newValue.value : '' } });
+                  }}
+                  renderInput={(params) => (
+                    <StyledTextField
+                      {...params}
+                      label="Estado"
+                      required
+                    />
+                  )}
+                />
 
                 {/* SECCIÓN PARA AGREGAR COMPONENTES */}
-                <Grid item xs={12}>
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <Typography variant="h6" sx={{ mb: 2, mt: 2 }}>
                     Agregar Componente
                   </Typography>
-                  <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={4}>
-                      <Autocomplete
-                        options={products || []}
-                        getOptionLabel={(option) => option.name || ""}
-                        isOptionEqualToValue={(option, value) => option.id === value.id}
-                        value={newComponent.product}
-                        onChange={(event, newValue) => {
-                          setNewComponent(prev => ({ ...prev, product: newValue, presentation: null }));
-                        }}
-                        onInputChange={(event, newInputValue) => {
-                          debouncedSetProductSearchTerm(newInputValue);
-                        }}
-                        loading={productsLoading}
-                        filterOptions={(x) => x}
-                        renderInput={(params) => (
-                          <StyledTextField
-                            {...params}
-                            label="Producto"
-                            InputProps={{
-                              ...params.InputProps,
-                              endAdornment: (
-                                <React.Fragment>
-                                  {productsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                                  {params.InputProps.endAdornment}
-                                </React.Fragment>
-                              ),
-                            }}
-                          />
-                        )}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <Autocomplete
-                        options={newComponent.product ? newComponent.product.presentations || [] : []}
-                        getOptionLabel={(option) => option.name}
-                        isOptionEqualToValue={(option, value) => option.id === value.id}
-                        value={newComponent.presentation}
-                        onChange={(event, newValue) => {
-                          setNewComponent(prev => ({ ...prev, presentation: newValue }));
-                        }}
-                        disabled={!newComponent.product}
-                        renderInput={(params) => (
-                          <StyledTextField
-                            {...params}
-                            label="Presentación (Opcional)"
-                          />
-                        )}
-                      />
-                    </Grid>
-                    <Grid item xs={6} sm={2}>
-                      <StyledTextField
-                        type="number"
-                        label="Cantidad"
-                        value={newComponent.quantity}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === '' || value < 1) {
-                            setNewComponent(prev => ({ ...prev, quantity: '' }));
-                            return;
-                          }
-                          const intValue = parseInt(value, 10);
-                          if (!isNaN(intValue)) {
-                            setNewComponent(prev => ({ ...prev, quantity: intValue }));
-                          }
-                        }}
-                        inputProps={{ min: 1, step: 1 }}
-                        inputRef={quantityRef}
-                      />
-                    </Grid>
-                    <Grid item xs={6} sm={2} sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                      <StyledButton
-                        variant="outlined"
-                        startIcon={<AddIcon />}
-                        onClick={handleAddComponent}
-                      >
-                        Agregar
-                      </StyledButton>
-                    </Grid>
-                  </Grid>
-                </Grid>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: {
+                        xs: '1fr',
+                        sm: '1fr 1fr',
+                        md: '2fr 2fr 1fr auto'
+                      },
+                      gap: 2,
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Autocomplete
+                      options={products || []}
+                      getOptionLabel={(option) => option.name || ""}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      value={newComponent.product}
+                      onChange={(event, newValue) => {
+                        setNewComponent(prev => ({ ...prev, product: newValue, presentation: null }));
+                      }}
+                      onInputChange={(event, newInputValue) => {
+                        debouncedSetProductSearchTerm(newInputValue);
+                      }}
+                      loading={productsLoading}
+                      filterOptions={(x) => x}
+                      renderInput={(params) => (
+                        <StyledTextField
+                          {...params}
+                          label="Producto"
+                          InputProps={{
+                            ...params.InputProps,
+                            endAdornment: (
+                              <React.Fragment>
+                                {productsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                {params.InputProps.endAdornment}
+                              </React.Fragment>
+                            ),
+                          }}
+                        />
+                      )}
+                    />
+                    <Autocomplete
+                      options={newComponent.product ? newComponent.product.presentations || [] : []}
+                      getOptionLabel={(option) => option.name}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      value={newComponent.presentation}
+                      onChange={(event, newValue) => {
+                        setNewComponent(prev => ({ ...prev, presentation: newValue }));
+                      }}
+                      disabled={!newComponent.product}
+                      renderInput={(params) => (
+                        <StyledTextField
+                          {...params}
+                          label="Presentación (Opcional)"
+                        />
+                      )}
+                    />
+                    <StyledTextField
+                      type="number"
+                      label="Cantidad"
+                      value={newComponent.quantity}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || value < 1) {
+                          setNewComponent(prev => ({ ...prev, quantity: '' }));
+                          return;
+                        }
+                        const intValue = parseInt(value, 10);
+                        if (!isNaN(intValue)) {
+                          setNewComponent(prev => ({ ...prev, quantity: intValue }));
+                        }
+                      }}
+                      inputProps={{ min: 1, step: 1 }}
+                      inputRef={quantityRef}
+                    />
+                    <StyledButton
+                      variant="outlined"
+                      startIcon={<AddIcon />}
+                      onClick={handleAddComponent}
+                    >
+                      Agregar
+                    </StyledButton>
+                  </Box>
+                </Box>
 
                 {/* TABLA DE COMPONENTES AGREGADOS */}
-                <Grid item xs={12}>
+                <Box sx={{ gridColumn: '1 / -1' }}>
                   <Typography variant="h6" sx={{ mb: 2, mt: 2 }}>
                     Componentes del Combo
                   </Typography>
@@ -724,8 +725,8 @@ const ComboManager = () => {
                     pagination={false}
                     loading={false}
                   />
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </DialogContent>
           </LocalizationProvider>
           <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog' }}>

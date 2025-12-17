@@ -45,19 +45,19 @@ const SurchargeBreakdownDisplay = ({ open, surchargeDetails, totalRecargos }) =>
           </Typography>
           {surchargeDetails.map((detail, index) => (
             detail.surchargeAmount > 0 && (
-              <Grid container key={index} spacing={1} sx={{ mb: 0.5, alignItems: 'center' }}>
-                <Grid item xs={5}>
+              <Box key={index} sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 0.5, alignItems: 'center' }}>
+                <Box sx={{ width: '41.67%' }}>
                   <Typography variant="body2">{detail.methodName}:</Typography>
-                </Grid>
-                <Grid item xs={3} sx={{ textAlign: 'right' }}>
+                </Box>
+                <Box sx={{ width: '25%', textAlign: 'right' }}>
                   <Typography variant="body2">${detail.amountEntered.toFixed(2)}</Typography>
-                </Grid>
-                <Grid item xs={4} sx={{ textAlign: 'right' }}>
+                </Box>
+                <Box sx={{ width: '33.33%', textAlign: 'right' }}>
                   <Typography variant="caption" color="warning.main">
                     +${detail.surchargeAmount.toFixed(2)} ({detail.percentage}%)
                   </Typography>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             )
           ))}
         </Box>
@@ -150,7 +150,7 @@ const SummarySaleModal = ({
       open={isSummaryModalOpen}
       onClose={onClose} // Use onClose prop
       aria-labelledby="summary-sale-dialog-title"
-      maxWidth="lg"
+      maxWidth="md"
       fullWidth
     >
       {loadingSale && (
@@ -195,172 +195,182 @@ const SummarySaleModal = ({
         {summaryError && (
           <Alert severity="error" sx={{ mb: 2 }}>{summaryError}</Alert>
         )}
-        <Grid container spacing={3} sx={{ alignItems: 'center', pt: 1 }}>
-          <Grid item xs={12} sm={4}>
-            <StyledAutocomplete
-              value={selectedCustomer}
-              onChange={(event, value) => setSelectedCustomer(value)}
-              options={Array.isArray(customers) ? customers : []}
-              getOptionLabel={(option) => option.name || option.nombre || 'Sin nombre'}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              loading={customersLoading}
-              size="small"
-              renderInput={(params) => (
-                <StyledTextField
-                  {...params}
-                  label="Cliente"
-                  variant="outlined"
-                  size="small"
-                  helperText={customersLoading ? "Cargando clientes..." : ""}
-                  autoComplete="off"
-                />
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <StyledAutocomplete
-              value={paymentOption === 'mixed' ? { id: 'mixed', method: 'Mixto', nombre: 'Mixto' } : selectedSinglePaymentType}
-              onChange={(event, value) => {
-                if (value && (value.method === 'Mixto' || value.nombre === 'Mixto')) {
-                  setPaymentOption('mixed');
-                  setSelectedSinglePaymentType(null);
-                } else {
-                  setPaymentOption('single');
-                  setSelectedSinglePaymentType(value);
-                  setMixedPayments([{ payment_method_id: null, amount: '' }, { payment_method_id: null, amount: '' }]);
-                }
-              }}
-              options={Array.isArray(paymentMethods) ? [...paymentMethods.filter(pm => pm.active && pm.method !== 'Mixto' && pm.nombre !== 'Mixto'), { id: 'mixed', method: 'Mixto', nombre: 'Mixto' }] : [{ id: 'mixed', method: 'Mixto', nombre: 'Mixto' }]}
-              getOptionLabel={(option) => option.method || option.nombre || 'Sin método'}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              loading={paymentLoading}
-              size="small"
-              renderInput={(params) => (
-                <StyledTextField
-                  {...params}
-                  label="Método de Pago"
-                  variant="outlined"
-                  size="small"
-                  helperText={paymentLoading ? "Cargando métodos..." : ""}
-                  autoComplete="off"
-                />
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={2}>
-            <StyledTextField
-              label="Descuento"
-              type="number"
-              value={descuento}
-              onChange={(e) => setDescuento(parseFloat(e.target.value) || 0)}
-              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-              size="small"
-              fullWidth
-              autoComplete="off"
-            />
-          </Grid>
-          <Grid item xs={12} sm={3}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: '1fr 1fr 0.5fr auto'
+            },
+            gap: 2,
+            alignItems: 'center',
+            pt: 1
+          }}
+        >
+          <StyledAutocomplete
+            value={selectedCustomer}
+            onChange={(event, value) => setSelectedCustomer(value)}
+            options={Array.isArray(customers) ? customers : []}
+            getOptionLabel={(option) => option.name || option.nombre || 'Sin nombre'}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            loading={customersLoading}
+            size="small"
+            fullWidth
+            renderInput={(params) => (
+              <StyledTextField
+                {...params}
+                label="Cliente"
+                variant="outlined"
+                size="small"
+                helperText={customersLoading ? "Cargando clientes..." : ""}
+                autoComplete="off"
+              />
+            )}
+          />
+          <StyledAutocomplete
+            value={paymentOption === 'mixed' ? { id: 'mixed', method: 'Mixto', nombre: 'Mixto' } : selectedSinglePaymentType}
+            onChange={(event, value) => {
+              if (value && (value.method === 'Mixto' || value.nombre === 'Mixto')) {
+                setPaymentOption('mixed');
+                setSelectedSinglePaymentType(null);
+              } else {
+                setPaymentOption('single');
+                setSelectedSinglePaymentType(value);
+                setMixedPayments([{ payment_method_id: null, amount: '' }, { payment_method_id: null, amount: '' }]);
+              }
+            }}
+            options={Array.isArray(paymentMethods) ? [...paymentMethods.filter(pm => pm.active && pm.method !== 'Mixto' && pm.nombre !== 'Mixto'), { id: 'mixed', method: 'Mixto', nombre: 'Mixto' }] : [{ id: 'mixed', method: 'Mixto', nombre: 'Mixto' }]}
+            getOptionLabel={(option) => option.method || option.nombre || 'Sin método'}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            loading={paymentLoading}
+            size="small"
+            fullWidth
+            renderInput={(params) => (
+              <StyledTextField
+                {...params}
+                label="Método de Pago"
+                variant="outlined"
+                size="small"
+                helperText={paymentLoading ? "Cargando métodos..." : ""}
+                autoComplete="off"
+              />
+            )}
+          />
+          <StyledTextField
+            label="Descuento"
+            type="number"
+            value={descuento}
+            onChange={(e) => setDescuento(parseFloat(e.target.value) || 0)}
+            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+            size="small"
+            fullWidth
+            autoComplete="off"
+          />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <FormControlLabel
               control={<Switch checked={ivaActivo} onChange={(e) => setIvaActivo(e.target.checked)} size="small" />}
               label="Aplicar IVA (21%)"
               sx={{ whiteSpace: 'nowrap', ml: 1 }}
-              componentsProps={{ typography: { accessKey: undefined } }}
+              slotProps={{ typography: { accessKey: undefined } }}
             />
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
 
         <Divider sx={{ my: 2 }} />
 
-        <Grid container spacing={1}>
-          <Grid item xs={6}><Typography>Subtotal:</Typography></Grid>
-          <Grid item xs={6} sx={{ textAlign: 'right' }}><Typography>${subtotal.toFixed(2)}</Typography></Grid>
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: '1fr auto',
+          rowGap: 0.5,
+          columnGap: 2,
+          alignItems: 'center'
+        }}>
+          <Typography>Subtotal:</Typography>
+          <Typography sx={{ textAlign: 'right' }}>${subtotal.toFixed(2)}</Typography>
 
           {ivaActivo && (
             <>
-              <Grid item xs={6}><Typography>IVA (21%):</Typography></Grid>
-              <Grid item xs={6} sx={{ textAlign: 'right' }}><Typography>${impuesto.toFixed(2)}</Typography></Grid>
+              <Typography>IVA (21%):</Typography>
+              <Typography sx={{ textAlign: 'right' }}>${impuesto.toFixed(2)}</Typography>
             </>
           )}
 
           {descuentoAplicado > 0 && (
             <>
-              <Grid item xs={6}><Typography color="error">Descuento:</Typography></Grid>
-              <Grid item xs={6} sx={{ textAlign: 'right' }}><Typography color="error">-${descuentoAplicado.toFixed(2)}</Typography></Grid>
+              <Typography color="error">Descuento:</Typography>
+              <Typography color="error" sx={{ textAlign: 'right' }}>-${descuentoAplicado.toFixed(2)}</Typography>
             </>
           )}
 
           {surchargeAmount > 0 && (
             <>
-              <Grid item xs={6} sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gridColumn: '1' }}>
                 <Typography color="warning.main">Recargo:</Typography>
                 <IconButton size="small" onClick={() => setSurchargeDetailsOpen(!surchargeDetailsOpen)}>
                   <KeyboardArrowDown sx={{ fontSize: '1.2rem', transition: 'transform 0.3s', transform: surchargeDetailsOpen ? 'rotate(-180deg)' : 'rotate(0)', color: 'warning.main' }} />
                 </IconButton>
-              </Grid>
-              <Grid item xs={6} sx={{ textAlign: 'right' }}><Typography color="warning.main">+${surchargeAmount.toFixed(2)}</Typography></Grid>
+              </Box>
+              <Typography color="warning.main" sx={{ textAlign: 'right' }}>+${surchargeAmount.toFixed(2)}</Typography>
             </>
           )}
 
-          <Grid item xs={12}>
+          <Box sx={{ gridColumn: '1 / -1' }}>
             <SurchargeBreakdownDisplay open={surchargeDetailsOpen} surchargeDetails={surchargeDetails} totalRecargos={surchargeAmount} />
-          </Grid>
+          </Box>
 
-          <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
-          <Grid item xs={6}><Typography variant="h6" fontWeight="bold">Total:</Typography></Grid>
-          <Grid item xs={6} sx={{ textAlign: 'right' }}><Typography variant="h6" fontWeight="bold">${totalFinal.toFixed(2)}</Typography></Grid>
-        </Grid>
+          <Box sx={{ gridColumn: '1 / -1' }}><Divider sx={{ my: 1 }} /></Box>
+          <Typography variant="h6" fontWeight="bold">Total:</Typography>
+          <Typography variant="h6" fontWeight="bold" sx={{ textAlign: 'right' }}>${totalFinal.toFixed(2)}</Typography>
+        </Box>
 
         <Box sx={{ pt: 2 }}>
           {paymentOption === 'single' ? (
-            <Grid container spacing={1} sx={{ mt: 0, alignItems: 'center' }}>
-              <Grid item xs={12} sm={6}>
-                <StyledTextField
-                  label="Monto Recibido"
-                  type="number"
-                  value={amountReceived}
-                  onChange={(e) => setAmountReceived(e.target.value)} // Set as string
-                  disabled={selectedSinglePaymentType?.method?.toLowerCase().includes('credito') || selectedSinglePaymentType?.nombre?.toLowerCase().includes('credito')}
-                  InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                  size="medium"
-                  fullWidth
-                  inputRef={amountReceivedInputRef}
-                  autoComplete="off"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <StyledCard sx={{ p: 1 }}>
-                  {(() => {
-                    const parsedAmount = parseFloat(amountReceived);
-                    if (amountReceived === '' || isNaN(parsedAmount)) { // Check for empty string or NaN
-                      return (
-                        <Typography variant="h6" align="center" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
-                          Cambio: $0.00
-                        </Typography>
-                      );
-                    }
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, alignItems: 'center', mt: 0 }}>
+              <StyledTextField
+                label="Monto Recibido"
+                type="number"
+                value={amountReceived}
+                onChange={(e) => setAmountReceived(e.target.value)} // Set as string
+                disabled={selectedSinglePaymentType?.method?.toLowerCase().includes('credito') || selectedSinglePaymentType?.nombre?.toLowerCase().includes('credito')}
+                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                size="medium"
+                fullWidth
+                inputRef={amountReceivedInputRef}
+                autoComplete="off"
+              />
+              <StyledCard sx={{ p: 1 }}>
+                {(() => {
+                  const parsedAmount = parseFloat(amountReceived);
+                  if (amountReceived === '' || isNaN(parsedAmount)) { // Check for empty string or NaN
+                    return (
+                      <Typography variant="h6" align="center" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                        Cambio: $0.00
+                      </Typography>
+                    );
+                  }
 
-                    const difference = parsedAmount - totalFinal;
-                    if (difference >= 0) {
-                      return (
-                        <Typography variant="h6" align="center" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                          Cambio: ${difference.toFixed(2)}
-                        </Typography>
-                      );
-                    }
-                    else {
-                      return (
-                        <Typography variant="h6" align="center" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                          Faltan: ${Math.abs(difference).toFixed(2)}
-                        </Typography>
-                      );
-                    }
-                  })()}
-                </StyledCard>
-              </Grid>            </Grid>
+                  const difference = parsedAmount - totalFinal;
+                  if (difference >= 0) {
+                    return (
+                      <Typography variant="h6" align="center" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                        Cambio: ${difference.toFixed(2)}
+                      </Typography>
+                    );
+                  }
+                  else {
+                    return (
+                      <Typography variant="h6" align="center" sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                        Faltan: ${Math.abs(difference).toFixed(2)}
+                      </Typography>
+                    );
+                  }
+                })()}
+              </StyledCard>
+            </Box>
           ) : (
             <Box sx={{ mt: 0 }}>
               <Typography variant="subtitle1" gutterBottom>Pagos Mixtos</Typography>
-              <Grid container spacing={1}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
                 {mixedPayments.map((payment, index) => {
                   const method = payment.payment_method_id ? paymentMethods?.find(pm => pm.id === payment.payment_method_id) : null;
                   const hasSurcharge = method?.surcharge_active && method?.surcharge_percentage > 0;
@@ -369,7 +379,7 @@ const SummarySaleModal = ({
                   const finalAmount = amount * (1 + surchargeRate);
 
                   return (
-                    <Grid item xs={12} sm={6} key={index}>
+                    <Box key={index} sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1 }}>
                       <StyledAutocomplete
                         value={method}
                         onChange={(event, value) => {
@@ -381,53 +391,50 @@ const SummarySaleModal = ({
                         getOptionLabel={(option) => option.method || option.nombre || ''}
                         isOptionEqualToValue={(option, value) => option.id === value.id}
                         size="small"
+                        fullWidth
                         renderInput={(params) => <StyledTextField {...params} label={`Método ${index + 1}`} variant="outlined" size="small" autoComplete="off" />}
                       />
-                      <Grid container spacing={1} sx={{ mt: 1 }}>
-                        <Grid item xs={hasSurcharge ? 6 : 12}>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: hasSurcharge ? '1fr 1fr' : '1fr', gap: 1 }}>
+                        <StyledTextField
+                          label={hasSurcharge ? "Monto Base" : "Monto"}
+                          type="number"
+                          value={payment.amount}
+                          onChange={(e) => {
+                            const newMixedPayments = [...mixedPayments];
+                            newMixedPayments[index].amount = e.target.value;
+                            setMixedPayments(newMixedPayments);
+                          }}
+                          InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                          size="small"
+                          fullWidth
+                          autoComplete="off"
+                        />
+                        {hasSurcharge && (
                           <StyledTextField
-                            label={hasSurcharge ? "Monto Base" : "Monto"}
-                            type="number"
-                            value={payment.amount}
-                            onChange={(e) => {
-                              const newMixedPayments = [...mixedPayments];
-                              newMixedPayments[index].amount = e.target.value;
-                              setMixedPayments(newMixedPayments);
+                            label="A Cobrar"
+                            type="text"
+                            value={finalAmount > 0 ? finalAmount.toFixed(2) : ''}
+                            disabled
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                              sx: {
+                                color: theme.palette.success.main,
+                                fontWeight: 'bold',
+                                '&.Mui-disabled': {
+                                  color: theme.palette.success.main,
+                                  WebkitTextFillColor: theme.palette.success.main
+                                }
+                              }
                             }}
-                            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                             size="small"
                             fullWidth
-                            autoComplete="off"
                           />
-                        </Grid>
-                        {hasSurcharge && (
-                          <Grid item xs={6}>
-                            <StyledTextField
-                              label="A Cobrar"
-                              type="text"
-                              value={finalAmount > 0 ? finalAmount.toFixed(2) : ''}
-                              disabled
-                              InputProps={{
-                                startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                                sx: {
-                                  color: theme.palette.success.main,
-                                  fontWeight: 'bold',
-                                  '&.Mui-disabled': {
-                                    color: theme.palette.success.main,
-                                    WebkitTextFillColor: theme.palette.success.main
-                                  }
-                                }
-                              }}
-                              size="small"
-                              fullWidth
-                            />
-                          </Grid>
                         )}
-                      </Grid>
-                    </Grid>
+                      </Box>
+                    </Box>
                   );
                 })}
-              </Grid>
+              </Box>
               {(() => {
                 const validationMessage = validateMixedPayments();
                 if (validationMessage === true) {
@@ -443,8 +450,8 @@ const SummarySaleModal = ({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Grid container spacing={2} justifyContent="center">
-          <Grid item>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+          <Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <StyledButton
                 variant="contained"
@@ -458,8 +465,8 @@ const SummarySaleModal = ({
               </StyledButton>
               <Chip label="Alt + V" size="small" sx={{ mt: 0.5 }} />
             </Box>
-          </Grid>
-          <Grid item>
+          </Box>
+          <Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <StyledButton
                 variant="contained"
@@ -471,8 +478,8 @@ const SummarySaleModal = ({
               </StyledButton>
               <Chip label="Alt + P" size="small" sx={{ mt: 0.5 }} />
             </Box>
-          </Grid>
-          <Grid item>
+          </Box>
+          <Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <StyledButton
                 sx={{ padding: '3px 12px' }}
@@ -485,8 +492,8 @@ const SummarySaleModal = ({
               </StyledButton>
               <Chip label="Alt + M" size="small" sx={{ mt: 0.5 }} />
             </Box>
-          </Grid>
-          <Grid item>
+          </Box>
+          <Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <StyledButton
                 variant="contained"
@@ -498,8 +505,8 @@ const SummarySaleModal = ({
               </StyledButton>
               <Chip label="Alt + C" size="small" sx={{ mt: 0.5 }} />
             </Box>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
       </DialogActions>
     </StyledDialog>
   );

@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import Swal from 'sweetalert2';
 
 import { Box, Typography, useMediaQuery, InputAdornment, IconButton, Paper } from '@mui/material';
-import Grid from '@mui/material/Unstable_Grid2';
+import Grid from '@mui/material/Grid';
 import { StyledCard } from '../styledComponents/ui/StyledCard';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';

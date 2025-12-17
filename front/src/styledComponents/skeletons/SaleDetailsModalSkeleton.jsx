@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Skeleton } from '@mui/material';
-import Grid from '@mui/material/Unstable_Grid2';
+import Grid from '@mui/material/Grid';
 
 const SaleDetailsModalSkeleton = () => {
     return (

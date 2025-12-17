@@ -3,7 +3,7 @@ import {
     Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tabs, Tab, Box, Typography,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, useTheme
 } from '@mui/material';
-import Grid from '@mui/material/Unstable_Grid2';
+import Grid from '@mui/material/Grid';
 import { Close as CloseIcon, Print as PrintIcon } from '@mui/icons-material';
 import { StyledButton } from './ui/StyledButton';
 import { UseFetchQuery } from '../hooks/useQuery';

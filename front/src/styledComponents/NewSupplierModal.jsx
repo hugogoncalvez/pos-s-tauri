@@ -76,8 +76,18 @@ export const NewSupplierModal = ({ open, handleClose, initialName = '', onSuppli
             </DialogTitle>
             <DialogContent sx={{ p: 0, backgroundColor: 'background.paper' }}>
                 <Box sx={{ backgroundColor: 'background.dialog', p: 3 }}>
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid item xs={12}>
+                    <Box
+                        sx={{
+                            display: 'grid',
+                            gridTemplateColumns: {
+                                xs: '1fr',
+                                sm: '1fr 1fr'
+                            },
+                            gap: 2,
+                            mt: 1
+                        }}
+                    >
+                        <Box sx={{ gridColumn: { xs: '1', sm: '1 / 3' } }}>
                             <TextFieldWithClear
                                 autoFocus
                                 name="nombre"
@@ -89,32 +99,28 @@ export const NewSupplierModal = ({ open, handleClose, initialName = '', onSuppli
                                 onChange={handleInputChange}
                                 onClear={() => handleInputChange({ target: { name: 'nombre', value: '' } })}
                             />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextFieldWithClear
-                                name="cuit"
-                                label="CUIT"
-                                type="text"
-                                fullWidth
-                                variant="outlined"
-                                value={values.cuit || ''}
-                                onChange={handleInputChange}
-                                onClear={() => handleInputChange({ target: { name: 'cuit', value: '' } })}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <TextFieldWithClear
-                                name="telefono"
-                                label="Teléfono"
-                                type="text"
-                                fullWidth
-                                variant="outlined"
-                                value={values.telefono || ''}
-                                onChange={handleInputChange}
-                                onClear={() => handleInputChange({ target: { name: 'telefono', value: '' } })}
-                            />
-                        </Grid>
-                    </Grid>
+                        </Box>
+                        <TextFieldWithClear
+                            name="cuit"
+                            label="CUIT"
+                            type="text"
+                            fullWidth
+                            variant="outlined"
+                            value={values.cuit || ''}
+                            onChange={handleInputChange}
+                            onClear={() => handleInputChange({ target: { name: 'cuit', value: '' } })}
+                        />
+                        <TextFieldWithClear
+                            name="telefono"
+                            label="Teléfono"
+                            type="text"
+                            fullWidth
+                            variant="outlined"
+                            value={values.telefono || ''}
+                            onChange={handleInputChange}
+                            onClear={() => handleInputChange({ target: { name: 'telefono', value: '' } })}
+                        />
+                    </Box>
                 </Box>
             </DialogContent>
             <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog' }}>
