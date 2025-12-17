@@ -182,48 +182,51 @@ const CashSessionDetails = ({
                             Cierre de Caja
                         </Typography>
 
-                        <Grid container spacing={theme.spacing(2)}>
-                            <Grid item xs={12} sm={6}>
-                                <StyledTextField
-                                    fullWidth
-                                    label="Monto Final en Caja"
-                                    type="number"
-                                    value={closingAmount}
-                                    onChange={(e) => setClosingAmount(e.target.value)}
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <IconButton onClick={() => setClosingAmount('')} size="small">
-                                                    <ClearIcon color="error" />
-                                                </IconButton>
-                                                <Typography sx={{ mr: 1 }}>$</Typography>
-                                            </InputAdornment>
-                                        )
-                                    }}
-                                    required
-                                />
-                            </Grid>
-                            <Grid item xs={12}>
-                                <StyledTextField
-                                    fullWidth
-                                    label="Observaciones (opcional)"
-                                    multiline
-                                    rows={3}
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    placeholder="Ingrese cualquier observación sobre el cierre de caja..."
-                                    InputProps={{
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <IconButton onClick={() => setNotes('')} size="small">
-                                                    <ClearIcon color="error" />
-                                                </IconButton>
-                                            </InputAdornment>
-                                        )
-                                    }}
-                                />
-                            </Grid>
-                        </Grid>
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr',
+                                gap: 2,
+                                mt: 1,
+                            }}
+                        >
+                            <StyledTextField
+                                fullWidth
+                                label="Monto Final en Caja"
+                                type="number"
+                                value={closingAmount}
+                                onChange={(e) => setClosingAmount(e.target.value)}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <IconButton onClick={() => setClosingAmount('')} size="small">
+                                                <ClearIcon color="error" />
+                                            </IconButton>
+                                            <Typography sx={{ mr: 1 }}>$</Typography>
+                                        </InputAdornment>
+                                    )
+                                }}
+                                required
+                            />
+                            <StyledTextField
+                                fullWidth
+                                label="Observaciones (opcional)"
+                                multiline
+                                rows={3}
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="Ingrese cualquier observación sobre el cierre de caja..."
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <IconButton onClick={() => setNotes('')} size="small">
+                                                <ClearIcon color="error" />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    )
+                                }}
+                            />
+                        </Box>
                     </Grid>
                 )}
             </Grid>

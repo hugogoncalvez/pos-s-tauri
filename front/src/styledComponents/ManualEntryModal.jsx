@@ -66,8 +66,18 @@ const ManualEntryModal = ({
         </IconButton>
       </DialogTitle>
       <DialogContent sx={{ p: 3, backgroundColor: 'background.dialog', color: 'text.primary' }}>
-        <Grid sx={{ pt: 1 }} container spacing={2} justifyContent="center">
-          <Grid item xs={12}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: '1fr 1fr'
+            },
+            gap: 2,
+            pt: 1
+          }}
+        >
+          <Box sx={{ gridColumn: '1 / -1' }}>
             <TextFieldWithClear
               fullWidth
               size="small"
@@ -82,45 +92,41 @@ const ManualEntryModal = ({
               disabled={!!editingItem?.stock_id} // Deshabilitado si es un producto de stock
               onClear={() => handleInputChange({ target: { name: 'name', value: '' } })}
             />
-          </Grid>
+          </Box>
 
-          <Grid item xs={12} sm={6}>
-            <TextFieldWithClear
-              fullWidth
-              size="small"
-              label="Precio Unitario *"
-              name="price"
-              type="number"
-              value={formValues.price || ''}
-              onChange={handleInputChange}
-              onClear={() => handleInputChange({ target: { name: 'price', value: '' } })}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">$
-                  </InputAdornment>
-                ),
-              }}
-              required
-              autoComplete="off"
-            />
-          </Grid>
+          <TextFieldWithClear
+            fullWidth
+            size="small"
+            label="Precio Unitario *"
+            name="price"
+            type="number"
+            value={formValues.price || ''}
+            onChange={handleInputChange}
+            onClear={() => handleInputChange({ target: { name: 'price', value: '' } })}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">$
+                </InputAdornment>
+              ),
+            }}
+            required
+            autoComplete="off"
+          />
 
-          <Grid item xs={12} sm={6}>
-            <TextFieldWithClear
-              fullWidth
-              size="small"
-              label="Cantidad *"
-              name="quantityPerUnits"
-              type="number"
-              value={formValues.quantityPerUnits || ''}
-              onChange={handleInputChange}
-              onClear={() => handleInputChange({ target: { name: 'quantityPerUnits', value: '' } })}
-              required
-              autoComplete="off"
-            />
-          </Grid>
+          <TextFieldWithClear
+            fullWidth
+            size="small"
+            label="Cantidad *"
+            name="quantityPerUnits"
+            type="number"
+            value={formValues.quantityPerUnits || ''}
+            onChange={handleInputChange}
+            onClear={() => handleInputChange({ target: { name: 'quantityPerUnits', value: '' } })}
+            required
+            autoComplete="off"
+          />
 
-          <Grid item xs={12}>
+          <Box sx={{ gridColumn: '1 / -1' }}>
             <TextFieldWithClear
               fullWidth
               size="small"
@@ -134,18 +140,18 @@ const ManualEntryModal = ({
               autoComplete="off"
               disabled={!!editingItem?.stock_id} // Deshabilitado si es un producto de stock
             />
-          </Grid>
+          </Box>
 
           {formValues.price && formValues.quantityPerUnits && (
-            <Grid item xs={12}>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <StyledCard sx={{ p: 2, boxShadow: theme.shadows[3] }}>
                 <Typography variant="h6" align="center" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
                   💰 Total: ${((parseFloat(formValues.price) || 0) * (parseFloat(formValues.quantityPerUnits) || 0)).toFixed(2)}
                 </Typography>
               </StyledCard>
-            </Grid>
+            </Box>
           )}
-        </Grid>
+        </Box>
       </DialogContent>
       <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog', color: 'text.primary' }}>
         <StyledButton

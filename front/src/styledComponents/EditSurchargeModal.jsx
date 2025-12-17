@@ -41,27 +41,32 @@ const EditSurchargeModal = ({ open, onClose, paymentMethod, onSave, isLoading })
         <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
             <DialogTitle>Editar Recargo para: {paymentMethod?.method}</DialogTitle>
             <DialogContent>
-                <Grid container spacing={2} sx={{ mt: 1 }} alignItems="center">
-                    <Grid item xs={8}>
-                        <TextField
-                            label="Porcentaje de Recargo (%)"
-                            type="number"
-                            value={percentage}
-                            onChange={(e) => setPercentage(e.target.value)}
-                            fullWidth
-                            variant="outlined"
-                            InputProps={{
-                                inputProps: { min: 0, max: 100, step: "0.01" }
-                            }}
-                        />
-                    </Grid>
-                    <Grid item xs={4}>
-                        <FormControlLabel
-                            control={<Switch checked={active} onChange={(e) => setActive(e.target.checked)} />}
-                            label="Activo"
-                        />
-                    </Grid>
-                </Grid>
+                <Box
+                    sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '2fr 1fr',
+                        gap: 2,
+                        alignItems: 'center',
+                        mt: 1,
+                    }}
+                >
+                    <TextField
+                        label="Porcentaje de Recargo (%)"
+                        type="number"
+                        value={percentage}
+                        onChange={(e) => setPercentage(e.target.value)}
+                        fullWidth
+                        variant="outlined"
+                        InputProps={{
+                            inputProps: { min: 0, max: 100, step: "0.01" }
+                        }}
+                    />
+                    <FormControlLabel
+                        control={<Switch checked={active} onChange={(e) => setActive(e.target.checked)} />}
+                        label="Activo"
+                        sx={{ justifySelf: 'start' }}
+                    />
+                </Box>
             </DialogContent>
             <DialogActions>
                 <StyledButton onClick={onClose} variant="outlined" disabled={isLoading}>

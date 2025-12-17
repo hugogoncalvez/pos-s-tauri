@@ -124,41 +124,44 @@ const CloseCashSessionDialog = ({
 
                         <Divider sx={{ my: 2 }} />
 
-                        {/* Sección 3 y 4: Conteo y Resultado */}
-                        <Grid container spacing={2} alignItems="center" justifyContent="center">
-                            <Grid item xs={12} sm={6}>
+                        {/* Sección 3, 4 y 5: Conteo, Resultado y Notas */}
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                                gap: 2,
+                                alignItems: 'center',
+                                mt: 2
+                            }}
+                        >
+                            <TextField
+                                fullWidth
+                                label="Dinero Contado en Caja"
+                                type="number"
+                                value={cashierDeclaredAmount}
+                                onChange={(e) => setCashierDeclaredAmount(e.target.value)}
+                                required
+                                autoFocus
+                                InputProps={{ sx: { fontSize: '1.2rem' } }}
+                            />
+                            <Paper elevation={2} sx={{ p: 2, textAlign: 'center' }}>
+                                <Typography variant="body1">Diferencia (Sobrante/Faltante)</Typography>
+                                <Typography variant="h5" sx={{ color: getDiscrepancyColor(discrepancy), fontWeight: 'bold' }}>
+                                    {discrepancy !== null ? formatCurrency(discrepancy) : '-'}
+                                </Typography>
+                            </Paper>
+                            <Box sx={{ gridColumn: '1 / -1', mt: 1 }}>
                                 <TextField
                                     fullWidth
-                                    label="Dinero Contado en Caja"
-                                    type="number"
-                                    value={cashierDeclaredAmount}
-                                    onChange={(e) => setCashierDeclaredAmount(e.target.value)}
-                                    required
-                                    autoFocus
-                                    InputProps={{ sx: { fontSize: '1.2rem' } }}
+                                    label="Notas (opcional)"
+                                    multiline
+                                    rows={2}
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    placeholder="Observaciones sobre el cierre..."
                                 />
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                                <Paper elevation={2} sx={{ p: 2, textAlign: 'center' }}>
-                                    <Typography variant="body1">Diferencia (Sobrante/Faltante)</Typography>
-                                    <Typography variant="h5" sx={{ color: getDiscrepancyColor(discrepancy), fontWeight: 'bold' }}>
-                                        {discrepancy !== null ? formatCurrency(discrepancy) : '-'}
-                                    </Typography>
-                                </Paper>
-                            </Grid>
-                        </Grid>
-
-                        {/* Sección 5: Notas */}
-                        <TextField
-                            fullWidth
-                            label="Notas (opcional)"
-                            multiline
-                            rows={2}
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Observaciones sobre el cierre..."
-                            sx={{ mt: 3 }}
-                        />
+                            </Box>
+                        </Box>
                     </Box>
                 )}
             </DialogContent>

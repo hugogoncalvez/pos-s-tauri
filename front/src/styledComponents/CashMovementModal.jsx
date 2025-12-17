@@ -86,50 +86,53 @@ const CashMovementModal = ({
                     <Typography variant="body2" color="textSecondary" sx={{ mb: 2, textAlign: 'center' }}>
                         Usuario: <strong>{userName}</strong> | ID de Sesión: <strong>{activeSessionId}</strong>
                     </Typography>
-                    <Grid container spacing={2} justifyContent="center">
-                        <Grid item xs={12} sm={6}>
-                            <StyledTextField
-                                label="Monto"
-                                type="number"
-                                name="amount"
-                                fullWidth
-                                value={amount}
-                                onChange={handleInputChange}
-                                variant="outlined"
-                                inputProps={{ step: "0.01" }}
-                                sx={{ width: 'clamp(150px, 100%, 300px)' }}
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <IconButton onClick={() => reset('amount')} size="small">
-                                                <ClearIcon color="error" />
-                                            </IconButton>
-                                        </InputAdornment>
-                                    )
-                                }}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <Autocomplete
-                                options={[{ value: 'ingreso', label: 'Ingreso' }, { value: 'egreso', label: 'Egreso' }]}
-                                getOptionLabel={(option) => option.label}
-                                value={type === 'ingreso' ? { value: 'ingreso', label: 'Ingreso' } : { value: 'egreso', label: 'Egreso' }}
-                                onChange={(event, newValue) => {
-                                    handleInputChange({ target: { name: 'type', value: newValue ? newValue.value : '' } });
-                                }}
-                                isOptionEqualToValue={(option, value) => option.value === value.value} // <-- FIX
-                                fullWidth
-                                renderInput={(params) => (
-                                    <StyledTextField
-                                        {...params}
-                                        label="Tipo de Movimiento"
-                                        variant="outlined"
-                                        sx={{ width: 'clamp(150px, 100%, 300px)' }}
-                                    />
-                                )}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
+                    <Box
+                        sx={{
+                            display: 'grid',
+                            gridTemplateColumns: {
+                                xs: '1fr',
+                                sm: '1fr 1fr'
+                            },
+                            gap: 2,
+                        }}
+                    >
+                        <StyledTextField
+                            label="Monto"
+                            type="number"
+                            name="amount"
+                            fullWidth
+                            value={amount}
+                            onChange={handleInputChange}
+                            variant="outlined"
+                            inputProps={{ step: "0.01" }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <IconButton onClick={() => reset('amount')} size="small">
+                                            <ClearIcon color="error" />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
+                        <Autocomplete
+                            options={[{ value: 'ingreso', label: 'Ingreso' }, { value: 'egreso', label: 'Egreso' }]}
+                            getOptionLabel={(option) => option.label}
+                            value={type === 'ingreso' ? { value: 'ingreso', label: 'Ingreso' } : { value: 'egreso', label: 'Egreso' }}
+                            onChange={(event, newValue) => {
+                                handleInputChange({ target: { name: 'type', value: newValue ? newValue.value : '' } });
+                            }}
+                            isOptionEqualToValue={(option, value) => option.value === value.value} // <-- FIX
+                            fullWidth
+                            renderInput={(params) => (
+                                <StyledTextField
+                                    {...params}
+                                    label="Tipo de Movimiento"
+                                    variant="outlined"
+                                />
+                            )}
+                        />
+                        <Box sx={{ gridColumn: '1 / -1' }}>
                             <StyledTextField
                                 label="Descripción"
                                 name="description"
@@ -139,10 +142,9 @@ const CashMovementModal = ({
                                 value={description}
                                 onChange={handleInputChange}
                                 variant="outlined"
-                                sx={{ width: 'clamp(300px, 100%, 600px)' }}
                             />
-                        </Grid>
-                    </Grid>
+                        </Box>
+                    </Box>
                 </Box>
             </DialogContent>
             <DialogActions sx={{ p: 2, borderTop: (theme) => `1px solid ${theme.palette.divider}`, backgroundColor: 'background.dialog' }}>
