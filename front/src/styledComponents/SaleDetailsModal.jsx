@@ -33,7 +33,7 @@ const TabPanel = (props) => {
 const InfoItem = ({ label, value }) => {
     const theme = useTheme();
     return (
-        <Grid xs={12} sm={6}>
+        <Grid item xs={12} sm={6}>
             <Typography variant="body2" color="text.secondary" sx={{ fontSize: 'clamp(0.8rem, 1.5vw, 0.9rem)' }}>
                 {label}
             </Typography>
@@ -44,7 +44,7 @@ const InfoItem = ({ label, value }) => {
     );
 }
 
-const formatCurrency = (amount) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount || 0);
+const formatCurrency = (amount) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount || 0);
 const formatDate = (dateString) => moment(dateString).format('DD/MM/YYYY HH:mm:ss');
 
 const SaleDetailsModal = ({ open, onClose, saleId }) => {
@@ -54,8 +54,10 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
     const { data: saleDetails, isLoading, error } = UseFetchQuery(
         ['saleDetails', saleId],
         `/sales/${saleId}/details`,
-        !!saleId && open // Only fetch when the modal is open and a saleId is provided
+        !!saleId && open
     );
+
+    const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', !!open);
 
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);

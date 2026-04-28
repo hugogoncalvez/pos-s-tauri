@@ -1,5 +1,19 @@
-export const printReceipt = (data, type, customerName = '') => {
-    // 1. Crear un iframe oculto de forma robusta
+/**
+ * Utilidad para imprimir recibos de venta y comprobantes de pago.
+ * Personalizado para el mercado brasileño con soporte para datos dinámicos de la empresa.
+ */
+export const printReceipt = (data, type, customerName = '', businessData = null) => {
+    // Si no hay businessData, usamos valores por defecto en portugués
+    const business = businessData || {
+        name: 'Meu Negócio',
+        footerText: 'Obrigado pela sua preferência!',
+        cnpj: '',
+        ie: '',
+        address: '',
+        logo: ''
+    };
+
+    // 1. Crear un iframe oculto
     const iframe = document.createElement('iframe');
     iframe.style.position = 'absolute';
     iframe.style.width = '0px';
@@ -8,15 +22,14 @@ export const printReceipt = (data, type, customerName = '') => {
     iframe.style.visibility = 'hidden';
     document.body.appendChild(iframe);
 
-    // 2. Asignar el manejador onload ANTES de escribir el contenido
+    // 2. Manejador onload
     iframe.onload = () => {
         try {
-            iframe.contentWindow.focus(); // El foco es importante para algunos navegadores
+            iframe.contentWindow.focus();
             iframe.contentWindow.print();
         } catch (error) {
             console.error('Error al intentar imprimir:', error);
         } finally {
-            // 5. Limpiar el iframe después de un breve retraso para asegurar que el diálogo de impresión se haya abierto
             setTimeout(() => {
                 if (iframe.parentNode) {
                     iframe.parentNode.removeChild(iframe);
@@ -25,7 +38,7 @@ export const printReceipt = (data, type, customerName = '') => {
         }
     };
 
-    // 3. Obtener el documento del iframe y construir el contenido
+    // 3. Construir el contenido
     const printDocument = iframe.contentDocument || iframe.contentWindow.document;
     let receiptContent = '<html><head><title>Recibo</title>';
     receiptContent += '<meta charset="UTF-8">';
@@ -34,7 +47,9 @@ export const printReceipt = (data, type, customerName = '') => {
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; font-size: 13px; line-height: 1.4; color: #333; background: #fff; }
         .receipt-container { max-width: 600px; margin: 0 auto; background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
         .receipt-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
+        .logo-img { max-width: 100px; max-height: 100px; margin-bottom: 10px; border-radius: 8px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
         .company-name { font-size: 24px; font-weight: bold; margin: 0 0 5px 0; }
+        .business-info { font-size: 11px; opacity: 0.9; margin-top: 5px; line-height: 1.2; }
         .receipt-title { font-size: 20px; font-weight: bold; margin: 15px 0 0 0; text-transform: uppercase; letter-spacing: 1px; }
         .receipt-number { font-size: 16px; }
         .receipt-body { padding: 25px; }
@@ -51,7 +66,8 @@ export const printReceipt = (data, type, customerName = '') => {
         .total-row { background: #667eea !important; color: white; font-weight: bold; }
         .total-row td { padding: 15px 8px; }
         .receipt-footer { padding: 20px; text-align: center; border-top: 2px dashed #ddd; margin-top: 20px; }
-        .thank-you { font-size: 16px; font-weight: 600; color: #667eea; }
+        .thank-you { font-size: 16px; font-weight: 600; color: #667eea; margin-bottom: 5px; }
+        .footer-text { font-size: 12px; color: #666; font-style: italic; }
         .payment-methods { background: #e8f5e8; border-radius: 6px; padding: 12px; margin: 15px 0; }
         .payment-methods h4 { margin: 0 0 10px 0; color: #2e7d32; }
         .payment-method-item { display: flex; justify-content: space-between; }
@@ -59,28 +75,10 @@ export const printReceipt = (data, type, customerName = '') => {
         @media print {
             body { margin: 0; padding: 10px; }
             .receipt-container { border: 1px solid #ccc; box-shadow: none; }
-            
-            /* Forzar la impresión de los colores de fondo que definimos a continuación */
-            .receipt-header, th, .total-row {
-                -webkit-print-color-adjust: exact; 
-                print-color-adjust: exact; 
-            }
-
-            .receipt-header {
-                background: #f5f5f5 !important; /* Gris muy claro */
-                color: black !important;
-                border-bottom: 2px solid #ccc;
-            }
-            th {
-                background: #f5f5f5 !important; /* Gris muy claro */
-                color: black !important;
-                border-bottom: 1px solid #ccc;
-            }
-            .total-row {
-                background: #e0e0e0 !important; /* Gris un poco más oscuro para el total */
-                color: black !important;
-                font-weight: bold;
-            }
+            .receipt-header, th, .total-row { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .receipt-header { background: #f5f5f5 !important; color: black !important; border-bottom: 2px solid #ccc; }
+            th { background: #f5f5f5 !important; color: black !important; border-bottom: 1px solid #ccc; }
+            .total-row { background: #e0e0e0 !important; color: black !important; font-weight: bold; }
         }
     `;
     receiptContent += '</style></head><body>';
@@ -90,58 +88,61 @@ export const printReceipt = (data, type, customerName = '') => {
         const sale = data;
         receiptContent += `
             <div class="receipt-header">
-                <div class="company-name">Mi Empresa</div>
-                <div class="receipt-title">Recibo de Venta</div>
+                ${business.logo ? `<img src="${business.logo}" class="logo-img" />` : ''}
+                <div class="company-name">${business.name}</div>
+                <div class="business-info">
+                    ${business.cnpj ? `CNPJ: ${business.cnpj} <br>` : ''}
+                    ${business.ie ? `IE: ${business.ie} <br>` : ''}
+                    ${business.address ? `${business.address}` : ''}
+                </div>
+                <div class="receipt-title">Recibo de Venda</div>
                 <div class="receipt-number">#${sale.id}</div>
             </div>
             <div class="receipt-body">
                 <div class="info-section">
                     <div class="info-row"><span>Cliente:</span> <span>${customerName || 'Consumidor Final'}</span></div>
-                    <div class="info-row"><span>Fecha:</span> <span>${new Date(sale.createdAt).toLocaleString('es-ES')}</span></div>
+                    <div class="info-row"><span>Data:</span> <span>${new Date(sale.createdAt).toLocaleString('pt-BR')}</span></div>
                 </div>
         `;
 
         if (sale.sale_payments && sale.sale_payments.length > 0) {
-            receiptContent += '<div class="payment-methods"><h4>Métodos de Pago</h4>';
+            receiptContent += '<div class="payment-methods"><h4>Métodos de Pagamento</h4>';
             sale.sale_payments.forEach(p => {
-                receiptContent += `<div class="payment-method-item"><span>${p.payment?.method || 'N/A'}</span><span>$${parseFloat(p.amount).toFixed(2)}</span></div>`;
+                receiptContent += `<div class="payment-method-item"><span>${p.payment?.method || 'N/A'}</span><span>R$ ${parseFloat(p.amount).toFixed(2)}</span></div>`;
             });
             receiptContent += '</div>';
-        } else if (parseFloat(sale.total_neto) > 0) { // Si no hay pagos pero hay un total, es todo a crédito
-            receiptContent += '<div class="payment-methods"><h4>Métodos de Pago</h4>';
-            receiptContent += `<div class="payment-method-item"><span>Crédito</span><span>$${parseFloat(sale.total_neto).toFixed(2)}</span></div>`;
+        } else if (parseFloat(sale.total_neto) > 0) {
+            receiptContent += '<div class="payment-methods"><h4>Métodos de Pagamento</h4>';
+            receiptContent += `<div class="payment-method-item"><span>Crédito</span><span>R$ ${parseFloat(sale.total_neto).toFixed(2)}</span></div>`;
             receiptContent += '</div>';
         }
 
-        receiptContent += '<table><thead><tr><th>Producto</th><th class="text-center">Cant.</th><th class="text-right">Precio Unit.</th><th class="text-right">Subtotal</th></tr></thead><tbody>';
+        receiptContent += '<table><thead><tr><th>Produto</th><th class="text-center">Qtd.</th><th class="text-right">Preço Unit.</th><th class="text-right">Subtotal</th></tr></thead><tbody>';
         if (sale.sale_details && sale.sale_details.length > 0) {
             sale.sale_details.forEach(detail => {
                 receiptContent += `
                     <tr>
-                        <td>${detail.stock?.name || 'Producto Desconocido'}</td>
+                        <td>${detail.stock?.name || 'Produto Desconhecido'}</td>
                         <td class="text-center">${detail.quantity}</td>
-                        <td class="text-right">$${parseFloat(detail.price).toFixed(2)}</td>
-                        <td class="text-right">$${(detail.quantity * detail.price).toFixed(2)}</td>
+                        <td class="text-right">R$ ${parseFloat(detail.price).toFixed(2)}</td>
+                        <td class="text-right">R$ ${(detail.quantity * detail.price).toFixed(2)}</td>
                     </tr>
                 `;
             });
         }
-        receiptContent += '</tbody>'; // Cierra el cuerpo de la tabla
-
-        // Abre el footer de la tabla para los totales
-        receiptContent += '<tfoot>';
+        receiptContent += '</tbody><tfoot>';
         receiptContent += `
             <tr>
                 <td colspan="3" class="text-right" style="border:none; padding-top: 10px;"><strong>Subtotal:</strong></td>
-                <td class="text-right" style="border:none; padding-top: 10px;">$${parseFloat(sale.total_amount).toFixed(2)}</td>
+                <td class="text-right" style="border:none; padding-top: 10px;">R$ ${parseFloat(sale.total_amount).toFixed(2)}</td>
             </tr>
         `;
 
         if (sale.surcharge_amount > 0) {
             receiptContent += `
                 <tr>
-                    <td colspan="3" class="text-right" style="border:none;"><strong>Recargo:</strong></td>
-                    <td class="text-right" style="border:none;">$${parseFloat(sale.surcharge_amount).toFixed(2)}</td>
+                    <td colspan="3" class="text-right" style="border:none;"><strong>Acréscimo:</strong></td>
+                    <td class="text-right" style="border:none;">R$ ${parseFloat(sale.surcharge_amount).toFixed(2)}</td>
                 </tr>
             `;
         }
@@ -149,36 +150,46 @@ export const printReceipt = (data, type, customerName = '') => {
         receiptContent += `
             <tr class="total-row">
                 <td colspan="3" class="text-right"><strong>TOTAL:</strong></td>
-                <td class="text-right"><strong>$${parseFloat(sale.total_neto).toFixed(2)}</strong></td>
+                <td class="text-right"><strong>R$ ${parseFloat(sale.total_neto).toFixed(2)}</strong></td>
             </tr>
         `;
-        receiptContent += '</tfoot></table>'; // Cierra el footer y la tabla
+        receiptContent += '</tfoot></table>';
         receiptContent += '</div>';
 
     } else if (type === 'payment') {
         const payment = data;
         receiptContent += `
             <div class="receipt-header">
-                 <div class="company-name">Mi Empresa</div>
-                 <div class="receipt-title">Comprobante de Pago</div>
+                 ${business.logo ? `<img src="${business.logo}" class="logo-img" />` : ''}
+                 <div class="company-name">${business.name}</div>
+                 <div class="business-info">
+                    ${business.cnpj ? `CNPJ: ${business.cnpj} <br>` : ''}
+                    ${business.ie ? `IE: ${business.ie} <br>` : ''}
+                    ${business.address ? `${business.address}` : ''}
+                </div>
+                 <div class="receipt-title">Comprovante de Pagamento</div>
                  <div class="receipt-number">#${payment.id}</div>
             </div>
             <div class="receipt-body">
                  <div class="info-section">
                     <div class="info-row"><span>Cliente:</span> <span>${customerName || 'N/A'}</span></div>
-                    <div class="info-row"><span>Fecha de Pago:</span> <span>${new Date(payment.payment_date).toLocaleString('es-ES')}</span></div>
-                    <div class="info-row"><span>Método de Pago:</span> <span>${payment.payment_method || 'N/A'}</span></div>
+                    <div class="info-row"><span>Data do Pagamento:</span> <span>${new Date(payment.payment_date).toLocaleString('pt-BR')}</span></div>
+                    <div class="info-row"><span>Método de Pagamento:</span> <span>${payment.payment_method || 'N/A'}</span></div>
                  </div>
-                 <h3 style="text-align: center; margin-top: 30px;">Monto Pagado: $${parseFloat(payment.amount).toFixed(2)}</h3>
+                 <h3 style="text-align: center; margin-top: 30px;">Valor Pago: R$ ${parseFloat(payment.amount).toFixed(2)}</h3>
                  ${payment.notes ? `<p><strong>Notas:</strong> ${payment.notes}</p>` : ''}
             </div>
         `;
     }
 
-    receiptContent += '<div class="receipt-footer"><div class="thank-you">¡Gracias por su preferencia!</div></div>';
+    receiptContent += `
+        <div class="receipt-footer">
+            <div class="thank-you">Obrigado pela preferência!</div>
+            <div class="footer-text">${business.footerText || ''}</div>
+        </div>
+    `;
     receiptContent += '</div></body></html>';
 
-    // 4. Escribir el contenido, lo que disparará el evento onload
     printDocument.open();
     printDocument.write(receiptContent);
     printDocument.close();

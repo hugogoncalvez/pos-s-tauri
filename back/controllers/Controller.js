@@ -5985,6 +5985,7 @@ export const getBusinessConfig = async (req, res) => {
                 phone: '',
                 email: '',
                 website: '',
+                logo: '',
                 footerText: 'Obrigado pela sua preferência!'
             });
         }

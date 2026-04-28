@@ -45,6 +45,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
 // Middleware para loguear todas las peticiones entrantes
 app.use((req, res, next) => {
   if (process.env.NODE_ENV !== 'production') {
@@ -106,7 +109,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+
 
 // Middleware para inicializar req.cookies
 app.use((req, res, next) => {

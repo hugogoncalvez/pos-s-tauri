@@ -117,7 +117,8 @@ import { useCreateSale } from '../hooks/useCreateSale';
 const Ventas = () => {
 
   const theme = useTheme(); // Inicializar el hook useTheme
-  //const screenSize = { width: window.innerWidth };
+  const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
+  const formatCurrency = (amount) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount || 0);
 
   const { usuario } = useContext(AuthContext);
   const queryClient = useQueryClient();
@@ -1728,7 +1729,7 @@ const Ventas = () => {
   const columns = useMemo(() => [
     {
       id: 'name',
-      label: 'Producto',
+      label: 'Produto',
       align: 'left',
       valueGetter: ({ row }) => (
         <Box>
@@ -1742,14 +1743,8 @@ const Ventas = () => {
       ),
     },
     {
-      id: 'description',
-      label: 'Descripción',
-      align: 'left',
-      valueGetter: ({ row }) => row.description,
-    },
-    {
       id: 'quantity',
-      label: 'Cantidad',
+      label: 'Qtd.',
       align: 'center',
       valueGetter: ({ row }) => {
         const num = parseFloat(row.quantity);
@@ -1761,19 +1756,19 @@ const Ventas = () => {
     },
     {
       id: 'price',
-      label: 'Precio Unitario',
+      label: 'Preço Unit.',
       align: 'center',
-      valueGetter: ({ row }) => `${parseFloat(row.price).toFixed(2)}`,
+      valueGetter: ({ row }) => formatCurrency(row.price),
     },
     {
       id: 'cost',
-      label: 'Costo Total',
+      label: 'Subtotal',
       align: 'center',
-      valueGetter: ({ row }) => `${parseFloat(row.cost).toFixed(2)}`,
+      valueGetter: ({ row }) => formatCurrency(row.cost),
     },
     {
       id: 'actions',
-      label: 'Acciones',
+      label: 'Ações',
       align: 'center',
       valueGetter: ({ row }) => (
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
@@ -1949,6 +1944,55 @@ const Ventas = () => {
         height: `calc(100vh - ${theme.mixins.toolbar.minHeight}px - ${theme.spacing(1)})`,
         overflow: 'hidden' // Prevenir el scroll de la página principal
       })}>
+
+        {/* Encabezado con Identidad del Negocio */}
+        <Paper
+          elevation={1}
+          sx={{
+            p: 1.5,
+            mx: 1,
+            mt: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: (theme) => theme.palette.background.componentHeaderBackground,
+            color: (theme) => theme.palette.primary.contrastText,
+            borderRadius: '12px'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {businessConfig?.logo ? (
+              <Avatar 
+                src={businessConfig.logo} 
+                sx={{ 
+                  width: 45, 
+                  height: 45, 
+                  border: `1px solid ${theme.palette.primary.contrastText}40`,
+                  bgcolor: 'background.paper'
+                }} 
+              />
+            ) : (
+              <Avatar sx={{ bgcolor: 'primary.main', width: 45, height: 45 }}><Storefront /></Avatar>
+            )}
+            <Box>
+              <Typography variant="subtitle1" sx={{ lineHeight: 1.1, fontWeight: 'bold' }}>
+                {businessConfig?.name || 'Ponto de Venda'}
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                {businessConfig?.cnpj ? `CNPJ: ${businessConfig.cnpj}` : 'Módulo de Vendas'}
+              </Typography>
+            </Box>
+          </Box>
+          
+          <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+              {isOnline ? '🟢 Online' : '🔴 Offline'}
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+               {usuario?.nombre || 'Usuário'}
+            </Typography>
+          </Box>
+        </Paper>
 
         {/* --- Top Section (Inputs & Total) --- */}
         <Box sx={{ p: 1 }}>

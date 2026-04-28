@@ -11,28 +11,18 @@ import Swal from 'sweetalert2';
 
 /**
  * Componente para configurar los datos de la empresa.
- * Adaptado para el mercado brasileño (CNPJ, IE) con diseño fluido y moderno.
+ * Incluye optimización automática de imágenes para proteger la base de datos.
  */
 const BusinessConfig = () => {
     const theme = useTheme();
     const { data: config, isLoading, refetch } = UseFetchQuery('businessConfig', '/business-config', true);
     
     const [formData, setFormData] = useState({
-        name: '',
-        cnpj: '',
-        ie: '',
-        address: '',
-        phone: '',
-        email: '',
-        website: '',
-        footerText: '',
-        logo: ''
+        name: '', cnpj: '', ie: '', address: '', phone: '', email: '', website: '', footerText: '', logo: ''
     });
 
     useEffect(() => {
-        if (config) {
-            setFormData(config);
-        }
+        if (config) setFormData(config);
     }, [config]);
 
     const handleChange = (e) => {
@@ -40,14 +30,65 @@ const BusinessConfig = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleLogoChange = (e) => {
+    /**
+     * Redimensiona y comprime la imagen antes de guardarla.
+     */
+    const resizeImage = (file, maxWidth = 400, maxHeight = 400) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height *= maxWidth / width;
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width *= maxHeight / height;
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // WebP con calidad 0.7 para máximo ahorro de espacio
+                    resolve(canvas.toDataURL('image/webp', 0.7)); 
+                };
+                img.onerror = reject;
+            };
+            reader.onerror = reject;
+        });
+    };
+
+    const handleLogoChange = async (e) => {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData(prev => ({ ...prev, logo: reader.result }));
-            };
-            reader.readAsDataURL(file);
+            if (!file.type.startsWith('image/')) {
+                mostrarError('Por favor selecciona un archivo de imagen.', theme);
+                return;
+            }
+
+            mostrarCarga('Optimizando logotipo...', theme);
+            try {
+                const optimizedBase64 = await resizeImage(file);
+                setFormData(prev => ({ ...prev, logo: optimizedBase64 }));
+                Swal.close();
+                mostrarExito('Imagen optimizada y cargada.', theme);
+            } catch (error) {
+                Swal.close();
+                mostrarError('Error al procesar la imagen.', theme);
+            }
         }
     };
 
@@ -66,14 +107,11 @@ const BusinessConfig = () => {
     };
 
     if (isLoading) return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
-            <CircularProgress />
-        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>
     );
 
     return (
         <Box sx={{ p: 'clamp(1rem, 3vw, 3rem)', maxWidth: '1200px', margin: '0 auto' }}>
-            {/* Encabezado Estilo Ronis / Informes */}
             <Paper sx={{ 
                 p: 'clamp(1.5rem, 3vw, 2.5rem)', 
                 mb: 4, 
@@ -97,8 +135,6 @@ const BusinessConfig = () => {
 
             <form onSubmit={handleSubmit}>
                 <Grid container spacing={4}>
-                    
-                    {/* COLUMNA IZQUIERDA: Logo y Marca */}
                     <Grid item xs={12} md={4}>
                         <Paper sx={{ p: 4, borderRadius: '24px', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                             <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>Logo de la Empresa</Typography>
@@ -128,16 +164,10 @@ const BusinessConfig = () => {
                                 </label>
                             </Box>
                             
-                            <input
-                                accept="image/*"
-                                style={{ display: 'none' }}
-                                id="logo-upload"
-                                type="file"
-                                onChange={handleLogoChange}
-                            />
+                            <input accept="image/*" style={{ display: 'none' }} id="logo-upload" type="file" onChange={handleLogoChange} />
                             
                             <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
-                                Recomendado: Imagen cuadrada (PNG/JPG) con fondo transparente o sólido.
+                                El sistema optimizará automáticamente tu imagen para asegurar la mejor velocidad.
                             </Typography>
 
                             <TextField
@@ -146,9 +176,9 @@ const BusinessConfig = () => {
                                 name="name"
                                 value={formData.name}
                                 onChange={handleChange}
-                                required
                                 variant="filled"
                                 sx={{ mt: 'auto' }}
+                                placeholder="Ej: Mi Negocio"
                                 InputProps={{ 
                                     disableUnderline: true, 
                                     sx: { borderRadius: '12px' },
@@ -158,133 +188,61 @@ const BusinessConfig = () => {
                         </Paper>
                     </Grid>
 
-                    {/* COLUMNA DERECHA: Datos Fiscales y Contacto */}
                     <Grid item xs={12} md={8}>
                         <Paper sx={{ p: 4, borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            
-                            {/* Sección Fiscal */}
                             <Box>
                                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, color: theme.palette.primary.main }}>
                                     <Badge /> Datos Fiscales (Brasil)
                                 </Typography>
                                 <Grid container spacing={2}>
                                     <Grid item xs={12} sm={6}>
-                                        <TextField
-                                            fullWidth
-                                            label="CNPJ"
-                                            name="cnpj"
-                                            value={formData.cnpj}
-                                            onChange={handleChange}
-                                            placeholder="00.000.000/0000-00"
-                                            variant="outlined"
-                                        />
+                                        <TextField fullWidth label="CNPJ" name="cnpj" value={formData.cnpj} onChange={handleChange} placeholder="00.000.000/0000-00" />
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
-                                        <TextField
-                                            fullWidth
-                                            label="Inscripción Estatal (IE)"
-                                            name="ie"
-                                            value={formData.ie}
-                                            onChange={handleChange}
-                                            variant="outlined"
-                                        />
+                                        <TextField fullWidth label="Inscripción Estatal (IE)" name="ie" value={formData.ie} onChange={handleChange} />
                                     </Grid>
                                 </Grid>
                             </Box>
 
                             <Divider />
 
-                            {/* Sección Contacto */}
                             <Box>
                                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, color: theme.palette.primary.main }}>
                                     <LocationOn /> Ubicación y Contacto
                                 </Typography>
                                 <Grid container spacing={2}>
                                     <Grid item xs={12}>
-                                        <TextField
-                                            fullWidth
-                                            label="Dirección Completa"
-                                            name="address"
-                                            value={formData.address}
-                                            onChange={handleChange}
-                                            multiline
-                                            rows={2}
-                                        />
+                                        <TextField fullWidth label="Dirección Completa" name="address" value={formData.address} onChange={handleChange} multiline rows={2} />
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
-                                        <TextField
-                                            fullWidth
-                                            label="Teléfono"
-                                            name="phone"
-                                            value={formData.phone}
-                                            onChange={handleChange}
-                                            InputProps={{ startAdornment: (<InputAdornment position="start"><Phone sx={{ fontSize: 20 }} /></InputAdornment>) }}
-                                        />
+                                        <TextField fullWidth label="Teléfono" name="phone" value={formData.phone} onChange={handleChange} InputProps={{ startAdornment: (<InputAdornment position="start"><Phone sx={{ fontSize: 20 }} /></InputAdornment>) }} />
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
-                                        <TextField
-                                            fullWidth
-                                            label="E-mail"
-                                            name="email"
-                                            value={formData.email}
-                                            onChange={handleChange}
-                                            InputProps={{ startAdornment: (<InputAdornment position="start"><Email sx={{ fontSize: 20 }} /></InputAdornment>) }}
-                                        />
+                                        <TextField fullWidth label="E-mail" name="email" value={formData.email} onChange={handleChange} InputProps={{ startAdornment: (<InputAdornment position="start"><Email sx={{ fontSize: 20 }} /></InputAdornment>) }} />
                                     </Grid>
                                 </Grid>
                             </Box>
 
                             <Divider />
 
-                            {/* Sección Información Adicional (Opcional) */}
                             <Box>
                                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, color: theme.palette.primary.main }}>
                                     <ReceiptLong /> Información de Recibos
                                 </Typography>
                                 <Grid container spacing={2}>
                                     <Grid item xs={12}>
-                                        <TextField
-                                            fullWidth
-                                            label="Sitio Web (Opcional)"
-                                            name="website"
-                                            value={formData.website}
-                                            onChange={handleChange}
-                                            InputProps={{ startAdornment: (<InputAdornment position="start"><Language sx={{ fontSize: 20 }} /></InputAdornment>) }}
-                                        />
+                                        <TextField fullWidth label="Sitio Web (Opcional)" name="website" value={formData.website} onChange={handleChange} InputProps={{ startAdornment: (<InputAdornment position="start"><Language sx={{ fontSize: 20 }} /></InputAdornment>) }} />
                                     </Grid>
                                     <Grid item xs={12}>
-                                        <TextField
-                                            fullWidth
-                                            label="Texto de Pie de Página (Opcional)"
-                                            name="footerText"
-                                            value={formData.footerText}
-                                            onChange={handleChange}
-                                            multiline
-                                            rows={2}
-                                            placeholder="Ej: ¡Gracias por su compra! Vuelva pronto."
-                                            helperText="Este texto aparecerá al final de tus tickets impresos."
-                                        />
+                                        <TextField fullWidth label="Texto de Pie de Página (Opcional)" name="footerText" value={formData.footerText} onChange={handleChange} multiline rows={2} placeholder="Ej: ¡Gracias por su compra! Vuelva pronto." helperText="Este texto aparecerá al final de tus tickets impresos." />
                                     </Grid>
                                 </Grid>
                             </Box>
                         </Paper>
                     </Grid>
 
-                    {/* Botón de Acción */}
                     <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                        <Button 
-                            type="submit" 
-                            variant="contained" 
-                            size="large" 
-                            sx={{ 
-                                width: 'clamp(280px, 40vw, 500px)', 
-                                py: 2, 
-                                borderRadius: '16px', 
-                                fontSize: '1.1rem',
-                                fontWeight: 700,
-                                boxShadow: theme.shadows[6]
-                            }}
-                        >
+                        <Button type="submit" variant="contained" size="large" sx={{ width: 'clamp(280px, 40vw, 500px)', py: 2, borderRadius: '16px', fontSize: '1.1rem', fontWeight: 700, boxShadow: theme.shadows[6] }}>
                             Guardar Cambios
                         </Button>
                     </Grid>

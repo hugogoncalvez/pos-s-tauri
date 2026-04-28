@@ -153,16 +153,16 @@ export const useCustomerHistory = (customerId, customerName = '') => {
     }, []);
 
     const handlePrintPurchase = useCallback((purchase, customName = customerName) => {
-        printReceipt(purchase, 'sale', customName);
-    }, [customerName]);
+        printReceipt(purchase, 'sale', customName, businessConfig);
+    }, [customerName, businessConfig]);
 
     const handlePrintPayment = useCallback((payment, customName = customerName) => {
-        printReceipt(payment, 'payment', customName);
-    }, [customerName]);
+        printReceipt(payment, 'payment', customName, businessConfig);
+    }, [customerName, businessConfig]);
 
     const handlePrintDoublePaymentReceipt = useCallback((payment, customName = customerName) => {
-        printReceipt(payment, 'payment', customName);
-    }, [customerName]);
+        printReceipt(payment, 'payment', customName, businessConfig);
+    }, [customerName, businessConfig]);
 
     return {
         purchaseHistory,

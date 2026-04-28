@@ -76,6 +76,9 @@ const Customers = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const { tienePermiso } = usePermissions(); // Usar el hook usePermissions
 
+    const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
+    const formatCurrency = (amount) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount || 0);
+
     const { usuario: user } = useContext(AuthContext); // Added to get user.id            const { 
     const {
         customers,
@@ -293,10 +296,7 @@ const Customers = () => {
         {
             id: 'debt',
             label: 'Deuda',
-            valueGetter: ({ row }) => {
-                const debtValue = parseFloat(row?.debt || 0);
-                return `$ ${debtValue.toFixed(2)}`;
-            },
+            valueGetter: ({ row }) => formatCurrency(row?.debt || 0),
             cellStyle: (row) => {
                 const debtValue = parseFloat(row?.debt || 0);
                 return { color: debtValue > 0 ? 'error.main' : 'success.main' };
@@ -384,6 +384,54 @@ const Customers = () => {
     return (
         <LocalizationProvider dateAdapter={AdapterMoment}>
             <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+                {/* Encabezado con Identidad del Negocio */}
+                <Paper
+                    elevation={1}
+                    sx={{
+                        p: 2,
+                        mb: 3,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: (theme) => theme.palette.background.componentHeaderBackground,
+                        color: (theme) => theme.palette.primary.contrastText,
+                        borderRadius: '12px'
+                    }}
+                >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {businessConfig?.logo ? (
+                            <Avatar 
+                                src={businessConfig.logo} 
+                                sx={{ 
+                                    width: 50, 
+                                    height: 50, 
+                                    border: `1px solid ${theme.palette.primary.contrastText}40`,
+                                    bgcolor: 'background.paper'
+                                }} 
+                            />
+                        ) : (
+                            <Avatar sx={{ bgcolor: 'primary.main', width: 50, height: 50 }}><People /></Avatar>
+                        )}
+                        <Box>
+                            <Typography variant="h6" sx={{ lineHeight: 1.1, fontWeight: 'bold' }}>
+                                {businessConfig?.name || 'Gestión de Clientes'}
+                            </Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                                {businessConfig?.cnpj ? `CNPJ: ${businessConfig.cnpj}` : 'Módulo de Fidelización'}
+                            </Typography>
+                        </Box>
+                    </Box>
+                    
+                    <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                            {businessConfig?.address || 'Brasil'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                            {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        </Typography>
+                    </Box>
+                </Paper>
+
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
