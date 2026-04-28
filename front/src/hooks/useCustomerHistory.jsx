@@ -4,6 +4,7 @@ import { Api } from '../api/api';
 import { printReceipt } from '../functions/printUtils';
 
 export const useCustomerHistory = (customerId, customerName = '') => {
+    const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
     const [purchaseHistory, setPurchaseHistory] = useState([]);
     const [paymentHistory, setPaymentHistory] = useState([]);
     const [saleIdForDetail, setSaleIdForDetail] = useState(null); // <-- NUEVO
