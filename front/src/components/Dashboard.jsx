@@ -278,7 +278,7 @@ const DashboardSidebar = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}><BusinessIcon sx={{ color: theme.palette.text.primary, fontSize: 'clamp(1.25rem, 2vw, 1.5rem)' }} /></ListItemIcon>
-                <ListItemText primary="Config. do Negócio" sx={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }} />
+                <ListItemText primary="Datos del Negocio" sx={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }} />
               </ListItemButton>
             </ListItem>
           )}

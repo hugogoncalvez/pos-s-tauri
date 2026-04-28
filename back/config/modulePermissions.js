@@ -120,6 +120,12 @@ const modulePermissions = {
     acciones: [
       'ver_ventas_global'
     ]
+  },
+  Identidad: {
+    vista: 'ver_vista_config_negocio',
+    acciones: [
+      'accion_editar_config_negocio'
+    ]
   }
 };
 

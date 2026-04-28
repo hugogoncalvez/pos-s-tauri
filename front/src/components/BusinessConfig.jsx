@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Paper, TextField, Grid, useTheme, CircularProgress, InputAdornment } from '@mui/material';
-import { Business, Badge, Phone, Email, Language, LocationOn, Notes, CloudUpload } from '@mui/icons-material';
+import { Box, Typography, Paper, TextField, Grid, useTheme, CircularProgress, InputAdornment, Divider, Avatar } from '@mui/material';
+import { Business, Badge, Phone, Email, Language, LocationOn, Notes, CloudUpload, Storefront, ReceiptLong } from '@mui/icons-material';
 import { StyledButton as Button } from '../styledComponents/ui/StyledButton';
 import { UseFetchQuery } from '../hooks/useQuery';
 import { Api as api } from '../api/api';
@@ -10,8 +10,8 @@ import { mostrarCarga } from '../functions/mostrarCarga';
 import Swal from 'sweetalert2';
 
 /**
- * Componente para configurar os dados da empresa.
- * Adaptado para o mercado brasileiro (CNPJ, IE).
+ * Componente para configurar los datos de la empresa.
+ * Adaptado para el mercado brasileño (CNPJ, IE) con diseño fluido y moderno.
  */
 const BusinessConfig = () => {
     const theme = useTheme();
@@ -53,15 +53,15 @@ const BusinessConfig = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        mostrarCarga('Salvando configurações...', theme);
+        mostrarCarga('Guardando configuración...', theme);
         try {
             await api.put('/business-config', formData);
             Swal.close();
-            mostrarExito('Configurações atualizadas com sucesso!', theme);
+            mostrarExito('¡Configuración guardada!', theme);
             refetch();
         } catch (error) {
             Swal.close();
-            mostrarError('Erro ao atualizar configurações.', theme);
+            mostrarError('Error al guardar.', theme);
         }
     };
 
@@ -72,45 +72,62 @@ const BusinessConfig = () => {
     );
 
     return (
-        <Box sx={{ p: 'clamp(1rem, 2vw, 2rem)', maxWidth: '1200px', margin: '0 auto' }}>
+        <Box sx={{ p: 'clamp(1rem, 3vw, 3rem)', maxWidth: '1200px', margin: '0 auto' }}>
+            {/* Encabezado Estilo Ronis / Informes */}
             <Paper sx={{ 
-                p: 3, 
+                p: 'clamp(1.5rem, 3vw, 2.5rem)', 
                 mb: 4, 
                 background: theme.palette.background.componentHeaderBackground, 
                 color: theme.palette.primary.contrastText,
-                borderRadius: '16px'
+                borderRadius: '24px',
+                boxShadow: theme.shadows[10],
+                position: 'relative',
+                overflow: 'hidden'
             }}>
-                <Typography variant="h4" sx={{ fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 'bold' }}>
-                    Configurações do Negócio
-                </Typography>
-                <Typography variant="subtitle1">
-                    Personalize os dados que aparecerão nos seus relatórios e recibos.
-                </Typography>
+                <Box sx={{ position: 'relative', zIndex: 1 }}>
+                    <Typography variant="h4" sx={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', fontWeight: 800, mb: 1, letterSpacing: '-0.5px' }}>
+                        Identidad del Negocio
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ opacity: 0.9, fontSize: 'clamp(0.9rem, 1.5vw, 1.1rem)' }}>
+                        Gestiona la marca y los datos fiscales que aparecerán en tus recibos.
+                    </Typography>
+                </Box>
+                <Storefront sx={{ position: 'absolute', right: -20, top: -20, fontSize: '15rem', opacity: 0.1, transform: 'rotate(-15deg)' }} />
             </Paper>
 
             <form onSubmit={handleSubmit}>
-                <Grid container spacing={3} justifyContent="center">
-                    {/* Seção Logo */}
+                <Grid container spacing={4}>
+                    
+                    {/* COLUMNA IZQUIERDA: Logo y Marca */}
                     <Grid item xs={12} md={4}>
-                        <Paper sx={{ p: 3, textAlign: 'center', height: '100%', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography variant="h6" gutterBottom>Logotipo</Typography>
-                            <Box sx={{ 
-                                width: '150px', 
-                                height: '150px', 
-                                border: `2px dashed ${theme.palette.divider}`, 
-                                borderRadius: '8px',
-                                mb: 2,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                overflow: 'hidden'
-                            }}>
-                                {formData.logo ? (
-                                    <img src={formData.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                ) : (
-                                    <Business sx={{ fontSize: 60, color: 'text.disabled' }} />
-                                )}
+                        <Paper sx={{ p: 4, borderRadius: '24px', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>Logo de la Empresa</Typography>
+                            
+                            <Box sx={{ position: 'relative', '&:hover .upload-overlay': { opacity: 1 } }}>
+                                <Avatar 
+                                    src={formData.logo} 
+                                    sx={{ 
+                                        width: 'clamp(150px, 15vw, 200px)', 
+                                        height: 'clamp(150px, 15vw, 200px)', 
+                                        boxShadow: theme.shadows[8],
+                                        border: `4px solid ${theme.palette.background.paper}`,
+                                        bgcolor: theme.palette.action.hover
+                                    }}
+                                >
+                                    <Business sx={{ fontSize: 80, color: theme.palette.text.disabled }} />
+                                </Avatar>
+                                <label htmlFor="logo-upload">
+                                    <Box className="upload-overlay" sx={{ 
+                                        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
+                                        bgcolor: 'rgba(0,0,0,0.4)', borderRadius: '50%', display: 'flex', 
+                                        alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                                        opacity: 0, transition: '0.3s'
+                                    }}>
+                                        <CloudUpload sx={{ color: 'white', fontSize: 40 }} />
+                                    </Box>
+                                </label>
                             </Box>
+                            
                             <input
                                 accept="image/*"
                                 style={{ display: 'none' }}
@@ -118,108 +135,157 @@ const BusinessConfig = () => {
                                 type="file"
                                 onChange={handleLogoChange}
                             />
-                            <label htmlFor="logo-upload">
-                                <Button variant="contained" component="span" startIcon={<CloudUpload />}>
-                                    Upload Logo
-                                </Button>
-                            </label>
+                            
+                            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
+                                Recomendado: Imagen cuadrada (PNG/JPG) con fondo transparente o sólido.
+                            </Typography>
+
+                            <TextField
+                                fullWidth
+                                label="Nombre del Negocio"
+                                name="name"
+                                value={formData.name}
+                                onChange={handleChange}
+                                required
+                                variant="filled"
+                                sx={{ mt: 'auto' }}
+                                InputProps={{ 
+                                    disableUnderline: true, 
+                                    sx: { borderRadius: '12px' },
+                                    startAdornment: (<InputAdornment position="start"><Business color="primary" /></InputAdornment>) 
+                                }}
+                            />
                         </Paper>
                     </Grid>
 
-                    {/* Seção Dados */}
+                    {/* COLUMNA DERECHA: Datos Fiscales y Contacto */}
                     <Grid item xs={12} md={8}>
-                        <Paper sx={{ p: 3, borderRadius: '16px' }}>
-                            <Grid container spacing={2}>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Nome Fantasia / Razão Social"
-                                        name="name"
-                                        value={formData.name}
-                                        onChange={handleChange}
-                                        required
-                                        InputProps={{ startAdornment: (<InputAdornment position="start"><Business /></InputAdornment>) }}
-                                    />
+                        <Paper sx={{ p: 4, borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            
+                            {/* Sección Fiscal */}
+                            <Box>
+                                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, color: theme.palette.primary.main }}>
+                                    <Badge /> Datos Fiscales (Brasil)
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField
+                                            fullWidth
+                                            label="CNPJ"
+                                            name="cnpj"
+                                            value={formData.cnpj}
+                                            onChange={handleChange}
+                                            placeholder="00.000.000/0000-00"
+                                            variant="outlined"
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField
+                                            fullWidth
+                                            label="Inscripción Estatal (IE)"
+                                            name="ie"
+                                            value={formData.ie}
+                                            onChange={handleChange}
+                                            variant="outlined"
+                                        />
+                                    </Grid>
                                 </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="CNPJ"
-                                        name="cnpj"
-                                        value={formData.cnpj}
-                                        onChange={handleChange}
-                                        InputProps={{ startAdornment: (<InputAdornment position="start"><Badge /></InputAdornment>) }}
-                                    />
+                            </Box>
+
+                            <Divider />
+
+                            {/* Sección Contacto */}
+                            <Box>
+                                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, color: theme.palette.primary.main }}>
+                                    <LocationOn /> Ubicación y Contacto
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            label="Dirección Completa"
+                                            name="address"
+                                            value={formData.address}
+                                            onChange={handleChange}
+                                            multiline
+                                            rows={2}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField
+                                            fullWidth
+                                            label="Teléfono"
+                                            name="phone"
+                                            value={formData.phone}
+                                            onChange={handleChange}
+                                            InputProps={{ startAdornment: (<InputAdornment position="start"><Phone sx={{ fontSize: 20 }} /></InputAdornment>) }}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField
+                                            fullWidth
+                                            label="E-mail"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            InputProps={{ startAdornment: (<InputAdornment position="start"><Email sx={{ fontSize: 20 }} /></InputAdornment>) }}
+                                        />
+                                    </Grid>
                                 </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Inscrição Estadual (IE)"
-                                        name="ie"
-                                        value={formData.ie}
-                                        onChange={handleChange}
-                                        InputProps={{ startAdornment: (<InputAdornment position="start"><Badge /></InputAdornment>) }}
-                                    />
+                            </Box>
+
+                            <Divider />
+
+                            {/* Sección Información Adicional (Opcional) */}
+                            <Box>
+                                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, color: theme.palette.primary.main }}>
+                                    <ReceiptLong /> Información de Recibos
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            label="Sitio Web (Opcional)"
+                                            name="website"
+                                            value={formData.website}
+                                            onChange={handleChange}
+                                            InputProps={{ startAdornment: (<InputAdornment position="start"><Language sx={{ fontSize: 20 }} /></InputAdornment>) }}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <TextField
+                                            fullWidth
+                                            label="Texto de Pie de Página (Opcional)"
+                                            name="footerText"
+                                            value={formData.footerText}
+                                            onChange={handleChange}
+                                            multiline
+                                            rows={2}
+                                            placeholder="Ej: ¡Gracias por su compra! Vuelva pronto."
+                                            helperText="Este texto aparecerá al final de tus tickets impresos."
+                                        />
+                                    </Grid>
                                 </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Endereço Completo"
-                                        name="address"
-                                        value={formData.address}
-                                        onChange={handleChange}
-                                        InputProps={{ startAdornment: (<InputAdornment position="start"><LocationOn /></InputAdornment>) }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Telefone"
-                                        name="phone"
-                                        value={formData.phone}
-                                        onChange={handleChange}
-                                        InputProps={{ startAdornment: (<InputAdornment position="start"><Phone /></InputAdornment>) }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="E-mail"
-                                        name="email"
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                        InputProps={{ startAdornment: (<InputAdornment position="start"><Email /></InputAdornment>) }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Website"
-                                        name="website"
-                                        value={formData.website}
-                                        onChange={handleChange}
-                                        InputProps={{ startAdornment: (<InputAdornment position="start"><Language /></InputAdornment>) }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Texto de Rodapé (Recibos)"
-                                        name="footerText"
-                                        value={formData.footerText}
-                                        onChange={handleChange}
-                                        multiline
-                                        rows={2}
-                                        InputProps={{ startAdornment: (<InputAdornment position="start"><Notes /></InputAdornment>) }}
-                                    />
-                                </Grid>
-                            </Grid>
+                            </Box>
                         </Paper>
                     </Grid>
 
+                    {/* Botón de Acción */}
                     <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                        <Button type="submit" variant="contained" size="large" sx={{ width: 'clamp(200px, 50%, 400px)', py: 1.5 }}>
-                            Salvar Configurações
+                        <Button 
+                            type="submit" 
+                            variant="contained" 
+                            size="large" 
+                            sx={{ 
+                                width: 'clamp(280px, 40vw, 500px)', 
+                                py: 2, 
+                                borderRadius: '16px', 
+                                fontSize: '1.1rem',
+                                fontWeight: 700,
+                                boxShadow: theme.shadows[6]
+                            }}
+                        >
+                            Guardar Cambios
                         </Button>
                     </Grid>
                 </Grid>
