@@ -10,7 +10,7 @@ import SalesStatsSection from '../styledComponents/dashboard/SalesStatsSection.j
 import TablesSection from '../styledComponents/dashboard/TablesSection.jsx'; // Importar el componente de sección
 
 // Importar iconos
-import { MonetizationOn, ShoppingCart, People, Store, TrendingUp, Home, Assessment, Policy, CalendarMonth, DateRange, CalendarToday, ArrowUpward, ArrowDownward, TrendingFlat, UploadFile, ColorLens as ColorLensIcon, LocalOffer as LocalOfferIcon, Extension as ExtensionIcon, Print as PrintIcon, CreditCard as CreditCardIcon } from '@mui/icons-material';
+import { MonetizationOn, ShoppingCart, People, Store, TrendingUp, Home, Assessment, Policy, CalendarMonth, DateRange, CalendarToday, ArrowUpward, ArrowDownward, TrendingFlat, UploadFile, ColorLens as ColorLensIcon, LocalOffer as LocalOfferIcon, Extension as ExtensionIcon, Print as PrintIcon, CreditCard as CreditCardIcon, Business as BusinessIcon } from '@mui/icons-material';
 import { usePermissions } from '../hooks/usePermissions';
 import NovedadesSection from '../styledComponents/dashboard/NovedadesSection.jsx';
 
