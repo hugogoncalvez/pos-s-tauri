@@ -25,6 +25,7 @@ import ComboModel from '../Models/ComboModel.js';
 import { ComboItem } from '../Models/ComboItemModel.js';
 import UserPermissionModel from '../Models/UserPermissionModel.js';
 import PermissionModel from '../Models/PermissionModel.js';
+import BusinessConfigModel from '../Models/BusinessConfigModel.js';
 
 
 StockCategoryModel.hasMany(StockModel, { foreignKey: 'category_id' });

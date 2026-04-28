@@ -261,6 +261,28 @@ const DashboardSidebar = () => {
             </ListItem>
           )}
           {tienePermiso('ver_vista_editor_tema') && (
+            <ListItem disablePadding component={RouterLink} to="/config-negocio" sx={{ color: theme.palette.text.primary }}>
+              <ListItemButton sx={{
+                '&:hover .MuiListItemIcon-root': {
+                  transform: 'rotate(12deg) scale(1.1)',
+                  transition: 'transform 0.3s ease',
+                }
+              }}>
+                <ListItemIcon sx={{
+                  mr: 1,
+                  p: 1.5,
+                  borderRadius: '16px',
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main}20, ${theme.palette.secondary.main}20)`,
+                  border: `1px solid ${theme.palette.primary.main}30`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}><BusinessIcon sx={{ color: theme.palette.text.primary, fontSize: 'clamp(1.25rem, 2vw, 1.5rem)' }} /></ListItemIcon>
+                <ListItemText primary="Config. do Negócio" sx={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }} />
+              </ListItemButton>
+            </ListItem>
+          )}
+          {tienePermiso('ver_vista_editor_tema') && (
             <ListItem disablePadding component={RouterLink} to="/editor-tema" sx={{ color: theme.palette.text.primary }}>
               <ListItemButton sx={{
                 '&:hover .MuiListItemIcon-root': {

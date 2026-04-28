@@ -52,7 +52,9 @@ import {
     checkBarcodeGlobalUniqueness,
     getUserModules,
     updateUserModules,
-    getCashSessionSummary
+    getCashSessionSummary,
+    getBusinessConfig,
+    updateBusinessConfig
 } from "../controllers/Controller.js";
 import authRoutes from './auth.js';
 //import fiscalRoutes from './fiscal.js';
@@ -210,6 +212,8 @@ router.get('/theme', getThemeSettings); // Pública
 authenticatedRouter.put('/theme', checkPermission('ver_vista_editor_tema'), updateThemeSettings);
 authenticatedRouter.get('/elements', getAllElements); // Pública, los permisos se chequean en el front
 authenticatedRouter.put('/element', checkPermission('accion_gestionar_roles'), updateElement);
+router.get('/business-config', getBusinessConfig); // Pública para reportes/logo
+authenticatedRouter.put('/business-config', checkPermission('ver_vista_editor_tema'), updateBusinessConfig);
 
 // --- RUTAS DE CONFIGURACIÓN FISCAL ---
 //authenticatedRouter.use('/fiscal', fiscalRoutes);

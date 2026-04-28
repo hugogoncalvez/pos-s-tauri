@@ -5,7 +5,7 @@ import {
     SaleModel, SaleDetailModel, CustomerModel, PaymentModel, PromotionModel, UsuarioModel,
     CashSessionsModel, AuditLogModel, RoleModel, SalePaymentModel, CashSessionMovementModel,
     ThemeSettingModel, PendingTicketModel, ProductPresentationsModel, ProductPromotionsModel,
-    ComboModel, ComboItem, PermissionModel, UserPermissionModel
+    ComboModel, ComboItem, PermissionModel, UserPermissionModel, BusinessConfigModel
 } from '../database/associations.js';
 import CustomerPaymentsModel from '../Models/CustomerPaymentsModel.js';
 import db from '../database/db.js';
@@ -5967,5 +5967,65 @@ export const updateUserModules = async (req, res) => {
         await transaction.rollback();
         console.error(`[updateUserModules] Error al actualizar módulos para el usuario:`, error);
         res.status(500).json({ message: 'Error al actualizar los módulos del usuario.' });
+    }
+};
+
+/**
+ * @description Obtiene la configuración del negocio. Crea una por defecto si no existe.
+ */
+export const getBusinessConfig = async (req, res) => {
+    try {
+        let config = await BusinessConfigModel.findOne();
+        if (!config) {
+            config = await BusinessConfigModel.create({
+                name: 'Meu Negócio',
+                cnpj: '',
+                ie: '',
+                address: '',
+                phone: '',
+                email: '',
+                website: '',
+                footerText: 'Obrigado pela sua preferência!'
+            });
+        }
+        res.json(config);
+    } catch (error) {
+        console.error("Error al obtener la configuración del negocio:", error);
+        res.status(500).json({ message: 'Error interno al obtener la configuración.' });
+    }
+};
+
+/**
+ * @description Actualiza la configuración del negocio.
+ */
+export const updateBusinessConfig = async (req, res) => {
+    try {
+        const { id, ...data } = req.body;
+        
+        // Buscamos si existe, si no, usamos el ID 1 por defecto
+        const configId = id || 1;
+        
+        const [updated] = await BusinessConfigModel.update(data, {
+            where: { id: configId }
+        });
+
+        const updatedConfig = await BusinessConfigModel.findByPk(configId);
+
+        if (updatedConfig) {
+            await logAudit({
+                user_id: req.usuarioId,
+                action: 'ACTUALIZACION',
+                entity_type: 'business_config',
+                entity_id: updatedConfig.id,
+                details: `Actualización de datos del negocio: ${updatedConfig.name}`,
+                ip_address: req.ip
+            });
+
+            return res.json(updatedConfig);
+        }
+        res.status(404).json({ message: 'Configuración no encontrada.' });
+    } catch (error) {
+        console.error("Error al actualizar la configuración del negocio:", error);
+        res.status(500).json({ message: 'Error interno al actualizar la configuración.' });
     }
 };

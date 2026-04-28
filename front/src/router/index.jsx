@@ -27,6 +27,7 @@ import ComboManager from '../components/ComboManager';
 import BarcodePrinter from '../components/BarcodePrinter';
 import PaymentMethodSurchargeManager from '../components/PaymentMethodSurchargeManager';
 import SalesHistory from '../components/SalesHistory';
+import BusinessConfig from '../components/BusinessConfig';
 import Unauthorized from './Unauthorized'; // Importar componente de Acceso Denegado
 
 export const router = createBrowserRouter([
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
       { path: 'usuarios', element: <ProtectedRoute permission="ver_vista_usuarios"><Users /></ProtectedRoute> },
       { path: 'profit-report', element: <ProtectedRoute permission="ver_vista_informes"><ProfitReport /></ProtectedRoute> },
       { path: 'editor-tema', element: <ProtectedRoute permission="ver_vista_editor_tema"><ThemeEditor /></ProtectedRoute> },
+      { path: 'config-negocio', element: <ProtectedRoute permission="ver_vista_editor_tema"><BusinessConfig /></ProtectedRoute> },
       { path: 'promociones', element: <ProtectedRoute permission="ver_vista_promociones"><PromotionsManager /></ProtectedRoute> },
       { path: 'combos', element: <ProtectedRoute permission="ver_vista_combos"><ComboManager /></ProtectedRoute> },
       { path: 'barcode-printer', element: <ProtectedRoute permission="ver_vista_impresion_codigos"><BarcodePrinter /></ProtectedRoute> },
