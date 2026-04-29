@@ -51,7 +51,7 @@ const PaymentMethodSurchargeManager = () => {
 
     const isSystemMethod = (methodName) => {
         if (!methodName) return false;
-        const systemMethods = ['efectivo', 'mixto', 'credito'];
+        const systemMethods = ['efectivo', 'mixto', 'credito', 'pix'];
         return systemMethods.includes(methodName.toLowerCase());
     };
 

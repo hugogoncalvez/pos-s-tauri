@@ -124,11 +124,11 @@ const SummarySaleModal = ({
         setValues({});
         setSelectedProduct(null);
         setCurrentTicketId(null);
-        const efectivo = paymentMethods?.find(method =>
-          method.method?.toLowerCase().includes('efectivo') ||
-          method.nombre?.toLowerCase().includes('efectivo')
+        const defaultMethod = paymentMethods?.find(method =>
+          method.method?.toLowerCase().includes('pix') ||
+          method.nombre?.toLowerCase().includes('pix')
         );
-        setSelectedSinglePaymentType(efectivo || null);
+        setSelectedSinglePaymentType(defaultMethod || null);
         setPaymentOption('single');
         setMixedPayments([
           { payment_method_id: null, amount: '' },

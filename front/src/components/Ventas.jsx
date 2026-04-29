@@ -270,11 +270,11 @@ const Ventas = () => {
     setValues({});
     setSelectedProduct(null);
     setCurrentTicketId(null);
-    const efectivo = paymentMethods?.find(method =>
-      method.method?.toLowerCase().includes('efectivo') ||
-      method.nombre?.toLowerCase().includes('efectivo')
+    const defaultMethod = paymentMethods?.find(method =>
+      method.method?.toLowerCase().includes('pix') ||
+      method.nombre?.toLowerCase().includes('pix')
     );
-    setSelectedSinglePaymentType(efectivo || null);
+    setSelectedSinglePaymentType(defaultMethod || null);
     setPaymentOption('single');
     setMixedPayments([
       { payment_method_id: null, amount: '' },
@@ -787,11 +787,11 @@ const Ventas = () => {
               setValues({});
               setSelectedProduct(null);
               setCurrentTicketId(null);
-              const efectivo = paymentMethods?.find(method =>
-                method.method?.toLowerCase().includes('efectivo') ||
-                method.nombre?.toLowerCase().includes('efectivo')
+              const defaultMethod = paymentMethods?.find(method =>
+                method.method?.toLowerCase().includes('pix') ||
+                method.nombre?.toLowerCase().includes('pix')
               );
-              setSelectedSinglePaymentType(efectivo || null);
+              setSelectedSinglePaymentType(defaultMethod || null);
               setPaymentOption('single');
               setMixedPayments([
                 { payment_method_id: null, amount: '' },
@@ -959,12 +959,12 @@ const Ventas = () => {
   // Set default payment method to "Efectivo" when payment methods are loaded
   useEffect(() => {
     if (paymentMethods && Array.isArray(paymentMethods) && paymentMethods.length > 0 && !selectedSinglePaymentType && paymentOption === 'single') {
-      const efectivo = paymentMethods.find(method =>
-        method.method?.toLowerCase().includes('efectivo') ||
-        method.nombre?.toLowerCase().includes('efectivo')
+      const defaultMethod = paymentMethods.find(method =>
+        method.method?.toLowerCase().includes('pix') ||
+        method.nombre?.toLowerCase().includes('pix')
       );
-      if (efectivo) {
-        setSelectedSinglePaymentType(efectivo);
+      if (defaultMethod) {
+        setSelectedSinglePaymentType(defaultMethod);
       }
     }
   }, [paymentMethods]);
