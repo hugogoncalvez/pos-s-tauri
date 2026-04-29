@@ -196,5 +196,5 @@ export {
   SaleModel, SaleDetailModel, CustomerModel, PaymentModel, PromotionModel, UsuarioModel,
   CashSessionsModel, AuditLogModel, CustomerPaymentsModel, SupplierModel, RoleModel, SalePaymentModel,
   CashSessionMovementModel, ThemeSettingModel, PendingTicketModel, ProductPresentationsModel, ProductPromotionsModel,
-  ComboModel, ComboItem, UserPermissionModel, PermissionModel
+  ComboModel, ComboItem, UserPermissionModel, PermissionModel, BusinessConfigModel
 };
