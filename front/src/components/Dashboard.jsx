@@ -256,7 +256,7 @@ const DashboardSidebar = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}><CreditCardIcon sx={{ color: theme.palette.text.primary, fontSize: 'clamp(1.25rem, 2vw, 1.5rem)' }} /></ListItemIcon>
-                <ListItemText primary="Gestión de Recargos" sx={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }} />
+                <ListItemText primary="Métodos de Cobro" sx={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }} />
               </ListItemButton>
             </ListItem>
           )}

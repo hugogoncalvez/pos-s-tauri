@@ -190,10 +190,11 @@ const CashAdmin = () => {
                     if (session.status === 'abierta') {
                         try {
                             const { data: summaryData } = await Api.get(`/cash-sessions/${session.id}/summary`);
-                            const cashSales = summaryData.payment_methods?.Efectivo || 0;
+                            // Usar total_sales (todos los métodos de pago) para reflejar el total real de la sesión
+                            const totalSales = summaryData.total_sales || 0;
                             const totalIncome = summaryData.totalIncome || 0;
                             const totalExpense = summaryData.totalExpense || 0;
-                            const current_cash = parseFloat(session.opening_amount) + cashSales + totalIncome - totalExpense;
+                            const current_cash = parseFloat(session.opening_amount) + totalSales + totalIncome - totalExpense;
                             return { ...session, current_cash };
                         } catch (error) {
                             console.error(`Error fetching summary for session ${session.id}:`, error);
@@ -204,6 +205,7 @@ const CashAdmin = () => {
                     }
                     return session;
                 }));
+                console.log(detailedSessions);
                 setActiveSessions(detailedSessions);
             } else {
                 setActiveSessions([]);

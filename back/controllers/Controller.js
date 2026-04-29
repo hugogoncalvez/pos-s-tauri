@@ -2649,30 +2649,15 @@ export const getActiveCashSession = async (req, res) => {
             where: { cash_session_id: session.id }
         });
 
-        // Calcular ventas en efectivo para la sesión
-        const cashSalesResult = await SalePaymentModel.findOne({
+        // Calcular total de ventas (todos los métodos de pago + recargo) para la sesión
+        const salesResult = await SaleModel.findOne({
             attributes: [
-                [db.fn('SUM', db.col('amount')), 'totalCashSales']
+                [db.fn('SUM', db.literal('total_neto + COALESCE(surcharge_amount, 0)')), 'totalSales']
             ],
-            include: [
-                {
-                    model: SaleModel,
-                    as: 'sale',
-                    attributes: [],
-                    where: { cash_session_id: session.id },
-                    required: true
-                },
-                {
-                    model: PaymentModel,
-                    as: 'payment',
-                    attributes: [],
-                    where: { method: 'Efectivo' },
-                    required: true
-                }
-            ],
+            where: { cash_session_id: session.id },
             raw: true
         });
-        const cashSales = parseFloat(cashSalesResult?.totalCashSales || 0);
+        const totalSales = parseFloat(salesResult?.totalSales || 0);
 
         let totalIngresos = 0;
         let totalEgresos = 0;
@@ -2685,7 +2670,7 @@ export const getActiveCashSession = async (req, res) => {
             }
         });
 
-        const currentCash = parseFloat(session.opening_amount) + cashSales + totalIngresos - totalEgresos;
+        const currentCash = parseFloat(session.opening_amount) + totalSales + totalIngresos - totalEgresos;
 
         return res.status(200).json({
             hasActiveSession: true,
@@ -3093,13 +3078,14 @@ export const getCashSessionSummary = async (req, res) => {
         const summary = {
             ...session.toJSON(),
             sales_count: sales.length,
-            total_sales: sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto), 0),
+            // Incluir surcharge_amount para que coincida con el total cobrado por método de pago
+            total_sales: sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto) + parseFloat(sale.surcharge_amount || 0), 0),
             total_discounts: sales.reduce((sum, sale) => sum + parseFloat(sale.promotion_discount || 0), 0),
             sales: sales,
             totalIncome,
             totalExpense,
             // Estadísticas adicionales
-            average_sale: sales.length > 0 ? sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto), 0) / sales.length : 0,
+            average_sale: sales.length > 0 ? sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto) + parseFloat(sale.surcharge_amount || 0), 0) / sales.length : 0,
             payment_methods: sales.reduce((acc, sale) => {
                 const plainSale = sale.toJSON();
                 if (!plainSale.sale_payments) {
