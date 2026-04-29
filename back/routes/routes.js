@@ -213,7 +213,7 @@ authenticatedRouter.put('/theme', checkPermission('ver_vista_editor_tema'), upda
 authenticatedRouter.get('/elements', getAllElements); // Pública, los permisos se chequean en el front
 authenticatedRouter.put('/element', checkPermission('accion_gestionar_roles'), updateElement);
 router.get('/business-config', getBusinessConfig); // Pública para reportes/logo
-authenticatedRouter.put('/business-config', checkPermission('ver_vista_editor_tema'), updateBusinessConfig);
+authenticatedRouter.put('/business-config', checkPermission('accion_editar_config_negocio'), updateBusinessConfig);
 
 // --- RUTAS DE CONFIGURACIÓN FISCAL ---
 //authenticatedRouter.use('/fiscal', fiscalRoutes);

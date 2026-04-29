@@ -234,7 +234,7 @@ const CustomerModalContent = ({
               !String(formData.name || '').trim() ||
               (String(formData.name || '').trim().length > 0 && String(formData.name || '').trim().length < 2) ||
               !!dniExistsError ||
-              (String(formData.dni || '').trim().length > 0 && (String(formData.dni || '').trim().length < 6 || String(formData.dni || '').trim().length > 9)) ||
+              (String(formData.dni || '').trim().length > 0 && (String(formData.dni || '').trim().length < 11 || String(formData.dni || '').trim().length > 14)) ||
               (String(formData.phone || '').trim().length > 0 && (String(formData.phone || '').trim().length < 8 || String(formData.phone || '').trim().length > 20)) ||
               !!emailExistsError ||
               (String(formData.email || '').trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) ||
@@ -251,3 +251,5 @@ const CustomerModalContent = ({
 };
 
 export default CustomerModalContent;
+;
+;

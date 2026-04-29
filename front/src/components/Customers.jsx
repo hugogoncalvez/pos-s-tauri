@@ -23,7 +23,8 @@ import {
     ListItemText,
     Stack,
     InputAdornment,
-    Pagination
+    Pagination,
+    Avatar
 } from '@mui/material';
 import { StyledDialog } from '../styledComponents/ui/StyledDialog';
 import { StyledTextField } from '../styledComponents/ui/StyledTextField';
@@ -44,7 +45,8 @@ import {
     Print as PrintIcon,
     Close as CloseIcon,
     Receipt as ReceiptIcon,
-    KeyboardArrowDown
+    KeyboardArrowDown,
+    People
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { EnhancedTable } from '../styledComponents/EnhancedTable'; // Added
@@ -292,7 +294,7 @@ const Customers = () => {
         { id: 'email', label: 'Email', valueGetter: ({ row }) => row.email || '-', align: 'left' },
         { id: 'phone', label: 'Teléfono', valueGetter: ({ row }) => row.phone || '-', align: 'center' },
         { id: 'address', label: 'Dirección', valueGetter: ({ row }) => row.address || '-', align: 'left' },
-        { id: 'dni', label: 'DNI', valueGetter: ({ row }) => row.dni || '-', align: 'center' },
+        { id: 'dni', label: 'CPF', valueGetter: ({ row }) => row.dni || '-', align: 'center' },
         {
             id: 'debt',
             label: 'Deuda',
