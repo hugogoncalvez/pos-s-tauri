@@ -72,11 +72,7 @@ const autoCloseCashSessions = async () => {
                 // Calcular totales de ventas para esta sesión
                 const salesData = await SaleModel.findAll({
                     where: {
-                        user_id: session.user_id,
-                        createdAt: {
-                            [Op.gte]: session.opened_at,
-                            [Op.lte]: new Date()
-                        }
+                        cash_session_id: session.id
                     },
                     attributes: [
                         [db.fn('SUM', db.col('total_neto')), 'total_sales'],
@@ -90,13 +86,17 @@ const autoCloseCashSessions = async () => {
                 // Calcular monto de cierre estimado (apertura + ventas)
                 const estimated_closing = parseFloat(session.opening_amount) + parseFloat(total_sales);
 
-                // Actualizar la sesión con cierre automático
+                // Actualizar la sesión con cierre automático usando los campos correctos del modelo
                 await session.update({
-                    closing_amount: estimated_closing,
+                    cashier_declared_amount: estimated_closing,
+                    admin_verified_amount: estimated_closing,
                     total_sales,
+                    total_sales_at_close: total_sales,
                     total_discounts,
-                    closed_at: new Date(),
+                    closed_at_user: new Date(),
+                    verified_at: new Date(),
                     status: 'cerrada',
+                    verified_by_admin_id: systemUserId,
                     notes: `Cierre automático a medianoche. Monto estimado: ${estimated_closing}. Requiere verificación manual.`
                 });
 
@@ -110,11 +110,12 @@ const autoCloseCashSessions = async () => {
                         status: 'abierta'
                     },
                     new_values: {
-                        closing_amount: estimated_closing,
+                        cashier_declared_amount: estimated_closing,
+                        admin_verified_amount: estimated_closing,
                         total_sales,
-                        total_discounts,
+                        total_sales_at_close: total_sales,
                         status: 'cerrada',
-                        notes: 'Cierre automático a medianoche'
+                        verified_at: new Date()
                     },
                     ip_address: '127.0.0.1',
                     user_agent: 'System Scheduler'
