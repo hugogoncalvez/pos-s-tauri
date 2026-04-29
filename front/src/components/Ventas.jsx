@@ -1946,55 +1946,6 @@ const Ventas = () => {
         overflow: 'hidden' // Prevenir el scroll de la página principal
       })}>
 
-        {/* Encabezado con Identidad del Negocio */}
-        <Paper
-          elevation={1}
-          sx={{
-            p: 1.5,
-            mx: 1,
-            mt: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: (theme) => theme.palette.background.componentHeaderBackground,
-            color: (theme) => theme.palette.primary.contrastText,
-            borderRadius: '12px'
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {businessConfig?.logo ? (
-              <Avatar 
-                src={businessConfig.logo} 
-                sx={{ 
-                  width: 45, 
-                  height: 45, 
-                  border: `1px solid ${theme.palette.primary.contrastText}40`,
-                  bgcolor: 'background.paper'
-                }} 
-              />
-            ) : (
-              <Avatar sx={{ bgcolor: 'primary.main', width: 45, height: 45 }}><Storefront /></Avatar>
-            )}
-            <Box>
-              <Typography variant="subtitle1" sx={{ lineHeight: 1.1, fontWeight: 'bold' }}>
-                {businessConfig?.name || 'Ponto de Venda'}
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                {businessConfig?.cnpj ? `CNPJ: ${businessConfig.cnpj}` : 'Módulo de Vendas'}
-              </Typography>
-            </Box>
-          </Box>
-          
-          <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-              {isOnline ? '🟢 Online' : '🔴 Offline'}
-            </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.8 }}>
-               {usuario?.nombre || 'Usuário'}
-            </Typography>
-          </Box>
-        </Paper>
-
         {/* --- Top Section (Inputs & Total) --- */}
         <Box sx={{ p: 1 }}>
           <Grid container sx={{ display: 'flex', justifyContent: 'center', alignContent: 'center', flexDirection: 'column' }}>

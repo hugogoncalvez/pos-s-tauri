@@ -26,7 +26,7 @@ export const AuthContext = createContext({
 export const useAuth = () => useContext(AuthContext);
 
 const MAX_CONSECUTIVE_ERRORS = 3; // Requerir 3 fallos para pasar a OFFLINE
-const MIN_CONSECUTIVE_SUCCESS = 2; // Requerir 2 éxitos para volver a ONLINE
+const MIN_CONSECUTIVE_SUCCESS = 1; // Solo 1 éxito para volver a ONLINE rápido
 
 export const AuthProvider = ({ children }) => {
   const { isTauri, isLoading: isTauriLoading } = useIsTauri();
@@ -46,10 +46,9 @@ export const AuthProvider = ({ children }) => {
 
   const checkRealConnectivity = useCallback(async () => {
     const healthCheckUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/health`;
-    await info(`[AuthContext] Verificando conexión a: ${healthCheckUrl} (Errores: ${errorCountRef.current}, Éxitos: ${successCountRef.current})`);
-
+    
     try {
-      const response = await Api.get('/health', { timeout: 10000 });
+      const response = await Api.get('/health', { timeout: 5000 });
       const data = response.data;
 
       if (data && data.db === true) {
@@ -59,13 +58,8 @@ export const AuthProvider = ({ children }) => {
           successCountRef.current += 1;
           if (successCountRef.current >= MIN_CONSECUTIVE_SUCCESS) {
             info(`[AuthContext] 🔄 Conexión restablecida. Cambiando a ONLINE.`);
-            onlineManager.setOnline(true); // 👈 SINCRONIZAR REACT QUERY
+            onlineManager.setOnline(true);
             setIsOnline(true);
-            successCountRef.current = 0;
-          }
-        } else {
-          // Si ya estamos online, simplemente reiniciamos el contador de éxitos si es necesario.
-          if (successCountRef.current > 0) {
             successCountRef.current = 0;
           }
         }
@@ -75,16 +69,15 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       successCountRef.current = 0;
       errorCountRef.current += 1;
-      await error(`[AuthContext] ⚠️ Fallo en health-check N°${errorCountRef.current}: ${err.message}`);
 
       if (isOnline && errorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
         error(`[AuthContext] ⚠️ Conexión perdida. Cambiando a OFFLINE.`);
-        onlineManager.setOnline(false); // 👈 SINCRONIZAR REACT QUERY
+        onlineManager.setOnline(false);
         setIsOnline(false);
         errorCountRef.current = 0;
       }
     }
-  }, [isOnline]); // La dependencia ahora es solo isOnline, que es estable hasta que realmente cambia.
+  }, [isOnline]);
 
 
   useEffect(() => {
@@ -93,7 +86,7 @@ export const AuthProvider = ({ children }) => {
     if (isTauri) {
       info('[AuthContext] 🌐 Modo Tauri: verificación activa de conectividad habilitada.');
       checkRealConnectivity(); // chequeo inicial
-      checkIntervalRef.current = setInterval(checkRealConnectivity, 20000); // Intervalo de 20 segundos
+      checkIntervalRef.current = setInterval(checkRealConnectivity, 10000); // Bajar a 10 segundos
       return () => {
         if (checkIntervalRef.current) {
           clearInterval(checkIntervalRef.current);
