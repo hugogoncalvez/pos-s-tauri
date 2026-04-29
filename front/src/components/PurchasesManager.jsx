@@ -253,7 +253,7 @@ const PurchasesManager = () => {
                         <div class="generated-date">Impreso el ${currentDate}</div>
                     </div>
                     <div class="purchase-body">
-                        <div class="info-section"><div class="info-grid"><div><div class="info-item"><div class="info-label">Proveedor:</div><div class="info-value">${selectedPurchase.supplier}</div></div><div class="info-item"><div class="info-label">Número de Factura:</div><div class="info-value">${selectedPurchase.factura}</div></div></div><div><div class="info-item"><div class="info-label">Fecha de Compra:</div><div class="info-value">${purchaseDate}</div></div><div class="info-item"><div class="info-label">Total de Productos:</div><div class="info-value">${selectedPurchaseDetails.length} items</div></div></div></div></div>
+                        <div class="info-section"><div class="info-grid"><div><div class="info-item"><div class="info-label">Proveedor:</div><div class="info-value">${selectedPurchase.supplier}</div></div><div class="info-item"><div class="info-label">Nº de Nota / Factura:</div><div class="info-value">${selectedPurchase.factura}</div></div></div><div><div class="info-item"><div class="info-label">Fecha de Compra:</div><div class="info-value">${purchaseDate}</div></div><div class="info-item"><div class="info-label">Total de Productos:</div><div class="info-value">${selectedPurchaseDetails.length} items</div></div></div></div></div>
                         <div class="total-highlight"><div style="margin-bottom: 10px; font-size: 16px;">Total de la Compra</div><div class="total-amount">${formatCurrency(selectedPurchase.cost)}</div></div>
                         <h3 style="color: #6c757d; border-bottom: 2px solid #6c757d; padding-bottom: 10px; margin-bottom: 20px;">Detalle de Productos</h3>
                         <div class="table-container"><table><thead><tr><th class="text-left">Producto</th><th class="text-left">Descripción</th><th class="text-center">Cantidad</th><th class="text-right">Costo Unitario</th><th class="text-right">Total</th></tr></thead><tbody>
@@ -264,7 +264,7 @@ const PurchasesManager = () => {
             });
 
             htmlContent += `<tr class="total-row"><td colspan="4" class="text-right"><strong>TOTAL GENERAL:</strong></td><td class="text-right"><strong>${formatCurrency(selectedPurchase.cost)}</strong></td></tr></tbody></table></div></div>
-                <div class="purchase-footer"><div class="footer-info">Este documento es un comprobante de compra generado el ${currentDate}<br>Para consultas o reclamos sobre esta compra, conserve este documento<br>Factura N° ${selectedPurchase.factura} | Proveedor: ${selectedPurchase.supplier}</div></div>
+                <div class="purchase-footer"><div class="footer-info">Este documento es un comprobante de compra generado el ${currentDate}<br>Para consultas o reclamos sobre esta compra, conserve este documento<br>Nota / Factura N° ${selectedPurchase.factura} | Proveedor: ${selectedPurchase.supplier}</div></div>
             </div>
             </body>
             </html>`;
@@ -556,10 +556,13 @@ const PurchasesManager = () => {
         }
 
         const { createdAt, factura, supplier } = purchaseValues;
-        if (!createdAt || !factura || !supplier) {
-            setModalError('Completa los campos Fecha, Factura y Proveedor.');
+        if (!createdAt) {
+            setModalError('Por favor, selecciona la fecha de la compra.');
             return;
         }
+
+        const finalFactura = factura?.trim() || 'S/N';
+        const finalSupplier = supplier?.trim() || 'Varios / Informal';
 
         // Validación de la fecha
         const purchaseDate = moment(createdAt, 'YYYY-MM-DD', true); // Volver a YYYY-MM-DD
@@ -576,6 +579,8 @@ const PurchasesManager = () => {
 
         const purchaseData = {
             ...purchaseValues,
+            factura: finalFactura,
+            supplier: finalSupplier,
             cost: totalCost,
             tempValues: tempItems.map(item => ({
                 stock_id: item.stock_id,
@@ -615,7 +620,7 @@ const PurchasesManager = () => {
     // --- Columnas y formato ---
     const allColumns = useMemo(() => [
         { id: 'createdAt', label: 'Fecha', align: 'center', valueGetter: ({ row }) => moment.utc(row.createdAt).format('DD/MM/YYYY') },
-        { id: 'factura', label: 'Factura', align: 'center' },
+        { id: 'factura', label: 'Nota / Factura', align: 'center' },
         { id: 'supplier', label: 'Proveedor', align: 'center' },
         { id: 'cost', label: 'Total', align: 'center', valueGetter: ({ row }) => formatCurrency(row.cost) },
         {
@@ -714,7 +719,7 @@ const PurchasesManager = () => {
                                 <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, height: '100%', backgroundColor: theme.palette.background.paper }}>
                                     <Typography variant="subtitle1" gutterBottom>Filtrar Tabla</Typography>
                                     <Grid container spacing={2}>
-                                        <Grid xs={12} sm={6} md={3}><StyledTextField label="Nº de Factura" name="factura" value={facturaInput} onChange={(e) => setFacturaInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setFacturaInput('')}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
+                                        <Grid xs={12} sm={6} md={3}><StyledTextField label="Nº de Nota / Factura" name="factura" value={facturaInput} onChange={(e) => setFacturaInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setFacturaInput('')}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
                                         <Grid xs={12} sm={6} md={3}><StyledTextField label="Proveedor" name="supplier" value={supplierInput} onChange={(e) => setSupplierInput(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><IconButton onClick={() => setSupplierInput('')}><ClearIcon color='error' /></IconButton></InputAdornment> }} /></Grid>
                                         <Grid xs={12} sm={6} md={3}><StyledDatePicker
                                             label="Fecha Inicio"
@@ -833,7 +838,7 @@ const PurchasesManager = () => {
                             <Grid xs={12} md={4}>
                                 <TextFieldWithClear
                                     fullWidth
-                                    label="Nº de Factura"
+                                    label="Nº de Nota / Factura (Opcional)"
                                     name="factura"
                                     value={purchaseValues.factura || ''}
                                     onChange={handlePurchaseInputChange}
@@ -881,7 +886,7 @@ const PurchasesManager = () => {
 
                                         return filtered;
                                     }}
-                                    renderInput={(params) => <TextFieldWithClear {...params} label="Proveedor" onClear={() => handlePurchaseInputChange({ target: { name: 'supplier', value: '' } })} />}
+                                    renderInput={(params) => <TextFieldWithClear {...params} label="Proveedor (Opcional)" onClear={() => handlePurchaseInputChange({ target: { name: 'supplier', value: '' } })} />}
                                     renderOption={(props, option) => {
                                         const { key, ...rest } = props;
                                         return <li key={key} {...rest}>{option.nombre}</li>;
@@ -1040,7 +1045,7 @@ const PurchasesManager = () => {
                             <Grid container spacing={2} sx={{ mb: 2 }}>
                                 <Grid xs={12} sm={6}>
                                     <Typography><strong>Proveedor:</strong> {selectedPurchase.supplier}</Typography>
-                                    <Typography><strong>Factura Nº:</strong> {selectedPurchase.factura}</Typography>
+                                    <Typography><strong>Nota / Factura Nº:</strong> {selectedPurchase.factura}</Typography>
                                 </Grid>
                                 <Grid xs={12} sm={6} sx={{ textAlign: { sm: 'right' } }}>
                                     <Typography><strong>Fecha:</strong> {moment.utc(selectedPurchase.createdAt).format('DD/MM/YYYY')}</Typography>
