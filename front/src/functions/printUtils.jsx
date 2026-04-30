@@ -59,7 +59,12 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
             }
             .receipt-container { width: 100%; border: none; }
             .receipt-header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-            .logo-img { max-width: 40mm; max-height: 40mm; filter: grayscale(1); margin-bottom: 5px; }
+            .logo-img { 
+                max-width: 25mm; 
+                max-height: 25mm; 
+                margin-bottom: 5px; 
+                background-color: #fff; /* Fondo blanco forzado */
+            }
             .company-name { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
             .business-info { font-size: 10px; }
             .non-fiscal-warning { 
@@ -163,7 +168,7 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
         const sale = data;
         receiptContent += `
             <div class="receipt-header">
-                ${business.logo ? `<img src="${business.logo}" class="logo-img" />` : ''}
+                ${business.logo && !isThermal ? `<img src="${business.logo}" class="logo-img" />` : ''}
                 <div class="company-name">${business.name}</div>
                 <div class="business-info">
                     ${business.cnpj ? `CNPJ: ${business.cnpj} <br>` : ''}
@@ -236,7 +241,7 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
         const payment = data;
         receiptContent += `
             <div class="receipt-header">
-                 ${business.logo ? `<img src="${business.logo}" class="logo-img" />` : ''}
+                 ${business.logo && !isThermal ? `<img src="${business.logo}" class="logo-img" />` : ''}
                  <div class="company-name">${business.name}</div>
                  <div class="business-info">
                     ${business.cnpj ? `CNPJ: ${business.cnpj} <br>` : ''}
