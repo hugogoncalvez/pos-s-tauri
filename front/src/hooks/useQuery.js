@@ -15,7 +15,10 @@ const ENDPOINT_TO_TABLE = {
   '/units': 'units',
   '/pending-tickets': 'pending_tickets',
   '/elements': 'elements',
-  '/theme': 'theme_settings'
+  '/theme': 'theme_settings',
+  '/business-config': 'business_configs',
+  '/users': 'users',
+  '/sales': 'pending_sales'
 };
 
 const handleOfflineQuery = async (url) => {

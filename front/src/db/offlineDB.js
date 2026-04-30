@@ -14,6 +14,8 @@ db.version(6).stores({
   payment_methods: '++id, method, nombre, surcharge_active, surcharge_percentage',
   elements: 'id',
   theme_settings: 'id',
+  business_configs: 'id',
+  users: '++id, username',
 
   // --- Datos de Sesión Activa ---
   active_cash_session: 'id',
