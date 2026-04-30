@@ -486,6 +486,33 @@ const Ventas = () => {
     mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets
   ]);
 
+  const handlePrintPreview = useCallback((isThermal = true) => {
+    if (tempTable.length === 0) return;
+
+    const previewSaleData = {
+      id: 'PREVIEW',
+      createdAt: new Date(),
+      total_amount: subtotal,
+      total_neto: totalFinal,
+      surcharge_amount: surchargeAmount,
+      promotion_discount: descuentoAplicado,
+      sale_details: tempTable.map(item => ({
+        stock: { name: item.name },
+        quantity: item.quantity,
+        price: item.price,
+        cost: item.cost
+      })),
+      sale_payments: paymentOption === 'single'
+        ? [{ payment: { method: selectedSinglePaymentType?.method || selectedSinglePaymentType?.nombre || 'Efectivo' }, amount: totalFinal }]
+        : mixedPayments.map(p => {
+          const method = paymentMethods.find(pm => pm.id === p.payment_method_id);
+          return { payment: { method: method?.method || method?.nombre || 'Mixto' }, amount: p.amount };
+        })
+    };
+
+    printReceipt(previewSaleData, 'sale', selectedCustomer?.name || 'Consumidor Final', businessConfig, isThermal);
+  }, [tempTable, subtotal, totalFinal, surchargeAmount, descuentoAplicado, paymentOption, selectedSinglePaymentType, mixedPayments, paymentMethods, selectedCustomer, businessConfig]);
+
   // Función para guardar/actualizar ticket pendiente
   const handleSavePendingTicket = useCallback(async (fromSummaryModal = false) => {
     if (isLoadingActiveSession) {
@@ -811,8 +838,7 @@ const Ventas = () => {
         }
         if (e.altKey && key === 't') {
           e.preventDefault();
-          setPendingTicketsModalMode('infoOnly');
-          setShowPendingTickets(true);
+          handlePrintPreview(true); // Imprimir Térmico (80mm)
           return;
         }
       }
@@ -2186,6 +2212,8 @@ const Ventas = () => {
           setSelectedProduct={setSelectedProduct}
           confirmButtonRef={confirmButtonRef} // <-- Pasar el ref al modal
           currentTicketId={currentTicketId}
+          businessConfig={businessConfig}
+          handlePrintPreview={handlePrintPreview}
         />
 
         {/* Modal para entrada manual de productos */}

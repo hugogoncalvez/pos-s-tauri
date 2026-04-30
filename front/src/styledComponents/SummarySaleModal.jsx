@@ -26,7 +26,9 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import SaveAsIcon from '@mui/icons-material/SaveAs';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
+import PrintIcon from '@mui/icons-material/Print';
 import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
+import { printReceipt } from '../functions/printUtils';
 
 const SurchargeBreakdownDisplay = ({ open, surchargeDetails, totalRecargos }) => {
   const hasContent = surchargeDetails && surchargeDetails.some(d => d.surchargeAmount > 0);
@@ -105,12 +107,15 @@ const SummarySaleModal = ({
   setValues,
   setSelectedProduct,
   confirmButtonRef,
+  businessConfig,
+  handlePrintPreview,
 }) => {
   //console.log('[SummarySaleModal] currentTicketId:', currentTicketId);
   //console.log('[SummarySaleModal] tempTable.length:', tempTable.length);
   const theme = useTheme();
   const { subtotal, impuesto, descuento: descuentoAplicado, surchargeAmount, surchargeDetails, totalFinal } = calcularTotal();
   const [surchargeDetailsOpen, setSurchargeDetailsOpen] = useState(false);
+
   const handleCancelSale = () => {
     mostrarConfirmacion(
       {
@@ -464,6 +469,20 @@ const SummarySaleModal = ({
                 {loadingSale ? 'Guardando...' : 'Confirmar Venta'}
               </StyledButton>
               <Chip label="Alt + V" size="small" sx={{ mt: 0.5 }} />
+            </Box>
+          </Box>
+          <Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <StyledButton
+                variant="contained"
+                color="info"
+                onClick={() => handlePrintPreview(true)}
+                disabled={tempTable.length === 0}
+                startIcon={<PrintIcon />}
+              >
+                Imprimir Recibo
+              </StyledButton>
+              <Chip label="Alt + T" size="small" sx={{ mt: 0.5 }} />
             </Box>
           </Box>
           <Box>
