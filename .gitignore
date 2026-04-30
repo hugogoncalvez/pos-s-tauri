@@ -70,3 +70,6 @@ pids/
 
 # Archivos temporales y varios del proyecto
 varios/
+# Skils
+.agents/
+*.skill
