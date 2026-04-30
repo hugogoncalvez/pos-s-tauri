@@ -102,7 +102,8 @@ const BusinessConfig = () => {
             refetch();
         } catch (error) {
             Swal.close();
-            mostrarError('Error al guardar.', theme);
+            const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Error al guardar la configuración.';
+            mostrarError(errorMsg, theme);
         }
     };
 
