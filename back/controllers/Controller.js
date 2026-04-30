@@ -6000,7 +6000,7 @@ export const updateBusinessConfig = async (req, res) => {
 
         if (updatedConfig) {
             await logAudit({
-                user_id: req.usuarioId,
+                user_id: req.usuario?.id || req.user?.id,
                 action: 'ACTUALIZACION',
                 entity_type: 'business_config',
                 entity_id: updatedConfig.id,
