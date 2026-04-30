@@ -1256,12 +1256,21 @@ const Customers = () => {
                             Cerrar
                         </StyledButton>
                         <StyledButton
-                            onClick={() => handlePrintPurchase(selectedPurchase, selectedCustomer?.name)}
+                            onClick={() => handlePrintPurchase(selectedPurchase, selectedCustomer?.name, true)}
                             variant="contained"
+                            color="success"
                             startIcon={<PrintIcon />}
-                            disabled={loadingHistory} // <-- AÑADIDO
+                            disabled={loadingHistory}
                         >
-                            Imprimir
+                            Térmico (80mm)
+                        </StyledButton>
+                        <StyledButton
+                            onClick={() => handlePrintPurchase(selectedPurchase, selectedCustomer?.name, false)}
+                            variant="outlined"
+                            startIcon={<PrintIcon />}
+                            disabled={loadingHistory}
+                        >
+                            PDF / A4
                         </StyledButton>
                     </DialogActions>
                 </StyledDialog>
@@ -1327,11 +1336,19 @@ const Customers = () => {
                             Cerrar
                         </StyledButton>
                         <StyledButton
-                            onClick={() => handlePrintPayment(selectedPayment, selectedCustomer?.name)}
+                            onClick={() => handlePrintPayment(selectedPayment, selectedCustomer?.name, true)}
                             variant="contained"
+                            color="success"
                             startIcon={<PrintIcon />}
                         >
-                            Imprimir Comprobante
+                            Térmico (80mm)
+                        </StyledButton>
+                        <StyledButton
+                            onClick={() => handlePrintPayment(selectedPayment, selectedCustomer?.name, false)}
+                            variant="outlined"
+                            startIcon={<PrintIcon />}
+                        >
+                            Comprobante PDF
                         </StyledButton>
                     </DialogActions>
                 </StyledDialog>

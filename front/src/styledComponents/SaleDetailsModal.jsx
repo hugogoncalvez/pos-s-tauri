@@ -172,15 +172,24 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
             <DialogContent sx={{ p: 0, backgroundColor: 'background.paper' }}>
                 {renderContent()}
             </DialogContent>
-            <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog', borderTop: `1px solid ${theme.palette.divider}`, gap: 2 }}>
+            <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog', borderTop: `1px solid ${theme.palette.divider}`, gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
                 <StyledButton 
-                    onClick={() => printReceipt(saleDetails, 'sale', saleDetails.Customer?.name || 'Consumidor Final', businessConfig)} 
+                    onClick={() => printReceipt(saleDetails, 'sale', saleDetails.Customer?.name || 'Consumidor Final', businessConfig, true)} 
+                    color="success" 
+                    variant="contained" 
+                    startIcon={<PrintIcon />} 
+                    disabled={!saleDetails || isLoading}
+                >
+                    Imprimir Térmico (80mm)
+                </StyledButton>
+                <StyledButton 
+                    onClick={() => printReceipt(saleDetails, 'sale', saleDetails.Customer?.name || 'Consumidor Final', businessConfig, false)} 
                     color="primary" 
                     variant="outlined" 
                     startIcon={<PrintIcon />} 
                     disabled={!saleDetails || isLoading}
                 >
-                    Imprimir
+                    Imprimir PDF / A4
                 </StyledButton>
                 <StyledButton onClick={onClose} color="secondary" variant="contained">
                     Cerrar

@@ -2,7 +2,7 @@
  * Utilidad para imprimir recibos de venta y comprobantes de pago.
  * Personalizado para el mercado brasileño con soporte para datos dinámicos de la empresa.
  */
-export const printReceipt = (data, type, customerName = '', businessData = null) => {
+export const printReceipt = (data, type, customerName = '', businessData = null, isThermal = false) => {
     // Si no hay businessData, usamos valores por defecto en portugués
     const business = businessData || {
         name: 'Meu Negócio',
@@ -43,75 +43,119 @@ export const printReceipt = (data, type, customerName = '', businessData = null)
     let receiptContent = '<html><head><title>Recibo</title>';
     receiptContent += '<meta charset="UTF-8">';
     receiptContent += '<style>';
-    receiptContent += `
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; font-size: 13px; line-height: 1.4; color: #333; background: #fff; position: relative; }
-        .receipt-container { 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background: #fff; 
-            border: 1px solid #ddd; 
-            border-radius: 8px; 
-            overflow: hidden; 
-            position: relative;
-        }
-        
-        /* Marca de agua sutil */
-        .watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-15deg);
-            width: 300px;
-            height: 300px;
-            opacity: 0.04;
-            z-index: 0;
-            pointer-events: none;
-            background-image: url('${business.logo}');
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: contain;
-        }
+    
+    if (isThermal) {
+        // Estilos optimizados para impresoras térmicas (80mm)
+        receiptContent += `
+            body { 
+                font-family: 'Courier New', Courier, monospace; 
+                margin: 0; 
+                padding: 0; 
+                width: 72mm; /* Ajuste para impresoras de 80mm */
+                font-size: 12px; 
+                line-height: 1.2; 
+                color: #000; 
+                background: #fff; 
+            }
+            .receipt-container { width: 100%; border: none; }
+            .receipt-header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+            .logo-img { max-width: 40mm; max-height: 40mm; filter: grayscale(1); margin-bottom: 5px; }
+            .company-name { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
+            .business-info { font-size: 10px; }
+            .non-fiscal-warning { 
+                font-size: 14px; 
+                font-weight: bold; 
+                border: 1px solid #000; 
+                padding: 5px; 
+                margin: 10px 0; 
+                text-align: center; 
+            }
+            .receipt-title { font-size: 14px; font-weight: bold; margin: 10px 0; text-transform: uppercase; }
+            .receipt-body { padding: 0; }
+            .info-section { margin-bottom: 10px; }
+            .info-row { display: flex; justify-content: space-between; font-size: 11px; }
+            table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+            th { border-bottom: 1px solid #000; text-align: left; font-size: 11px; }
+            td { padding: 4px 0; font-size: 11px; border-bottom: 1px dashed #eee; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .total-row { font-weight: bold; border-top: 1px solid #000; }
+            .receipt-footer { padding: 10px 0; text-align: center; border-top: 1px dashed #000; margin-top: 10px; font-size: 10px; }
+            
+            @page { margin: 0; size: auto; }
+        `;
+    } else {
+        // Estilos para A4 / PDF (Existentes)
+        receiptContent += `
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; font-size: 13px; line-height: 1.4; color: #333; background: #fff; position: relative; }
+            .receipt-container { 
+                max-width: 600px; 
+                margin: 0 auto; 
+                background: #fff; 
+                border: 1px solid #ddd; 
+                border-radius: 8px; 
+                overflow: hidden; 
+                position: relative;
+            }
+            
+            .watermark {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-15deg);
+                width: 300px;
+                height: 300px;
+                opacity: 0.04;
+                z-index: 0;
+                pointer-events: none;
+                background-image: url('${business.logo}');
+                background-repeat: no-repeat;
+                background-position: center;
+                background-size: contain;
+            }
 
-        .receipt-header { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); color: #333; padding: 20px; text-align: center; border-bottom: 2px solid #667eea; position: relative; z-index: 1; }
-        .logo-img { max-width: 60px; max-height: 60px; margin-bottom: 5px; opacity: 0.8; }
-        .company-name { font-size: 20px; font-weight: bold; margin: 0 0 5px 0; color: #667eea; }
-        .business-info { font-size: 11px; opacity: 0.9; margin-top: 5px; line-height: 1.2; }
-        .receipt-title { font-size: 20px; font-weight: bold; margin: 15px 0 0 0; text-transform: uppercase; letter-spacing: 1px; }
-        .receipt-number { font-size: 16px; }
-        .receipt-body { padding: 25px; }
-        .info-section { background: #f8f9fa; border-radius: 6px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #667eea; }
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .info-label { font-weight: 600; color: #555; }
-        .info-value { font-weight: 500; text-align: right; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 8px; text-align: left; }
-        td { padding: 10px 8px; border-bottom: 1px solid #eee; }
-        tr:nth-child(even) { background-color: #f8f9fa; }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-        .total-row { background: #667eea !important; color: white; font-weight: bold; }
-        .total-row td { padding: 15px 8px; }
-        .receipt-footer { padding: 20px; text-align: center; border-top: 2px dashed #ddd; margin-top: 20px; }
-        .thank-you { font-size: 16px; font-weight: 600; color: #667eea; margin-bottom: 5px; }
-        .footer-text { font-size: 12px; color: #666; font-style: italic; }
-        .payment-methods { background: #e8f5e8; border-radius: 6px; padding: 12px; margin: 15px 0; }
-        .payment-methods h4 { margin: 0 0 10px 0; color: #2e7d32; }
-        .payment-method-item { display: flex; justify-content: space-between; }
-        
-        @media print {
-            body { margin: 0; padding: 10px; }
-            .receipt-container { border: 1px solid #ccc; box-shadow: none; }
-            .receipt-header, th, .total-row { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .receipt-header { background: #f5f5f5 !important; color: black !important; border-bottom: 2px solid #ccc; }
-            th { background: #f5f5f5 !important; color: black !important; border-bottom: 1px solid #ccc; }
-            .total-row { background: #e0e0e0 !important; color: black !important; font-weight: bold; }
-        }
-    `;
+            .receipt-header { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); color: #333; padding: 20px; text-align: center; border-bottom: 2px solid #667eea; position: relative; z-index: 1; }
+            .logo-img { max-width: 60px; max-height: 60px; margin-bottom: 5px; opacity: 0.8; }
+            .company-name { font-size: 20px; font-weight: bold; margin: 0 0 5px 0; color: #667eea; }
+            .business-info { font-size: 11px; opacity: 0.9; margin-top: 5px; line-height: 1.2; }
+            .receipt-title { font-size: 20px; font-weight: bold; margin: 15px 0 0 0; text-transform: uppercase; letter-spacing: 1px; }
+            .receipt-number { font-size: 16px; }
+            .receipt-body { padding: 25px; }
+            .info-section { background: #f8f9fa; border-radius: 6px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #667eea; }
+            .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+            .info-label { font-weight: 600; color: #555; }
+            .info-value { font-weight: 500; text-align: right; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 8px; text-align: left; }
+            td { padding: 10px 8px; border-bottom: 1px solid #eee; }
+            tr:nth-child(even) { background-color: #f8f9fa; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .total-row { background: #667eea !important; color: white; font-weight: bold; }
+            .total-row td { padding: 15px 8px; }
+            .receipt-footer { padding: 20px; text-align: center; border-top: 2px dashed #ddd; margin-top: 20px; }
+            .thank-you { font-size: 16px; font-weight: 600; color: #667eea; margin-bottom: 5px; }
+            .footer-text { font-size: 12px; color: #666; font-style: italic; }
+            .payment-methods { background: #e8f5e8; border-radius: 6px; padding: 12px; margin: 15px 0; }
+            .payment-methods h4 { margin: 0 0 10px 0; color: #2e7d32; }
+            .payment-method-item { display: flex; justify-content: space-between; }
+            
+            @media print {
+                body { margin: 0; padding: 10px; }
+                .receipt-container { border: 1px solid #ccc; box-shadow: none; }
+                .receipt-header, th, .total-row { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .receipt-header { background: #f5f5f5 !important; color: black !important; border-bottom: 2px solid #ccc; }
+                th { background: #f5f5f5 !important; color: black !important; border-bottom: 1px solid #ccc; }
+                .total-row { background: #e0e0e0 !important; color: black !important; font-weight: bold; }
+            }
+        `;
+    }
+
     receiptContent += '</style></head><body>';
     receiptContent += '<div class="receipt-container">';
     
-    // Inyectar marca de agua si existe el logo
-    if (business.logo) {
+    // Inyectar marca de agua si existe el logo y NO es térmico
+    if (business.logo && !isThermal) {
         receiptContent += '<div class="watermark"></div>';
     }
 
@@ -126,6 +170,7 @@ export const printReceipt = (data, type, customerName = '', businessData = null)
                     ${business.ie ? `IE: ${business.ie} <br>` : ''}
                     ${business.address ? `${business.address}` : ''}
                 </div>
+                ${isThermal ? '<div class="non-fiscal-warning">DOCUMENTO NÃO FISCAL</div>' : ''}
                 <div class="receipt-title">Recibo de Venda</div>
                 <div class="receipt-number">#${sale.id}</div>
             </div>

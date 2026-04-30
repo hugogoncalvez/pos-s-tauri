@@ -153,12 +153,12 @@ export const useCustomerHistory = (customerId, customerName = '') => {
         setOpenPaymentDetailDialog(true);
     }, []);
 
-    const handlePrintPurchase = useCallback((purchase, customName = customerName) => {
-        printReceipt(purchase, 'sale', customName, businessConfig);
+    const handlePrintPurchase = useCallback((purchase, customName = customerName, isThermal = false) => {
+        printReceipt(purchase, 'sale', customName, businessConfig, isThermal);
     }, [customerName, businessConfig]);
 
-    const handlePrintPayment = useCallback((payment, customName = customerName) => {
-        printReceipt(payment, 'payment', customName, businessConfig);
+    const handlePrintPayment = useCallback((payment, customName = customerName, isThermal = false) => {
+        printReceipt(payment, 'payment', customName, businessConfig, isThermal);
     }, [customerName, businessConfig]);
 
     const handlePrintDoublePaymentReceipt = useCallback((payment, customName = customerName) => {
