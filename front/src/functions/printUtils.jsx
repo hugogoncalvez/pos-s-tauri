@@ -44,11 +44,37 @@ export const printReceipt = (data, type, customerName = '', businessData = null)
     receiptContent += '<meta charset="UTF-8">';
     receiptContent += '<style>';
     receiptContent += `
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; font-size: 13px; line-height: 1.4; color: #333; background: #fff; }
-        .receipt-container { max-width: 600px; margin: 0 auto; background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
-        .receipt-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
-        .logo-img { max-width: 100px; max-height: 100px; margin-bottom: 10px; border-radius: 8px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
-        .company-name { font-size: 24px; font-weight: bold; margin: 0 0 5px 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; font-size: 13px; line-height: 1.4; color: #333; background: #fff; position: relative; }
+        .receipt-container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: #fff; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            position: relative;
+        }
+        
+        /* Marca de agua sutil */
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            width: 300px;
+            height: 300px;
+            opacity: 0.04;
+            z-index: 0;
+            pointer-events: none;
+            background-image: url('${business.logo}');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+        }
+
+        .receipt-header { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); color: #333; padding: 20px; text-align: center; border-bottom: 2px solid #667eea; position: relative; z-index: 1; }
+        .logo-img { max-width: 60px; max-height: 60px; margin-bottom: 5px; opacity: 0.8; }
+        .company-name { font-size: 20px; font-weight: bold; margin: 0 0 5px 0; color: #667eea; }
         .business-info { font-size: 11px; opacity: 0.9; margin-top: 5px; line-height: 1.2; }
         .receipt-title { font-size: 20px; font-weight: bold; margin: 15px 0 0 0; text-transform: uppercase; letter-spacing: 1px; }
         .receipt-number { font-size: 16px; }
@@ -83,6 +109,11 @@ export const printReceipt = (data, type, customerName = '', businessData = null)
     `;
     receiptContent += '</style></head><body>';
     receiptContent += '<div class="receipt-container">';
+    
+    // Inyectar marca de agua si existe el logo
+    if (business.logo) {
+        receiptContent += '<div class="watermark"></div>';
+    }
 
     if (type === 'sale') {
         const sale = data;
@@ -184,8 +215,7 @@ export const printReceipt = (data, type, customerName = '', businessData = null)
 
     receiptContent += `
         <div class="receipt-footer">
-            <div class="thank-you">Obrigado pela preferência!</div>
-            <div class="footer-text">${business.footerText || ''}</div>
+            <div class="footer-text">${business.footerText || 'Obrigado pela preferência!'}</div>
         </div>
     `;
     receiptContent += '</div></body></html>';

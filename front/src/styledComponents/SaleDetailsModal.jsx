@@ -173,7 +173,13 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
                 {renderContent()}
             </DialogContent>
             <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog', borderTop: `1px solid ${theme.palette.divider}`, gap: 2 }}>
-                <StyledButton onClick={() => printReceipt(saleDetails, 'sale', saleDetails.Customer?.name || 'Consumidor Final')} color="primary" variant="outlined" startIcon={<PrintIcon />} disabled={!saleDetails || isLoading}>
+                <StyledButton 
+                    onClick={() => printReceipt(saleDetails, 'sale', saleDetails.Customer?.name || 'Consumidor Final', businessConfig)} 
+                    color="primary" 
+                    variant="outlined" 
+                    startIcon={<PrintIcon />} 
+                    disabled={!saleDetails || isLoading}
+                >
                     Imprimir
                 </StyledButton>
                 <StyledButton onClick={onClose} color="secondary" variant="contained">

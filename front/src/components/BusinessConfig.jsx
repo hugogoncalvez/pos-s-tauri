@@ -62,8 +62,8 @@ const BusinessConfig = () => {
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // WebP con calidad 0.7 para máximo ahorro de espacio
-                    resolve(canvas.toDataURL('image/webp', 0.7)); 
+                    // PNG para mejor compatibilidad con transparencias y motores de impresión
+                    resolve(canvas.toDataURL('image/png')); 
                 };
                 img.onerror = reject;
             };
