@@ -25,7 +25,7 @@ export const AuthContext = createContext({
 });
 export const useAuth = () => useContext(AuthContext);
 
-const MAX_CONSECUTIVE_ERRORS = 3; // Requerir 3 fallos para pasar a OFFLINE
+const MAX_CONSECUTIVE_ERRORS = 5; // Más tolerante: 5 fallos antes de pasar a OFFLINE
 const MIN_CONSECUTIVE_SUCCESS = 1; // Solo 1 éxito para volver a ONLINE rápido
 
 export const AuthProvider = ({ children }) => {
@@ -48,10 +48,11 @@ export const AuthProvider = ({ children }) => {
     const healthCheckUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/health`;
     
     try {
-      const response = await Api.get('/health', { timeout: 5000 });
+      const response = await Api.get('/health', { timeout: 10000 }); // 10 segundos de margen
       const data = response.data;
 
-      if (data && data.db === true) {
+      // Si el servidor responde (aunque diga warning), estamos ONLINE (el servidor está vivo)
+      if (data && (data.status === 'ok' || data.status === 'warning')) {
         errorCountRef.current = 0;
 
         if (!isOnline) {
@@ -64,14 +65,14 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } else {
-        throw new Error('La respuesta del Health-check no fue la esperada.');
+        throw new Error('Servidor respondió pero el estado no es saludable.');
       }
     } catch (err) {
       successCountRef.current = 0;
       errorCountRef.current += 1;
 
       if (isOnline && errorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
-        error(`[AuthContext] ⚠️ Conexión perdida. Cambiando a OFFLINE.`);
+        error(`[AuthContext] ⚠️ Conexión perdida tras ${errorCountRef.current} intentos. Cambiando a OFFLINE.`);
         onlineManager.setOnline(false);
         setIsOnline(false);
         errorCountRef.current = 0;
