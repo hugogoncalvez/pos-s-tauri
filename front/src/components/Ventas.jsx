@@ -921,7 +921,7 @@ const Ventas = () => {
         passive: false
       });
     };
-  ], [
+  }, [
     tempTable, isCajaModalOpen, showManualEntryModal, showPendingTickets,
     isPesableModalOpen, isSummaryModalOpen, isPresentationModalOpen, handleSaveSale, handleSavePendingTicket, handlePrintPreview,
     totalFinal, paymentMethods, selectedCustomer, isConfirmButtonDisabled, isLoadingActiveSession, activeSessionData,
