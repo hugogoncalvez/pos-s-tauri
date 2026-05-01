@@ -491,7 +491,7 @@ const Ventas = () => {
     if (tempTable.length === 0) return;
 
     const previewSaleData = {
-      id: 'PREVIEW',
+      id: '',
       createdAt: new Date(),
       total_amount: subtotal,
       total_neto: totalFinal,

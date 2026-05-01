@@ -177,7 +177,7 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
                 </div>
                 ${isThermal ? '<div class="non-fiscal-warning">DOCUMENTO NÃO FISCAL</div>' : ''}
                 <div class="receipt-title">Recibo de Venda</div>
-                <div class="receipt-number">#${sale.id}</div>
+                ${sale.id && sale.id !== 'PREVIEW' ? `<div class="receipt-number">#${sale.id}</div>` : ''}
             </div>
             <div class="receipt-body">
                 <div class="info-section">
