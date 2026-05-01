@@ -36,6 +36,7 @@ import { mostrarInfo } from '../functions/mostrarInfo';
 import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
 import { mostrarInput } from '../functions/mostrarInput'; // <-- AÑADIDO
 import { mostrarCarga } from '../functions/mostrarCarga';
+import { printReceipt } from '../functions/printUtils';
 import Swal from 'sweetalert2'; // Import Swal for closing loading messages
 import { Api } from '../api/api'; // Importar la instancia de axios
 import { db, syncServerTicketsToLocal } from '../db/offlineDB'; // Importar la instancia de Dexie
@@ -920,12 +921,13 @@ const Ventas = () => {
         passive: false
       });
     };
-  }, [
+  ], [
     tempTable, isCajaModalOpen, showManualEntryModal, showPendingTickets,
-    isPesableModalOpen, isSummaryModalOpen, isPresentationModalOpen, handleSaveSale, handleSavePendingTicket,
+    isPesableModalOpen, isSummaryModalOpen, isPresentationModalOpen, handleSaveSale, handleSavePendingTicket, handlePrintPreview,
     totalFinal, paymentMethods, selectedCustomer, isConfirmButtonDisabled, isLoadingActiveSession, activeSessionData,
     currentTicketId, theme
   ]);
+
 
   useEffect(() => {
     if (isPesableModalOpen) {
