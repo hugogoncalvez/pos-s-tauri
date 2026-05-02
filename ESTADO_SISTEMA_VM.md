@@ -18,7 +18,7 @@ El servidor corre de forma permanente usando PM2.
   pm2 restart pos-backend --update-env
   ```
 
-Actualizar el backend: ./deploy.sh
+* **Actualizar el backend:** ./deploy.sh
 
 ## 2. IP Dinámica (DuckDNS)
 El dominio `pos-thay.duckdns.org` siempre debe apuntar a la IP actual de la VM.

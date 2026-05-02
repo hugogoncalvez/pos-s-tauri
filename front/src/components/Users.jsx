@@ -25,7 +25,16 @@ import { TextFieldWithClear } from '../styledComponents/ui/TextFieldWithClear';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
 import { StyledDialog } from '../styledComponents/ui/StyledDialog';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Clear as ClearIcon, VpnKey as VpnKeyIcon, Close as CloseIcon } from '@mui/icons-material';
+import { 
+  Add as AddIcon, 
+  Edit as EditIcon, 
+  Delete as DeleteIcon, 
+  Clear as ClearIcon, 
+  VpnKey as VpnKeyIcon, 
+  Close as CloseIcon,
+  Visibility,
+  VisibilityOff
+} from '@mui/icons-material';
 import { UseFetchQuery } from '../hooks/useQuery';
 import { useSubmit } from '../hooks/useSubmit';
 import { Update as useUpdate } from '../hooks/useUpdate';
@@ -50,6 +59,9 @@ const Usuarios = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleClickShowPassword = () => setShowPassword((show) => !show);
 
   const { tienePermiso } = usePermissions();
 
@@ -79,6 +91,7 @@ const Usuarios = () => {
   const handleCloseUserModal = useCallback(() => {
     setOpenUserModal(false);
     setCurrentUser(null);
+    setShowPassword(false);
     reset();
   }, [reset]);
 
@@ -330,13 +343,28 @@ const Usuarios = () => {
                 required={!currentUser}
                 name="password"
                 label="Contraseña"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 id="password"
                 value={formValues.password || ''}
                 onChange={handleInputChange}
                 onClear={() => handleInputChange({ target: { name: 'password', value: '' } })}
                 helperText={currentUser ? "Dejar en blanco para no cambiar" : ""}
                 autoComplete="new-password"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={handleClickShowPassword}
+                        onMouseDown={(e) => e.preventDefault()}
+                        edge="end"
+                        size="small"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
               <Autocomplete
                 options={roles || []}
