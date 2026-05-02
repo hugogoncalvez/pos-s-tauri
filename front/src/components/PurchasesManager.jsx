@@ -200,6 +200,11 @@ const PurchasesManager = () => {
             const currentDate = moment().format('DD/MM/YYYY HH:mm');
             const purchaseDate = moment.utc(selectedPurchase.createdAt).format('DD/MM/YYYY');
 
+            const sanitizeHtml = (str) => {
+                if (str == null) return '';
+                return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+            };
+
             const iframe = document.createElement('iframe');
             iframe.style.position = 'absolute';
             iframe.style.width = '0px';
@@ -247,24 +252,23 @@ const PurchasesManager = () => {
             <body>
                 <div class="purchase-container">
                     <div class="purchase-header">
-                        <div class="company-info"><div class="company-name">Mi Empresa</div><div class="company-details">Dirección: Calle Principal 123<br>Tel: (123) 456-7890 | Email: info@miempresa.com</div></div>
                         <div class="purchase-title">Detalle de Compra</div>
                         <div class="purchase-number">#${selectedPurchase.id}</div>
                         <div class="generated-date">Impreso el ${currentDate}</div>
                     </div>
                     <div class="purchase-body">
-                        <div class="info-section"><div class="info-grid"><div><div class="info-item"><div class="info-label">Proveedor:</div><div class="info-value">${selectedPurchase.supplier}</div></div><div class="info-item"><div class="info-label">Nº de Nota / Factura:</div><div class="info-value">${selectedPurchase.factura}</div></div></div><div><div class="info-item"><div class="info-label">Fecha de Compra:</div><div class="info-value">${purchaseDate}</div></div><div class="info-item"><div class="info-label">Total de Productos:</div><div class="info-value">${selectedPurchaseDetails.length} items</div></div></div></div></div>
+                        <div class="info-section"><div class="info-grid"><div><div class="info-item"><div class="info-label">Proveedor:</div><div class="info-value">${sanitizeHtml(selectedPurchase.supplier)}</div></div><div class="info-item"><div class="info-label">Nº de Nota / Factura:</div><div class="info-value">${sanitizeHtml(selectedPurchase.factura)}</div></div></div><div><div class="info-item"><div class="info-label">Fecha de Compra:</div><div class="info-value">${purchaseDate}</div></div><div class="info-item"><div class="info-label">Total de Productos:</div><div class="info-value">${selectedPurchaseDetails.length} items</div></div></div></div></div>
                         <div class="total-highlight"><div style="margin-bottom: 10px; font-size: 16px;">Total de la Compra</div><div class="total-amount">${formatCurrency(selectedPurchase.cost)}</div></div>
                         <h3 style="color: #6c757d; border-bottom: 2px solid #6c757d; padding-bottom: 10px; margin-bottom: 20px;">Detalle de Productos</h3>
                         <div class="table-container"><table><thead><tr><th class="text-left">Producto</th><th class="text-left">Descripción</th><th class="text-center">Cantidad</th><th class="text-right">Costo Unitario</th><th class="text-right">Total</th></tr></thead><tbody>
             `;
 
             selectedPurchaseDetails.forEach((detail) => {
-                htmlContent += `<tr><td class="text-left">${detail.producto}</td><td class="text-left">${detail.description}</td><td class="text-center">${formatQuantity(detail.cantidad)}</td><td class="text-right">${detail.precio}</td><td class="text-right">${detail.total}</td></tr>`;
+                htmlContent += `<tr><td class="text-left">${sanitizeHtml(detail.producto)}</td><td class="text-left">${sanitizeHtml(detail.description)}</td><td class="text-center">${formatQuantity(detail.cantidad)}</td><td class="text-right">${detail.precio}</td><td class="text-right">${detail.total}</td></tr>`;
             });
 
             htmlContent += `<tr class="total-row"><td colspan="4" class="text-right"><strong>TOTAL GENERAL:</strong></td><td class="text-right"><strong>${formatCurrency(selectedPurchase.cost)}</strong></td></tr></tbody></table></div></div>
-                <div class="purchase-footer"><div class="footer-info">Este documento es un comprobante de compra generado el ${currentDate}<br>Para consultas o reclamos sobre esta compra, conserve este documento<br>Nota / Factura N° ${selectedPurchase.factura} | Proveedor: ${selectedPurchase.supplier}</div></div>
+                <div class="purchase-footer"><div class="footer-info">Documento interno de control de compras | Factura N° ${sanitizeHtml(selectedPurchase.factura)} | Proveedor: ${sanitizeHtml(selectedPurchase.supplier)} | Impreso: ${currentDate}</div></div>
             </div>
             </body>
             </html>`;

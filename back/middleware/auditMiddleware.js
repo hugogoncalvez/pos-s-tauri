@@ -3,7 +3,7 @@ import { AuditLogModel } from '../database/associations.js';
 // ... (el resto del middleware que no cambia)
 
 // Función helper para registrar auditorías manualmente
-export const logAudit = async (auditData, req) => {
+export const logAudit = async (auditData, req, transaction = null) => {
     try {
         // Si se pasa el objeto req, se extraen datos adicionales
         if (req) {
@@ -12,7 +12,8 @@ export const logAudit = async (auditData, req) => {
             auditData.session_id = auditData.session_id || req.sessionID || null;
         }
 
-        await AuditLogModel.create(auditData);
+        const options = transaction ? { transaction } : {};
+        await AuditLogModel.create(auditData, options);
     } catch (error) {
         console.error('Error al registrar auditoría manual:', error);
     }

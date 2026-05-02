@@ -24,7 +24,7 @@ const CustomerModalContent = ({
   dialogMode,
   isLoadingSingleCustomer,
   dniExistsError,
-  emailExistsError,
+  phoneError,
   checkDuplicate
 }) => {
   const theme = useTheme();
@@ -50,7 +50,7 @@ const CustomerModalContent = ({
         address: '',
         dni: '',
         discount_percentage: 0,
-        credit_limit: 0,
+        credit_limit: '',
         debt: 0
       });
     }
@@ -93,32 +93,30 @@ const CustomerModalContent = ({
               required
               autoFocus
               onClear={() => handleInputChange({ target: { name: 'name', value: '' } })}
-              inputProps={{ minLength: 2 }}
-              error={String(formData.name || '').trim().length > 0 && String(formData.name || '').trim().length < 2}
-              helperText={String(formData.name || '').trim().length > 0 && String(formData.name || '').trim().length < 2 ? 'El nombre debe tener al menos 2 caracteres' : ''}
             />
             <TextFieldWithClear
               fullWidth
-              label="DNI"
+              label="CPF *"
               name="dni"
               value={formData.dni || ''}
               onChange={(e) => {
                 handleInputChange(e);
                 checkDuplicate('dni', e.target.value, customer?.id);
               }}
-              error={!!dniExistsError || (String(formData.dni || '').trim().length > 0 && (String(formData.dni || '').trim().length < 6 || String(formData.dni || '').trim().length > 9))}
-              helperText={dniExistsError || (String(formData.dni || '').trim().length > 0 && (String(formData.dni || '').trim().length < 6 || String(formData.dni || '').trim().length > 9) ? 'El DNI debe tener entre 6 y 9 caracteres' : '')}
+              error={!!dniExistsError}
+              helperText={dniExistsError || ''}
               onClear={() => handleInputChange({ target: { name: 'dni', value: '' } })}
+              required
             />
             <TextFieldWithClear
               fullWidth
-              label="Teléfono"
+              label="Teléfono Celular *"
               name="phone"
               value={formData.phone || ''}
               onChange={handleInputChange}
               onClear={() => handleInputChange({ target: { name: 'phone', value: '' } })}
-              error={String(formData.phone || '').trim().length > 0 && (String(formData.phone || '').trim().length < 8 || String(formData.phone || '').trim().length > 20)}
-              helperText={String(formData.phone || '').trim().length > 0 && (String(formData.phone || '').trim().length < 8 || String(formData.phone || '').trim().length > 20) ? 'El teléfono debe tener entre 8 y 20 caracteres' : ''}
+              required
+              helperText="Mínimo 8 dígitos (celular con DDD, ej: 11999999999)"
             />
             <TextFieldWithClear
               fullWidth
@@ -126,34 +124,29 @@ const CustomerModalContent = ({
               name="email"
               type="email"
               value={formData.email || ''}
-              onChange={(e) => {
-                handleInputChange(e);
-                checkDuplicate('email', e.target.value, customer?.id);
-              }}
-              error={!!emailExistsError || (String(formData.email || '').trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))}
-              helperText={emailExistsError || (String(formData.email || '').trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) ? 'Formato de email no válido' : '')}
+              onChange={handleInputChange}
               onClear={() => handleInputChange({ target: { name: 'email', value: '' } })}
             />
             <Box sx={{ gridColumn: { xs: '1', sm: '1 / 3' } }}>
               <TextFieldWithClear
                 fullWidth
-                label="Dirección"
+                label="Dirección *"
                 name="address"
                 value={formData.address || ''}
                 onChange={handleInputChange}
                 onClear={() => handleInputChange({ target: { name: 'address', value: '' } })}
+                required
               />
             </Box>
             <TextFieldWithClear
               fullWidth
-              label="Límite de Crédito"
+              label="Límite de Crédito *"
               name="credit_limit"
               type="number"
               value={String(formData.credit_limit || '')}
-              onChange={(e) => handleInputChange({ target: { name: 'credit_limit', value: e.target.value === '' ? 0 : parseFloat(e.target.value) } })}
-              onClear={() => handleInputChange({ target: { name: 'credit_limit', value: 0 } })}
-              error={parseFloat(formData.credit_limit || 0) < 0}
-              helperText={parseFloat(formData.credit_limit || 0) < 0 ? 'El límite de crédito no puede ser negativo' : ''}
+              onChange={(e) => handleInputChange({ target: { name: 'credit_limit', value: e.target.value === '' ? '' : parseFloat(e.target.value) } })}
+              onClear={() => handleInputChange({ target: { name: 'credit_limit', value: '' } })}
+              required
               inputProps={{ min: 0 }}
             />
             <TextFieldWithClear
@@ -231,15 +224,14 @@ const CustomerModalContent = ({
             variant="contained"
             disabled={
               isLoadingSingleCustomer ||
-              !String(formData.name || '').trim() ||
-              (String(formData.name || '').trim().length > 0 && String(formData.name || '').trim().length < 2) ||
-              !!dniExistsError ||
-              (String(formData.dni || '').trim().length > 0 && (String(formData.dni || '').trim().length < 11 || String(formData.dni || '').trim().length > 14)) ||
-              (String(formData.phone || '').trim().length > 0 && (String(formData.phone || '').trim().length < 8 || String(formData.phone || '').trim().length > 20)) ||
-              !!emailExistsError ||
-              (String(formData.email || '').trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) ||
-              parseFloat(formData.credit_limit || 0) < 0 ||
-              parseFloat(formData.debt || 0) < 0
+              !formData.name ||
+              !formData.dni ||
+              !formData.phone ||
+              !formData.address ||
+              formData.credit_limit === undefined ||
+              formData.credit_limit === '' ||
+              formData.credit_limit < 0 ||
+              !!dniExistsError
             }
           >
             {dialogMode === 'create' ? 'Crear' : 'Actualizar'}

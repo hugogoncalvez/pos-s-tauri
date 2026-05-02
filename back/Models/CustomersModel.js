@@ -28,7 +28,7 @@ const CustomersModel = db.define('customer', {
         allowNull: true,
         unique: true,
         validate: {
-            len: [8, 20]
+            len: [7, 20]
         }
     },
     address: {

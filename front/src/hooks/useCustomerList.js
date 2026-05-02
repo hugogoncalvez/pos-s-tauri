@@ -93,11 +93,14 @@ export const useCustomerList = (tienePermiso) => { // Receive tienePermiso as an
         setDniExistsError('');
     }, []);
 
-    const checkDuplicate = useCallback(debounce(async (field, value, currentCustomerId = null) => {
-        if (field !== 'dni' || !value) {
-            setDniExistsError('');
+const checkDuplicate = useCallback(debounce(async (field, value, currentCustomerId = null) => {
+        if (!value) {
+            if (field === 'dni') setDniExistsError('');
             return;
         }
+
+        // Solo verificar DNI por ahora
+        if (field !== 'dni') return;
 
         try {
             const params = new URLSearchParams({ [field]: value });
@@ -109,15 +112,15 @@ export const useCustomerList = (tienePermiso) => { // Receive tienePermiso as an
             const response = await Api.get(url);
 
             if (response.data.exists) {
-                setDniExistsError(`Ya existe un cliente con este DNI.`);
-                mostrarError(`Ya existe un cliente con el DNI ${value}. Nombre: ${response.data.customer.name}`, theme);
+                const existingName = response.data.customer?.name || 'desconocido';
+                setDniExistsError(`Ya existe un cliente con este ${field} (${existingName}).`);
+                mostrarError(`Ya existe un cliente con este ${field}. Nombre: ${existingName}`, theme);
             } else {
                 setDniExistsError('');
             }
         } catch (err) {
             console.error(`Error checking duplicate ${field}:`, err);
-            mostrarError('Error al verificar DNI.', theme);
-            setDniExistsError('Error al verificar DNI.'); // Keep this for internal state
+            if (field === 'dni') setDniExistsError('');
         }
     }, 500), []);
 
@@ -175,8 +178,22 @@ export const useCustomerList = (tienePermiso) => { // Receive tienePermiso as an
 
         } catch (error) {
             Swal.close();
-            console.error('Error:', error);
-            mostrarError(error.response?.data?.message || 'Hubo un error al guardar el cliente.', theme);
+            console.error('Error completo:', error);
+            
+            const errorData = error.response?.data;
+            console.log('Error data:', errorData);
+            
+            let userMessage = 'Hubo un error al guardar el cliente.';
+            
+            if (errorData) {
+                if (typeof errorData === 'object') {
+                    userMessage = errorData.message || errorData.error || JSON.stringify(errorData);
+                } else {
+                    userMessage = String(errorData);
+                }
+            }
+            
+            mostrarError(userMessage, theme);
         }
     }, [dialogMode, createCustomerMutation, updateCustomerMutation, selectedCustomer, refetchCustomers, dniExistsError, queryClient, tienePermiso]);
 

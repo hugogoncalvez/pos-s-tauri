@@ -86,6 +86,7 @@ export const addUserPermission = async (req, res) => {
         const { permission_id, type } = req.body;
 
         if (!permission_id || !['grant', 'revoke'].includes(type)) {
+            await transaction.rollback();
             return res.status(400).json({ message: 'permission_id y type (grant/revoke) son requeridos.' });
         }
 
@@ -293,7 +294,7 @@ export const getFullReport = async (req, res) => {
 
 export const checkCustomerDuplicate = async (req, res) => {
     try {
-        const { dni, email, customerId } = req.query; // customerId para excluir al cliente actual en edición
+        const { dni, email, phone, customerId } = req.query; // customerId para excluir al cliente actual en edición
 
         const whereConditions = {
             [Op.or]: []
@@ -305,10 +306,13 @@ export const checkCustomerDuplicate = async (req, res) => {
         if (email) {
             whereConditions[Op.or].push({ email });
         }
+        if (phone) {
+            whereConditions[Op.or].push({ phone });
+        }
 
         // Si no se proporciona ningún campo para verificar, retornar error
         if (whereConditions[Op.or].length === 0) {
-            return res.status(400).json({ message: 'Debe proporcionar al menos un DNI o email para verificar.' });
+            return res.status(400).json({ message: 'Debe proporcionar al menos un campo (dni, email o phone) para verificar.' });
         }
 
         // Excluir al cliente actual si se está editando
@@ -323,6 +327,7 @@ export const checkCustomerDuplicate = async (req, res) => {
         if (existingCustomer) {
             let duplicatedField = '';
             if (dni && existingCustomer.dni === dni) duplicatedField = 'DNI';
+            else if (phone && existingCustomer.phone === phone) duplicatedField = 'Teléfono';
             else if (email && existingCustomer.email === email) duplicatedField = 'Email';
 
             return res.json({ exists: true, duplicatedField, customer: existingCustomer });
@@ -1685,11 +1690,13 @@ export const deleteUser = async (req, res) => {
 
         // Regla 1: No se puede eliminar al super administrador
         if (userIdToDelete === 1) {
+            await transaction.rollback();
             return res.status(403).json({ message: 'El administrador (ID 1) no puede ser eliminado.' });
         }
 
         // Regla 2: Un usuario no puede eliminarse a sí mismo
         if (userIdToDelete === requestingUserId) {
+            await transaction.rollback();
             return res.status(403).json({ message: 'No puedes eliminar tu propia cuenta.' });
         }
 
@@ -3514,6 +3521,7 @@ export const createCustomer = async (req, res) => {
 
         // Validaciones básicas
         if (!name || name.trim().length < 2) {
+            await transaction.rollback();
             return res.status(400).json({
                 success: false,
                 message: 'El nombre es requerido y debe tener al menos 2 caracteres'
@@ -3528,10 +3536,12 @@ export const createCustomer = async (req, res) => {
                     phone ? { phone } : null,
                     dni ? { dni } : null
                 ].filter(Boolean)
-            }
+            },
+            transaction
         });
 
         if (existingCustomer) {
+            await transaction.rollback();
             let duplicateField = '';
             if (existingCustomer.email === email) duplicateField = 'email';
             else if (existingCustomer.phone === phone) duplicateField = 'teléfono';
@@ -3554,6 +3564,16 @@ export const createCustomer = async (req, res) => {
             debt: parseFloat(debt) || 0
         }, { transaction });
 
+        // Registrar en auditoría
+        await logAudit({
+            user_id: req.usuario.id,
+            action: 'CREAR_CLIENTE',
+            entity_type: 'customer',
+            entity_id: newCustomer.id,
+            new_values: newCustomer.toJSON(),
+            details: `Se creó el cliente: ${newCustomer.name} (ID: ${newCustomer.id}).`
+        }, req, transaction);
+
         await transaction.commit();
 
         res.status(201).json({
@@ -3564,6 +3584,8 @@ export const createCustomer = async (req, res) => {
     } catch (error) {
         await transaction.rollback();
         console.error('Error al crear cliente:', error);
+        console.error('Error name:', error.name);
+        console.error('Errorerrors:', error.errors);
 
         if (error.name === 'SequelizeValidationError') {
             return res.status(400).json({

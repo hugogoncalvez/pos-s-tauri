@@ -126,8 +126,7 @@ const Customers = () => {
         setError,
         setSuccess,
         checkDuplicate,
-        dniExistsError,
-        emailExistsError  // ✅ SIN COMA AL FINAL
+        dniExistsError
     } = useCustomerList(tienePermiso);
 
     const { data: totalDebtData, isLoading: isLoadingTotalDebt } = UseFetchQuery(
@@ -675,7 +674,6 @@ const Customers = () => {
                         dialogMode={dialogMode}
                         isLoadingSingleCustomer={isLoadingSingleCustomer}
                         dniExistsError={dniExistsError}
-                        emailExistsError={emailExistsError}
                         checkDuplicate={checkDuplicate}
                     />
                 </StyledDialog>
