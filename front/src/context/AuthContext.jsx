@@ -25,8 +25,8 @@ export const AuthContext = createContext({
 });
 export const useAuth = () => useContext(AuthContext);
 
-const MAX_CONSECUTIVE_ERRORS = 5; // Más tolerante: 5 fallos antes de pasar a OFFLINE
-const MIN_CONSECUTIVE_SUCCESS = 1; // Solo 1 éxito para volver a ONLINE rápido
+const MAX_CONSECUTIVE_ERRORS = 8; // Más tolerante para la nube
+const MIN_CONSECUTIVE_SUCCESS = 1;
 
 export const AuthProvider = ({ children }) => {
   const { isTauri, isLoading: isTauriLoading } = useIsTauri();
@@ -45,10 +45,9 @@ export const AuthProvider = ({ children }) => {
   const checkIntervalRef = useRef(null);
 
   const checkRealConnectivity = useCallback(async () => {
-    const healthCheckUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/health`;
-    
     try {
-      const response = await Api.get('/health', { timeout: 10000 }); // 10 segundos de margen
+      // Aumentamos el timeout a 15 segundos para dar margen a la VM y la DB
+      const response = await Api.get('/health', { timeout: 15000 }); 
       const data = response.data;
 
       // Si el servidor responde (aunque diga warning), estamos ONLINE (el servidor está vivo)

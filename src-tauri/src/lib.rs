@@ -1,6 +1,7 @@
 use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
 use log::LevelFilter;
 use tauri_plugin_http::init as http_plugin_init;
+use tauri::tray::TrayIconBuilder;
 
 pub fn run() {
     tauri::Builder::default()
@@ -8,14 +9,20 @@ pub fn run() {
             // Inicializamos el plugin de logging globalmente
             app.handle().plugin(
                 LogBuilder::default()
-                    // Nivel de log mínimo a registrar
-                    .level(LevelFilter::Debug) // más verboso
-                    // Establecemos explícitamente los destinos de los logs
-                    .target(Target::new(TargetKind::Stdout))      // consola del terminal
-                    .target(Target::new(TargetKind::Webview))     // consola del webview
+                    .level(LevelFilter::Debug)
+                    .target(Target::new(TargetKind::Stdout))
+                    .target(Target::new(TargetKind::Webview))
                     .target(Target::new(TargetKind::LogDir { file_name: Some("app".into()) }))
                     .build(),
             )?;
+
+            // Inicialización de la System Tray
+            if let Some(icon) = app.default_window_icon().cloned() {
+                let _ = TrayIconBuilder::new()
+                    .icon(icon)
+                    .tooltip("POS System")
+                    .build(app);
+            }
 
             Ok(())
         })

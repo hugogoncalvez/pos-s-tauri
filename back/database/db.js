@@ -175,11 +175,11 @@ const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
     timezone: '-03:00',
 
     pool: {
-        max: 10,
-        min: 0,          // No mantener conexiones idle que pueden volverse zombie
-        acquire: 10000,  // 10s — antes 60s, causaba freeze de ~5min
-        idle: 10000,
-        evict: 5000      // Limpiar conexiones muertas cada 5s
+        max: 5,          // Reducido a 5 para ahorrar RAM en e2-micro
+        min: 1,          // Mantener al menos 1 para evitar reconexiones constantes
+        acquire: 20000,  // 20s de margen para la red
+        idle: 60000,     // Mantener viva 1 min si no se usa
+        evict: 30000      // Limpiar cada 30s
     },
 
     retry: {
@@ -196,14 +196,14 @@ const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
             /ECONNREFUSED/,
             /ENOTFOUND/
         ],
-        max: 5
+        max: 3 // Reducido reintentos para no saturar la CPU
     },
 
     dialectOptions: {
-        connectTimeout: 10000,  // 10s — antes 60s
+        connectTimeout: 20000,  // 20s
     },
 
-    logging: process.env.NODE_ENV !== 'production' ? console.log : false
+    logging: false // Desactivado para maximizar rendimiento (I/O)
 });
 
 // Helper para aplicar timeout a cualquier promesa
@@ -218,8 +218,8 @@ const withTimeout = (promise, ms, label = 'operación') =>
 // Función para verificar y reconectar
 const checkConnection = async () => {
     try {
-        await withTimeout(db.authenticate(), 8000, 'authenticate');
-        console.log('✅ Conexión a la base de datos establecida correctamente.');
+        await withTimeout(db.authenticate(), 10000, 'authenticate');
+        // console.log('✅ Conexión a la base de datos establecida correctamente.');
         return true;
     } catch (error) {
         console.error('❌ Error al conectar con la base de datos:', error.message);
@@ -227,7 +227,7 @@ const checkConnection = async () => {
     }
 };
 
-// Intentar reconectar automáticamente cada 30 segundos si falla
+// Intentar reconectar automáticamente cada 60 segundos si falla
 let reconnectInterval = null;
 
 const startReconnectLoop = () => {
@@ -240,17 +240,16 @@ const startReconnectLoop = () => {
             clearInterval(reconnectInterval);
             reconnectInterval = null;
         }
-    }, 30000);
+    }, 60000); // Chequeo menos frecuente (1 min)
 };
 
-// Hooks para manejar errores de conexión
+// Hooks silenciosos para evitar log spam en la e2-micro
 db.addHook('beforeConnect', (config) => {
-    console.log('🔌 Intentando conectar a la base de datos...');
-    console.log('📡 Conectando a:', config.host);
+    // console.log('🔌 Intentando conectar a la base de datos...');
 });
 
 db.addHook('afterConnect', () => {
-    console.log('✅ Conexión establecida con la base de datos.');
+    // console.log('✅ Conexión establecida con la base de datos.');
     if (reconnectInterval) {
         clearInterval(reconnectInterval);
         reconnectInterval = null;

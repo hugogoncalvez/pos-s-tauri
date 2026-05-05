@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   DialogTitle,
   DialogContent,
@@ -115,6 +115,48 @@ const SummarySaleModal = ({
   const theme = useTheme();
   const { subtotal, impuesto, descuento: descuentoAplicado, surchargeAmount, surchargeDetails, totalFinal } = calcularTotal();
   const [surchargeDetailsOpen, setSurchargeDetailsOpen] = useState(false);
+
+  // Filtrar métodos activos y añadir la opción de Mixto
+  const activeMethods = paymentMethods ? paymentMethods.filter(pm => pm.active && pm.method !== 'Mixto' && pm.nombre !== 'Mixto') : [];
+  const allOptions = [...activeMethods, { id: 'mixed', method: 'Mixto', nombre: 'Mixto' }];
+
+  // Atajos de teclado para seleccionar métodos de pago
+  useEffect(() => {
+    if (!isSummaryModalOpen) return;
+
+    // Enfoque inicial al abrir el modal: al campo de Monto Recibido
+    const timer = setTimeout(() => {
+        if (amountReceivedInputRef.current) {
+            amountReceivedInputRef.current.focus();
+            amountReceivedInputRef.current.select(); // Seleccionar texto para facilitar sobreescribir
+        }
+    }, 300);
+
+    const handleKeyDown = (e) => {
+      // Atajos Alt + [1-9] para métodos de pago
+      if (e.altKey && e.key >= '1' && e.key <= '9') {
+        const index = parseInt(e.key) - 1;
+        if (index < allOptions.length) {
+          e.preventDefault();
+          const selected = allOptions[index];
+          if (selected.id === 'mixed') {
+            setPaymentOption('mixed');
+            setSelectedSinglePaymentType(null);
+          } else {
+            setPaymentOption('single');
+            setSelectedSinglePaymentType(selected);
+            setMixedPayments([{ payment_method_id: null, amount: '' }, { payment_method_id: null, amount: '' }]);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        clearTimeout(timer);
+    };
+  }, [isSummaryModalOpen, allOptions, setPaymentOption, setSelectedSinglePaymentType, setMixedPayments, amountReceivedInputRef]);
 
   const handleCancelSale = () => {
     mostrarConfirmacion(
@@ -271,14 +313,6 @@ const SummarySaleModal = ({
             fullWidth
             autoComplete="off"
           />
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FormControlLabel
-              control={<Switch checked={ivaActivo} onChange={(e) => setIvaActivo(e.target.checked)} size="small" />}
-              label="Aplicar IVA (21%)"
-              sx={{ whiteSpace: 'nowrap', ml: 1 }}
-              slotProps={{ typography: { accessKey: undefined } }}
-            />
-          </Box>
         </Box>
 
         <Divider sx={{ my: 2 }} />
@@ -292,13 +326,6 @@ const SummarySaleModal = ({
         }}>
           <Typography>Subtotal:</Typography>
           <Typography sx={{ textAlign: 'right' }}>${subtotal.toFixed(2)}</Typography>
-
-          {ivaActivo && (
-            <>
-              <Typography>IVA (21%):</Typography>
-              <Typography sx={{ textAlign: 'right' }}>${impuesto.toFixed(2)}</Typography>
-            </>
-          )}
 
           {descuentoAplicado > 0 && (
             <>
@@ -466,7 +493,7 @@ const SummarySaleModal = ({
                 startIcon={loadingSale ? <CircularProgress size={20} /> : <SaveAsIcon />}
                 ref={confirmButtonRef}
               >
-                {loadingSale ? 'Guardando...' : 'Confirmar Venta'}
+                {loadingSale ? 'Guardando...' : 'Confirmar'}
               </StyledButton>
               <Chip label="Alt + V" size="small" sx={{ mt: 0.5 }} />
             </Box>
@@ -480,7 +507,7 @@ const SummarySaleModal = ({
                 disabled={tempTable.length === 0}
                 startIcon={<PrintIcon />}
               >
-                Imprimir Recibo
+                Imprimir
               </StyledButton>
               <Chip label="Alt + T" size="small" sx={{ mt: 0.5 }} />
             </Box>
@@ -493,7 +520,7 @@ const SummarySaleModal = ({
                 disabled={tempTable.length === 0 || !!currentTicketId} // Check if currentTicketId has a truthy value (an actual ID)
                 startIcon={<PlaylistAddIcon />}
               >
-                Guardar Pendiente
+                Guardar
               </StyledButton>
               <Chip label="Alt + P" size="small" sx={{ mt: 0.5 }} />
             </Box>
@@ -507,7 +534,7 @@ const SummarySaleModal = ({
                 onClick={() => setShowPendingTickets(true)}
                 startIcon={<ReceiptIcon />}
               >
-                Tickets Pendientes ({pendingTickets.length})
+                Pendientes ({pendingTickets.length})
               </StyledButton>
               <Chip label="Alt + M" size="small" sx={{ mt: 0.5 }} />
             </Box>

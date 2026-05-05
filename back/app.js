@@ -286,13 +286,14 @@ const corsOptions = {
         }
 
         const allowedOrigins = [
-            'tauri://localhost',
-            'http://tauri.localhost',
-            'https://tauri.localhost',
-            /^http:\/\/localhost(:\d+)?$/,
-            /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+          'tauri://localhost',
+          'http://tauri.localhost',
+          'https://tauri.localhost',
+          'http://pos-thay.duckdns.org:8000',
+          'http://pos-thay.duckdns.org',
+          /^http:\/\/localhost(:\d+)?$/,
+          /^http:\/\/127\.0\.0\.1(:\d+)?$/,
         ];
-
         if (process.env.NODE_ENV === 'development') {
             allowedOrigins.push(/^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/);
         }
