@@ -269,7 +269,7 @@ const SummarySaleModal = ({
                 label="Cliente"
                 variant="outlined"
                 size="small"
-                helperText={customersLoading ? "Cargando clientes..." : ""}
+                helperText={customersLoading ? "Cargando clientes..." : "Seleccione un cliente"}
                 autoComplete="off"
               />
             )}
@@ -298,7 +298,7 @@ const SummarySaleModal = ({
                 label="Método de Pago"
                 variant="outlined"
                 size="small"
-                helperText={paymentLoading ? "Cargando métodos..." : ""}
+                helperText={paymentLoading ? "Cargando métodos..." : "Alt + Número para seleccionar"}
                 autoComplete="off"
               />
             )}
@@ -308,10 +308,12 @@ const SummarySaleModal = ({
             type="number"
             value={descuento}
             onChange={(e) => setDescuento(parseFloat(e.target.value) || 0)}
-            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+            InputProps={{ startAdornment: <InputAdornment position="start">R$</InputAdornment> }}
             size="small"
             fullWidth
             autoComplete="off"
+            helperText="Monto descuento"
+            
           />
         </Box>
 
@@ -364,7 +366,7 @@ const SummarySaleModal = ({
                 value={amountReceived}
                 onChange={(e) => setAmountReceived(e.target.value)} // Set as string
                 disabled={selectedSinglePaymentType?.method?.toLowerCase().includes('credito') || selectedSinglePaymentType?.nombre?.toLowerCase().includes('credito')}
-                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                InputProps={{ startAdornment: <InputAdornment position="start">R$</InputAdornment> }}
                 size="medium"
                 fullWidth
                 inputRef={amountReceivedInputRef}

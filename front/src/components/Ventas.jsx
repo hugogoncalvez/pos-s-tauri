@@ -2098,7 +2098,7 @@ const Ventas = () => {
                 <Paper elevation={2} sx={{ backgroundColor: theme.palette.background.tableHeader, color: 'primary.contrastText', display: 'flex', mt: -0.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-evenly', alignItems: 'center', width: '100%', m: 0, p: 0 }}>
                     <Typography variant="h6" sx={{ fontWeight: 'medium' }}>TOTAL:</Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>${totalFinal.toFixed(2)}</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>R${totalFinal.toFixed(2)}</Typography>
                   </Box>
                 </Paper>
               </Grid>
