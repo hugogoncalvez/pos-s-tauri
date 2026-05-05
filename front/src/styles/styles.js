@@ -4,24 +4,22 @@ import TableRow from '@mui/material/TableRow';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
     // Estilos comunes para head y body para máxima consistencia y responsividad
-    // fontSize: 'clamp(0.75rem, 1.1vw, 0.85rem)', // Tamaño de fuente fluido y compacto
-    padding: 'clamp(8px, 1.5vw, 14px)',      // Padding adaptable
+    padding: '4px 6px',                       // Padding reducido para pantallas pequeñas
     border: `1px solid ${theme.palette.divider}`,
     whiteSpace: 'nowrap',                       // Evita que el texto salte a la siguiente línea
     overflow: 'hidden',                         // Oculta el texto que se desborda
     textOverflow: 'ellipsis',                  // Muestra '...' en el texto desbordado
-    maxWidth: '220px',                          // Límite de ancho para celdas (ajustable)
-    // El ancho real se adaptará, pero no superará este valor
+    maxWidth: '150px',                          // Límite de ancho reducido para celdas
 
     [`&.${tableCellClasses.head}`]: {
         backgroundColor: theme.palette.background.tableHeader,
         color: theme.palette.text.primary,
         fontWeight: 'bold', // Distinguir el encabezado
-        fontSize: 'clamp(0.8rem, 1.3vw, 1.2rem)', // Specific font size for header
+        fontSize: '0.75rem', // Tamaño fijo reducido para header
     },
     [`&.${tableCellClasses.body}`]: {
         // color: theme.palette.text.primary, // Removed to allow color to be inherited from TableRow
-        fontSize: 'clamp(0.7rem, 1.1vw, 1rem)', // Specific font size for body
+        fontSize: '0.7rem', // Tamaño fijo reducido para body
     },
 }));
 

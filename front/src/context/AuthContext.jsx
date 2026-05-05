@@ -32,7 +32,6 @@ export const AuthProvider = ({ children }) => {
   const { isTauri, isLoading: isTauriLoading } = useIsTauri();
   const queryClient = useQueryClient();
 
-  info('[DEBUG] AuthProvider render START');
   const [usuario, setUsuario] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,10 +43,10 @@ export const AuthProvider = ({ children }) => {
   const successCountRef = useRef(0);
   const checkIntervalRef = useRef(null);
 
-  const checkRealConnectivity = useCallback(async () => {
+const checkRealConnectivity = useCallback(async () => {
     try {
-      // Aumentamos el timeout a 15 segundos para dar margen a la VM y la DB
-      const response = await Api.get('/health', { timeout: 15000 }); 
+      // Timeout de 5 segundos para detección de conectividad
+      const response = await Api.get('/health', { timeout: 5000 }); 
       const data = response.data;
 
       // Si el servidor responde (aunque diga warning), estamos ONLINE (el servidor está vivo)
@@ -83,35 +82,16 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (isTauriLoading) return;
 
-    if (isTauri) {
-      info('[AuthContext] 🌐 Modo Tauri: verificación activa de conectividad habilitada.');
-      checkRealConnectivity(); // chequeo inicial
-      checkIntervalRef.current = setInterval(checkRealConnectivity, 10000); // Bajar a 10 segundos
-      return () => {
-        if (checkIntervalRef.current) {
-          clearInterval(checkIntervalRef.current);
-        }
-      };
-    } else {
-      info('[AuthContext] 💻 Modo Web/Dev: usando eventos navigator.onLine');
-      const handleOnline = debounce(() => {
-        info('[AuthContext] 🌐 Evento: ONLINE detectado, cambiando estado.');
-        onlineManager.setOnline(true); // 👈 SINCRONIZAR REACT QUERY
-        setIsOnline(true);
-        checkRealConnectivity();
-      }, 300);
-      const handleOffline = debounce(() => {
-        info('[AuthContext] 🔌 Evento: OFFLINE detectado, cambiando estado.');
-        onlineManager.setOnline(false); // 👈 SINCRONIZAR REACT QUERY
-        setIsOnline(false);
-      }, 300);
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
-      return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-      };
-    }
+    // En todos los modos, usar verificación activa contra el servidor
+    // No dependemos de navigator.onLine por ser poco confiable
+    info('[AuthContext] 🌐 Verificación activa de conectividad.');
+    checkRealConnectivity(); // chequeo inicial
+    checkIntervalRef.current = setInterval(checkRealConnectivity, 10000);
+    return () => {
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+      }
+    };
   }, [isTauri, isTauriLoading, checkRealConnectivity]);
 
   const updateUserTheme = (newTheme) => {
