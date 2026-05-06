@@ -65,38 +65,14 @@ const authenticatedRouter = express.Router(); // NEW: Router for authenticated r
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Public health check route
-router.get('/health', async (req, res) => {
-    try {
-        // Realizar una verificación de autenticación ligera (no bloqueante para el pool)
-        // Solo verificamos si db existe y si respondió el ping de Sequelize recientemente.
-        // Si db.authenticate() tarda mucho, preferimos responder rápido que bloquear.
-        
-        const dbStatus = {
-            status: "ok",
-            db: true,
-            timestamp: new Date().toISOString()
-        };
-
-        // Verificación asíncrona pero con timeout para no colgar la ruta
-        const dbPromise = db.authenticate()
-            .then(() => true)
-            .catch(() => false);
-
-        const dbAlive = await Promise.race([
-            dbPromise,
-            new Promise(resolve => setTimeout(() => resolve(true), 2000)) // Si tarda más de 2s, asumimos que sigue intentando pero no cortamos el flujo
-        ]);
-
-        res.status(200).json(dbStatus);
-    } catch (error) {
-        console.error("Health check error:", error.message);
-        res.status(200).json({ // Respondemos 200 aunque haya error leve para no disparar el offline del front agresivamente
-            status: "warning",
-            db: false,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
+router.get('/health', (req, res) => {
+    // Verificación simple del backend para evitar saturar la base de datos con conexiones
+    // ya que ahora el backend está en la nube.
+    res.status(200).json({
+        status: "ok",
+        backend: true,
+        timestamp: new Date().toISOString()
+    });
 });
 
 // Public routes (authentication related)
