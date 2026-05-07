@@ -178,8 +178,8 @@ const createPool = () => mysql2.createPool({
     database: process.env.DB_NAME,
 
     waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 50,          // Limitar la cola para no acumular requests colgados
+    connectionLimit: 2,
+    queueLimit: 10,          // Limitar la cola para no acumular requests colgados
 
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
