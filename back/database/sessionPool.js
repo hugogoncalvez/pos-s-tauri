@@ -1,7 +1,4 @@
 // import mysql2 from 'mysql2/promise';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 // // Crear pool con configuración resiliente
 // export const sessionPool = mysql2.createPool({
