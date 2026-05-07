@@ -40,12 +40,27 @@ export const OFFLINE_USER = {
   rol_nombre: 'Cajero',
   isOfflineUser: true,
   permisos: [
+    // Ventas
     'ver_vista_ventas',
+    'listar_productos',
+    'listar_clientes',
+    'listar_combos',
+    'listar_promociones',
+    'listar_medios_pago',
     'accion_crear_venta',
-    'ver_stock',
-    'ver_clientes',
-    'ver_promociones',
-    'ver_combos'
+    'accion_cancelar_venta',
+    'accion_aplicar_descuento',
+    
+    // Caja (Mi Caja)
+    'ver_mi_caja',
+    'listar_movimientos_caja',
+    'accion_abrir_caja',
+    'accion_cerrar_caja_propia',
+    'accion_registrar_movimiento_caja',
+
+    // Stock/Consultas
+    'ver_stock', // Mantener por compatibilidad si se usa
+    'ver_historial_ventas'
   ]
 };
 

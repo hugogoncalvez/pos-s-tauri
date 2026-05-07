@@ -72,22 +72,34 @@ const handleOfflineQuery = async (url) => {
     }
 
     if (tableName === 'elements') {
-      //console.log('[Offline Query] Modo offline detectado para /elements. Devolviendo solo la tarjeta de Ventas.');
-      const ventasCard = {
-        id: 5,
-        nombre: 'Ventas',
-        descripcion: 'Registrar ventas y gestionar el punto de venta.',
-        imagen: '/ventas.png',
-        navegar: '/ventas',
-        orden: 1,
-        permiso_requerido: 'ver_vista_ventas'
-      };
-      if (OFFLINE_USER.permisos.includes(ventasCard.permiso_requerido)) {
-        //console.log('[Offline Query] ✅ Retornando datos para /elements:', [ventasCard]);
-        return [ventasCard];
-      }
-      //console.log('[Offline Query] ❌ Usuario offline no tiene permiso, retornando array vacío.');
-      return [];
+      //console.log('[Offline Query] Modo offline detectado para /elements.');
+      const allCards = [
+        {
+          id: 5,
+          nombre: 'Ventas',
+          descripcion: 'Registrar ventas y gestionar el punto de venta.',
+          imagen: '/ventas.png',
+          navegar: '/ventas',
+          orden: 1,
+          permiso_requerido: 'ver_vista_ventas'
+        },
+        {
+          id: 6,
+          nombre: 'Caja',
+          descripcion: 'Gestión de turnos y movimientos de efectivo.',
+          imagen: '/caja.png', // Ajustar si el nombre de la imagen es otro
+          navegar: '/mi-caja',
+          orden: 2,
+          permiso_requerido: 'ver_mi_caja'
+        }
+      ];
+
+      const filteredCards = allCards.filter(card => 
+        OFFLINE_USER.permisos.includes(card.permiso_requerido)
+      );
+
+      //console.log(`[Offline Query] ✅ Retornando ${filteredCards.length} tarjetas para /elements.`);
+      return filteredCards;
     }
 
     if (tableName === 'theme_settings') {
