@@ -1,4 +1,7 @@
 // import mysql2 from 'mysql2/promise';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // // Crear pool con configuración resiliente
 // export const sessionPool = mysql2.createPool({
@@ -159,6 +162,9 @@
 //Claude
 
 import mysql2 from 'mysql2/promise';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // Helper para aplicar timeout a cualquier promesa
 const withTimeout = (promise, ms, label = 'operación') =>
