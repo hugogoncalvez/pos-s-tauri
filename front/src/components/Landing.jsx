@@ -257,6 +257,7 @@ const Landing = () => {
     const { usuario, isOnline } = useContext(AuthContext);
     const { tienePermiso, isLoading: permLoading } = usePermissions();
     const { data, isLoading } = UseFetchQuery('Elements', '/elements', !permLoading, Infinity);
+    const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
 
     const theme = useTheme();
 
@@ -402,28 +403,77 @@ const Landing = () => {
                 overflowY: 'auto' // Permitir scroll solo si el contenido excede la altura
             }}>
                 <Box sx={{ width: '100%', maxWidth: containerConfig.maxWidth }}>
-                    <Typography
-                        variant={containerConfig.titleVariant}
-                        color="text.primary"
-                        gutterBottom
-                        sx={{
-                            fontSize: isCompactMode ? '1.8rem' : undefined,
-                            marginBottom: isCompactMode ? 1.5 : undefined
-                        }}
-                    >
-                        {showSkeleton ? <Skeleton width="40%" /> : `Bienvenido, ${usuario?.nombre || 'Usuario'}`}
-                    </Typography>
-                    <Typography
-                        variant="body1"
-                        color="text.secondary"
-                        mb={screenSize === 'xs' ? 4 : isCompactMode ? 2.5 : 6}
-                        sx={{
-                            fontSize: screenSize === 'xs' ? '0.9rem' :
-                                isCompactMode ? '0.95rem' : undefined
-                        }}
-                    >
-                        {showSkeleton ? <Skeleton width="60%" /> : 'Seleccioná una opción para comenzar'}
-                    </Typography>
+                    <Box sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        mb: screenSize === 'xs' ? 4 : isCompactMode ? 2.5 : 6,
+                        gap: 2
+                    }}>
+                        <Box>
+                            <Typography
+                                variant={containerConfig.titleVariant}
+                                color="text.primary"
+                                gutterBottom
+                                sx={{
+                                    fontSize: isCompactMode ? '1.8rem' : undefined,
+                                    marginBottom: isCompactMode ? 0.5 : undefined,
+                                    fontWeight: 700
+                                }}
+                            >
+                                {showSkeleton ? <Skeleton width="180px" height={40} /> : `Bienvenido, ${usuario?.nombre || 'Usuario'}`}
+                            </Typography>
+                            <Typography
+                                variant="body1"
+                                color="text.secondary"
+                                sx={{
+                                    fontSize: screenSize === 'xs' ? '0.9rem' :
+                                        isCompactMode ? '0.95rem' : undefined
+                                }}
+                            >
+                                {showSkeleton ? <Skeleton width="220px" /> : 'Seleccioná una opción para comenzar'}
+                            </Typography>
+                        </Box>
+
+                        {showSkeleton ? (
+                            <Skeleton 
+                                variant="rounded" 
+                                width="clamp(60px, 12vh, 90px)" 
+                                height="clamp(60px, 12vh, 90px)" 
+                                sx={{ borderRadius: '16px', display: { xs: 'none', sm: 'block' } }} 
+                            />
+                        ) : (
+                            businessConfig?.logo && (
+                                <Box
+                                    component={motion.img}
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    whileHover={{ 
+                                        scale: 1.05, 
+                                        rotate: 3,
+                                        y: -10,
+                                    }}
+                                    transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                                    src={businessConfig.logo}
+                                    alt="Logo Empresa"
+                                    sx={{
+                                        height: 'clamp(60px, 12vh, 90px)',
+                                        width: 'auto',
+                                        borderRadius: '16px',
+                                        objectFit: 'contain',
+                                        boxShadow: theme.shadows[3],
+                                        border: `1px solid ${theme.palette.divider}`,
+                                        display: { xs: 'none', sm: 'block' },
+                                        cursor: 'pointer',
+                                        transition: 'box-shadow 0.3s ease',
+                                        '&:hover': {
+                                            boxShadow: theme.shadows[8],
+                                        }
+                                    }}
+                                />
+                            )
+                        )}
+                    </Box>
 
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: containerConfig.gap }}>
                         {chunkedItems.map((row, idx) => (

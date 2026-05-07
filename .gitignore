@@ -1,6 +1,9 @@
 com.hugogoncalvez.possystem/
 mi_cert.crt
 testPOS.csr
+materialUI-v7-guide.txt
+materialUI-v7-guide/
+materialUI-v7-guide
 #archivos Gemini
 archivos_gemini/
 GEMINI.MD

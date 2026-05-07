@@ -23,6 +23,7 @@ import { ColorModeContext } from '../context/ThemeContextProvider';
 import { usePermissions } from '../hooks/usePermissions';
 import { useCashRegister } from '../hooks/useCashRegister';
 import { useIsTauri } from '../hooks/useIsTauri';
+import { UseFetchQuery } from '../hooks/useQuery';
 import CashMovementModal from '../styledComponents/CashMovementModal';
 import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
 
@@ -36,6 +37,7 @@ export default function DenseAppBar({ isOnline, pendingSyncCount, onSyncClick })
   const { tienePermiso } = usePermissions();
   const { isTauri } = useIsTauri();
   const { activeSession, createCashMovement, isSavingMovement, userName } = useCashRegister();
+  const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
 
   const [openPopper, setOpenPopper] = useState(false);
   const anchorRef = useRef(null);
@@ -126,12 +128,51 @@ export default function DenseAppBar({ isOnline, pendingSyncCount, onSyncClick })
           minHeight: isDesktopUp ? 80 : 56,
         }}>
 
-          <Box component={'div'}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             {location.pathname !== '/' && (
               <IconButton size='small' onClick={() => navigate(-1)} edge="start" color="inherit" aria-label="regresar">
                 <ArrowBackIcon />
               </IconButton>
             )}
+            <Box 
+              onClick={goHome} 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1.2, 
+                cursor: 'pointer',
+                transition: 'transform 0.2s',
+                '&:hover': { transform: 'scale(1.02)' }
+              }}
+            >
+              {businessConfig?.logo && (
+                <Box
+                  component="img"
+                  src={businessConfig.logo}
+                  alt="Logo"
+                  sx={{
+                    height: 'clamp(35px, 5vh, 50px)',
+                    width: 'auto',
+                    borderRadius: '10px',
+                    objectFit: 'contain',
+                    filter: theme.palette.mode === 'dark' ? 'drop-shadow(0px 0px 4px rgba(255,255,255,0.1))' : 'none'
+                  }}
+                />
+              )}
+              <Typography
+                variant="h6"
+                noWrap
+                sx={{
+                  fontWeight: 800,
+                  fontSize: 'clamp(1rem, 2vw, 1.35rem)',
+                  letterSpacing: '-0.5px',
+                  color: 'inherit',
+                  display: { xs: businessConfig?.logo ? 'none' : 'block', sm: 'block' }
+                }}
+              >
+                {businessConfig?.name || 'Sistema POS'}
+              </Typography>
+            </Box>
           </Box>
 
           <Box component={'div'} sx={{ display: 'flex', alignItems: 'center' }}>
