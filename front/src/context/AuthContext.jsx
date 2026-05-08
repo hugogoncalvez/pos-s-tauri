@@ -46,6 +46,9 @@ export const AuthProvider = ({ children }) => {
   const isConfirmingRef = useRef(false); // evita múltiples loops de confirmación en paralelo
   // Ref para leer el estado actual sin stale closures
   const connectionStatusRef = useRef('online');
+  // Período de gracia: el WebView de Tauri necesita tiempo para inicializar su red
+  const startupTimestampRef = useRef(Date.now());
+  const STARTUP_GRACE_PERIOD_MS = 30000; // 30 segundos de gracia al inicio
 
   // isOnline como derivado para compatibilidad con el resto del código
   const isOnline = connectionStatus !== 'offline';
@@ -110,6 +113,8 @@ export const AuthProvider = ({ children }) => {
 
     const ok = await doPing();
     const current = connectionStatusRef.current;
+    const msSinceStartup = Date.now() - startupTimestampRef.current;
+    const inGracePeriod = msSinceStartup < STARTUP_GRACE_PERIOD_MS;
 
     if (ok) {
       if (current !== 'online') {
@@ -118,8 +123,13 @@ export const AuthProvider = ({ children }) => {
         setConnectionStatus('online');
       }
     } else {
+      if (inGracePeriod) {
+        // Período de gracia: el WebView aún está arrancando, ignorar fallos
+        info(`[AuthContext] ⏳ Ping falló pero estamos en período de gracia (${Math.round(msSinceStartup / 1000)}s/${STARTUP_GRACE_PERIOD_MS / 1000}s). Ignorando.`);
+        return;
+      }
       if (current === 'online') {
-        // Primer fallo: pasar a DEGRADADO e iniciar confirmación en paralelo (sin bloquear el intervalo)
+        // Primer fallo: pasar a DEGRADADO e iniciar confirmación en paralelo
         info(`[AuthContext] 🟡 Primer fallo detectado. Cambiando a DEGRADADO.`);
         setConnectionStatus('degraded');
         connectionStatusRef.current = 'degraded';
@@ -134,9 +144,13 @@ export const AuthProvider = ({ children }) => {
     if (isTauriLoading) return;
 
     info('[AuthContext] 🌐 Verificación activa de conectividad (3 estados).');
-    checkRealConnectivity();
-    checkIntervalRef.current = setInterval(checkRealConnectivity, 15000);
+    // Retrasar primer ping 5 segundos para dar tiempo al WebView de inicializar su red
+    const initialDelay = setTimeout(() => {
+      checkRealConnectivity();
+      checkIntervalRef.current = setInterval(checkRealConnectivity, 15000);
+    }, 5000);
     return () => {
+      clearTimeout(initialDelay);
       if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
     };
   }, [isTauri, isTauriLoading, checkRealConnectivity]);
