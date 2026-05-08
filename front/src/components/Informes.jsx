@@ -99,6 +99,8 @@ const Informes = () => {
         { keepPreviousData: true }
     );
 
+    const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
+
 
     const reportTypeOptions = [
         { value: 'salesSummary', label: 'Ventas' },
@@ -196,10 +198,11 @@ const Informes = () => {
                 <div class="report-container">
                     <div class="report-header">
                         <div class="company-info">
-                            <div class="company-name">Mi Empresa</div>
+                            ${businessConfig?.logo ? `<img src="${businessConfig.logo}" style="max-width: 80px; max-height: 80px; margin-bottom: 10px;" />` : ''}
+                            <div class="company-name">${businessConfig?.name || 'Mi Empresa'}</div>
                             <div class="company-details">
-                                Dirección: Calle Principal 123<br>
-                                Tel: (123) 456-7890 | Email: info@miempresa.com
+                                ${businessConfig?.address ? `Dirección: ${businessConfig.address}<br>` : ''}
+                                ${businessConfig?.phone || businessConfig?.email ? `Tel: ${businessConfig.phone || 'N/A'} | Email: ${businessConfig.email || 'N/A'}` : ''}
                             </div>
                         </div>
                         <div class="report-title">Informe de ${reportTitle}</div>

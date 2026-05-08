@@ -145,6 +145,8 @@ const CashAdmin = () => {
         ['users'], '/users', !authLoading && tienePermiso('ver_vista_usuarios')
     );
 
+    const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
+
     const { data: cashSessions, isLoading: cashSessionsLoading, error: cashSessionsError, refetch: refetchCashSessions } = UseFetchQuery('cashSessions', '/cash-sessions/history?status=abierta,pendiente_cierre');
 
     const historyParams = new URLSearchParams({
@@ -688,7 +690,7 @@ const CashAdmin = () => {
                                     <Tooltip title="Ver Detalles">
                                         <IconButton size="small" onClick={() => handleViewDetails(row)}><ViewIcon /></IconButton>
                                     </Tooltip>
-                                    <Tooltip title="Imprimir reporte"><IconButton size="small" onClick={() => printCashSessionReport(row, { formatCurrency, formatDate, getUserName })}><PrintIcon /></IconButton></Tooltip>
+                                    <Tooltip title="Imprimir reporte"><IconButton size="small" onClick={() => printCashSessionReport(row, { formatCurrency, formatDate, getUserName, businessConfig })}><PrintIcon /></IconButton></Tooltip>
                                     {row.status === 'pendiente_cierre' && tienePermiso('ver_cajas_admin') && (
                                         <Tooltip title="Revisar y Finalizar Cierre"><StyledButton size="small" variant="contained" color="secondary" onClick={() => openFinalizeDialog(row)} sx={{ ml: 1 }}>Revisar</StyledButton></Tooltip>
                                     )}
@@ -852,7 +854,7 @@ const CashAdmin = () => {
                         </StyledButton>
                         {sessionDetails && (
                             <StyledButton
-                                onClick={() => printCashSessionReport(sessionDetails, { formatCurrency, formatDate, getUserName })}
+                                onClick={() => printCashSessionReport(sessionDetails, { formatCurrency, formatDate, getUserName, businessConfig })}
                                 variant="contained"
                                 startIcon={<PrintIcon />}
                             >

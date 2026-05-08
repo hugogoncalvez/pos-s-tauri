@@ -8,7 +8,7 @@ import Swal from 'sweetalert2';
  * @param {function} helpers.formatDate - Función para formatear una fecha.
  * @param {function} helpers.getUserName - Función para obtener el nombre de usuario.
  */
-export const printCashSessionReport = (session, { formatCurrency, formatDate, getUserName }) => {
+export const printCashSessionReport = (session, { formatCurrency, formatDate, getUserName, businessConfig }) => {
     const getDiscrepancyRow = (label, value) => {
         const numericValue = parseFloat(value);
         if (isNaN(numericValue)) return '';
@@ -80,8 +80,10 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
                     border-bottom: 2px solid #e9ecef;
                     padding-bottom: 20px;
                 }
-                .header h1 { margin: 0; color: #212529; font-size: 2em; font-weight: 700; }
-                .header p { margin: 5px 0; color: #6c757d; font-size: 0.9em; }
+                .header h1 { margin: 5px 0; color: #212529; font-size: 1.8em; font-weight: 700; }
+                .header p { margin: 2px 0; color: #6c757d; font-size: 0.9em; }
+                .company-logo { max-height: 80px; margin-bottom: 10px; border-radius: 8px; }
+                .company-name { font-size: 1.5em; font-weight: 700; color: #212529; margin-bottom: 5px; }
                 .section { margin-bottom: 25px; }
                 .section h2 {
                     border-bottom: 1px solid #ced4da;
@@ -117,6 +119,11 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
         <body>
             <div class="container">
                 <div class="header">
+                    ${businessConfig?.logo ? `<img src="${businessConfig.logo}" class="company-logo">` : ''}
+                    <div class="company-name">${businessConfig?.name || 'Sistema POS'}</div>
+                    ${businessConfig?.address ? `<p>${businessConfig.address}</p>` : ''}
+                    ${businessConfig?.phone || businessConfig?.email ? `<p>${businessConfig.phone ? `Tel: ${businessConfig.phone}` : ''} ${businessConfig.email ? `| Email: ${businessConfig.email}` : ''}</p>` : ''}
+                    <hr class="solid">
                     <h1>Reporte de Cierre de Caja</h1>
                     <p>ID de Sesión: #${session.id}</p>
                     <p>Fecha de Impresión: ${new Date().toLocaleString('es-AR')}</p>

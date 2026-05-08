@@ -41,6 +41,8 @@ const Corte = () => {
         ['users'], '/users', tienePermiso('ver_vista_caja_admin')
     );
 
+    const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
+
     const { data: reportData, isLoading: reportLoading, error: reportError, refetch: refetchReport } = UseFetchQuery(
         ['dailyCutReport', filters.date, filters.userId],
         `/reports/daily-cut?date=${filters.date}${filters.userId ? `&userId=${filters.userId}` : ''}`,
@@ -61,7 +63,7 @@ const Corte = () => {
 
     const handlePrint = () => {
         if (reportData?.report?.totals) {
-            printDailyCutReport(reportData.report, { formatCurrency });
+            printDailyCutReport(reportData.report, { formatCurrency, businessConfig });
         } else {
             mostrarError('No hay datos para imprimir.', theme);
         }

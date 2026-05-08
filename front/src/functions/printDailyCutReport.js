@@ -3,7 +3,7 @@ import 'moment/locale/es';
 
 import Swal from 'sweetalert2';
 
-export const printDailyCutReport = (report, { formatCurrency }) => {
+export const printDailyCutReport = (report, { formatCurrency, businessConfig }) => {
     if (!report) {
         console.error("No hay datos de reporte para imprimir.");
         return;
@@ -83,6 +83,15 @@ export const printDailyCutReport = (report, { formatCurrency }) => {
                     border-radius: 8px;
                     box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
                 }
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                    border-bottom: 2px solid #0056b3;
+                    padding-bottom: 20px;
+                }
+                .company-logo { max-height: 80px; margin-bottom: 10px; border-radius: 8px; }
+                .company-name { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 5px; }
+                .company-info { font-size: 14px; color: #666; margin-bottom: 15px; }
                 h1, h2, h3 {
                     color: #0056b3;
                     border-bottom: 2px solid #e0e0e0;
@@ -93,6 +102,8 @@ export const printDailyCutReport = (report, { formatCurrency }) => {
                     text-align: center;
                     color: #004085;
                     font-size: 28px;
+                    margin-top: 10px;
+                    border-bottom: none;
                 }
                 h2 {
                     font-size: 22px;
@@ -103,6 +114,9 @@ export const printDailyCutReport = (report, { formatCurrency }) => {
                     margin-bottom: 20px;
                     font-size: 14px;
                     color: #555;
+                    background: #f8f9fa;
+                    padding: 10px;
+                    border-radius: 4px;
                 }
                 .info-grid {
                     display: grid;
@@ -162,6 +176,7 @@ export const printDailyCutReport = (report, { formatCurrency }) => {
                         box-shadow: none;
                         border-radius: 0;
                         padding: 15px;
+                        border: 1px solid #eee;
                     }
                     h1 {
                         font-size: 24px;
@@ -177,9 +192,18 @@ export const printDailyCutReport = (report, { formatCurrency }) => {
         </head>
         <body>
             <div class="container">
+                <div class="header">
+                    ${businessConfig?.logo ? `<img src="${businessConfig.logo}" class="company-logo">` : ''}
+                    <div class="company-name">${businessConfig?.name || 'Sistema POS'}</div>
+                    <div class="company-info">
+                        ${businessConfig?.address ? `${businessConfig.address}<br>` : ''}
+                        ${businessConfig?.phone || businessConfig?.email ? `${businessConfig.phone ? `Tel: ${businessConfig.phone}` : ''} ${businessConfig.email ? `| Email: ${businessConfig.email}` : ''}` : ''}
+                    </div>
+                </div>
+
                 <h1>Reporte de Corte de Caja</h1>
                 <div class="header-info">
-                    Fecha: ${formattedDate} | Cajero: ${cashier}
+                    Fecha del Corte: ${formattedDate} | Cajero Responsable: ${cashier}
                 </div>
 
                 <div class="section">

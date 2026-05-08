@@ -110,6 +110,8 @@ const CajeroView = () => {
         !!usuario?.id
     );
 
+    const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
+
     // Construcción de la URL para el historial de sesiones
     const historyParams = new URLSearchParams({
         page: page + 1,
@@ -301,7 +303,7 @@ const CajeroView = () => {
                         <IconButton size="small" onClick={() => handleViewDetails(row)}><ViewIcon /></IconButton>
                     </Tooltip>
                     <Tooltip title="Imprimir reporte">
-                        <IconButton size="small" onClick={() => printCashSessionReport(row, { formatCurrency, formatDate, getUserName })}>
+                        <IconButton size="small" onClick={() => printCashSessionReport(row, { formatCurrency, formatDate, getUserName, businessConfig })}>
                             <PrintIcon />
                         </IconButton>
                     </Tooltip>
@@ -647,7 +649,7 @@ const CajeroView = () => {
                             setDetailsDialogOpen(false);
                             setViewingSessionId(null); // Limpiar el ID al cerrar
                         }}>Cerrar</StyledButton>
-                        {sessionDetails && <StyledButton onClick={() => printCashSessionReport(sessionDetails, { formatCurrency, formatDate, getUserName })} variant="contained" startIcon={<PrintIcon />}>Imprimir</StyledButton>}
+                        {sessionDetails && <StyledButton onClick={() => printCashSessionReport(sessionDetails, { formatCurrency, formatDate, getUserName, businessConfig })} variant="contained" startIcon={<PrintIcon />}>Imprimir</StyledButton>}
                     </DialogActions>
                 </StyledDialog>
             </Box>

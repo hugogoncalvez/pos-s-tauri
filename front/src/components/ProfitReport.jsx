@@ -31,6 +31,7 @@ function ProfitReport() {
         endDate: moment().endOf('day').format('YYYY-MM-DD'),
     });
 
+    const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
     const { data: profitMarginData, isLoading: profitMarginLoading, refetch } = UseFetchQuery('profitMarginData', `/reports/profit-margin?startDate=${filters.startDate}&endDate=${filters.endDate}`, true);
 
     const handleDateFilterChange = (e) => {
@@ -98,6 +99,7 @@ function ProfitReport() {
                     .report-container { max-width: 1000px; margin: 0 auto; background: #fff; }
                     .report-header { background: #f8f9fa; color: #333; padding: 30px; text-align: center; margin-bottom: 30px; border-radius: 8px; border: 2px solid #28a745; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
                     .company-info { margin-bottom: 20px; }
+                    .company-logo { max-height: 80px; margin-bottom: 10px; border-radius: 8px; }
                     .company-name { font-size: 32px; font-weight: bold; margin-bottom: 8px; color: #28a745; }
                     .company-details { font-size: 14px; color: #666; margin-bottom: 20px; }
                     .report-title { font-size: 28px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; color: #333; }
@@ -134,8 +136,12 @@ function ProfitReport() {
                 <div class="report-container">
                     <div class="report-header">
                         <div class="company-info">
-                            <div class="company-name">Mi Empresa</div>
-                            <div class="company-details">Dirección: Calle Principal 123<br>Tel: (123) 456-7890 | Email: info@miempresa.com</div>
+                            ${businessConfig?.logo ? `<img src="${businessConfig.logo}" class="company-logo">` : ''}
+                            <div class="company-name">${businessConfig?.name || 'Mi Empresa'}</div>
+                            <div class="company-details">
+                                ${businessConfig?.address ? `Dirección: ${businessConfig.address}<br>` : ''}
+                                ${businessConfig?.phone || businessConfig?.email ? `${businessConfig.phone ? `Tel: ${businessConfig.phone}` : ''} ${businessConfig.email ? `| Email: ${businessConfig.email}` : ''}` : ''}
+                            </div>
                         </div>
                         <div class="report-title">Reporte de Márgenes de Ganancia</div>
                         <div class="report-period">Período: ${moment(filters.startDate).format('DD/MM/YYYY')} - ${moment(filters.endDate).format('DD/MM/YYYY')}</div>
