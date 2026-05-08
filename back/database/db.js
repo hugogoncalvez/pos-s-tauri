@@ -162,6 +162,7 @@
 
 import { Sequelize } from "sequelize";
 import dotenv from 'dotenv';
+import { updateHealthStatus } from './healthMonitor.js';
 
 dotenv.config();
 
@@ -222,9 +223,10 @@ const withTimeout = (promise, ms, label = 'operación') =>
 const checkConnection = async () => {
     try {
         await withTimeout(db.authenticate(), 10000, 'authenticate');
-        // console.log('✅ Conexión a la base de datos establecida correctamente.');
+        updateHealthStatus('mainDb', true);
         return true;
     } catch (error) {
+        updateHealthStatus('mainDb', false);
         console.error('❌ Error al conectar con la base de datos:', error.message);
         return false;
     }
@@ -271,12 +273,14 @@ export const healthCheck = async () => {
     try {
         await withTimeout(db.authenticate(), 5000, 'authenticate');
         const [[result]] = await withTimeout(db.query('SELECT 1+1 AS result'), 5000, 'query');
+        updateHealthStatus('mainDb', true);
         return {
             status: 'healthy',
             database: 'connected',
             test: result.result === 2
         };
     } catch (error) {
+        updateHealthStatus('mainDb', false);
         console.error('Health check failed:', error.message);
         startReconnectLoop();
         return {

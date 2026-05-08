@@ -386,6 +386,19 @@ function startServer() {
     };
 
     initializeDatabaseConnection();
+
+    // Monitoreo de salud en segundo plano (cada 2 minutos)
+    // Actualiza el estado cacheado para la ruta /health
+    setInterval(async () => {
+        try {
+            const { healthCheck } = await import('./database/db.js');
+            const { sessionPoolHealthCheck } = await import('./database/sessionPool.js');
+            await healthCheck();
+            await sessionPoolHealthCheck();
+        } catch (error) {
+            console.error('Error en el monitoreo de salud en segundo plano:', error.message);
+        }
+    }, 120000); 
 }
 
 // Cierre limpio centralizado — solo acá, no duplicar en db.js ni sessionPool.js

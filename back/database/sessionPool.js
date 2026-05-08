@@ -160,6 +160,7 @@
 
 import mysql2 from 'mysql2/promise';
 import dotenv from 'dotenv';
+import { updateHealthStatus } from './healthMonitor.js';
 
 dotenv.config();
 
@@ -200,8 +201,10 @@ export let sessionPool = createPool();
         const connection = await withTimeout(sessionPool.getConnection(), 5000, 'getConnection');
         await connection.query('SELECT 1+1 AS result');
         connection.release();
+        updateHealthStatus('sessionPool', true);
         console.log('✅ [SessionPool] Conexión inicial verificada correctamente');
     } catch (error) {
+        updateHealthStatus('sessionPool', false);
         console.error('❌ [SessionPool] Conexión inicial fallida:', error.message);
     }
 })();
@@ -227,12 +230,14 @@ export const sessionPoolHealthCheck = async () => {
         const [rows] = await withTimeout(connection.query('SELECT 1+1 AS result'), 5000, 'query');
         connection.release();
 
+        updateHealthStatus('sessionPool', true);
         return {
             status: 'healthy',
             sessionPool: 'connected',
             test: rows[0].result === 2
         };
     } catch (error) {
+        updateHealthStatus('sessionPool', false);
         console.error('❌ [SessionPool] Health check falló:', error.message);
 
         // Recrear el pool completamente — un pool de mysql2 no puede "reconectarse",

@@ -64,13 +64,17 @@ const router = express.Router();
 const authenticatedRouter = express.Router(); // NEW: Router for authenticated routes
 const upload = multer({ storage: multer.memoryStorage() });
 
+import { getHealthStatus } from "../database/healthMonitor.js";
+
 // Public health check route
 router.get('/health', (req, res) => {
-    // Verificación simple del backend para evitar saturar la base de datos con conexiones
-    // ya que ahora el backend está en la nube.
+    // Retorna el estado cacheado para no saturar la base de datos
+    const dbStatus = getHealthStatus();
+    
     res.status(200).json({
-        status: "ok",
+        status: dbStatus.overall,
         backend: true,
+        database: dbStatus,
         timestamp: new Date().toISOString()
     });
 });
