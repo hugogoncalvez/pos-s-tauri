@@ -58,20 +58,37 @@ export const AuthProvider = ({ children }) => {
     connectionStatusRef.current = connectionStatus;
   }, [connectionStatus]);
 
-  // Ping único: retorna true/false sin excepciones
+  // Ping único usando fetch nativo (NO axios).
+  // Razón: el interceptor de Api agrega X-Session-ID → fuerza preflight CORS OPTIONS.
+  // En WebKitGTK (Tauri/Linux), el preflight se cuelga y axios reporta ECONNABORTED.
+  // fetch sin headers custom = petición simple, sin preflight.
+  const healthUrl = `${import.meta.env.VITE_API_URL}/api/health`;
+
   const doPing = useCallback(async () => {
     try {
-      const response = await Api.get('/health', { timeout: 10000 });
-      const data = response.data;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        info(`[AuthContext] ⚠️ Ping respondió con status HTTP ${response.status}`);
+        return false;
+      }
+
+      const data = await response.json();
       const isOk = data && (data.status === 'ok' || data.status === 'warning');
       if (!isOk) {
         info(`[AuthContext] ⚠️ Ping respondió pero estado inesperado: ${JSON.stringify(data)}`);
       }
       return isOk;
     } catch (err) {
-      const errMsg = err.code || err.message || 'Error desconocido';
-      const status = err.response?.status || 'sin respuesta';
-      info(`[AuthContext] ❌ Ping falló: ${errMsg} | status: ${status} | timeout: ${err.code === 'ECONNABORTED' ? 'SÍ' : 'NO'}`);
+      const isTimeout = err.name === 'AbortError';
+      info(`[AuthContext] ❌ Ping falló: ${err.message} | timeout: ${isTimeout ? 'SÍ' : 'NO'}`);
       return false;
     }
   }, []);
