@@ -43,10 +43,10 @@ export const AuthProvider = ({ children }) => {
   const successCountRef = useRef(0);
   const checkIntervalRef = useRef(null);
 
-const checkRealConnectivity = useCallback(async () => {
+  const checkRealConnectivity = useCallback(async () => {
     try {
-      // Timeout de 5 segundos para detección de conectividad
-      const response = await Api.get('/health', { timeout: 5000 }); 
+      // Timeout extendido a 10 segundos (más tolerante a la latencia de la nube)
+      const response = await Api.get('/health', { timeout: 10000 }); 
       const data = response.data;
 
       // Si el servidor responde (aunque diga warning), estamos ONLINE (el servidor está vivo)
@@ -78,15 +78,13 @@ const checkRealConnectivity = useCallback(async () => {
     }
   }, [isOnline]);
 
-
   useEffect(() => {
     if (isTauriLoading) return;
 
-    // En todos los modos, usar verificación activa contra el servidor
-    // No dependemos de navigator.onLine por ser poco confiable
     info('[AuthContext] 🌐 Verificación activa de conectividad.');
     checkRealConnectivity(); // chequeo inicial
-    checkIntervalRef.current = setInterval(checkRealConnectivity, 10000);
+    // Intervalo aumentado a 15s para reducir carga de red
+    checkIntervalRef.current = setInterval(checkRealConnectivity, 15000);
     return () => {
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current);
