@@ -292,6 +292,8 @@ const corsOptions = {
           'https://tauri.localhost',
           'http://pos-thay.duckdns.org:8000',
           'http://pos-thay.duckdns.org',
+          'http://34.72.97.81:8000',
+          'http://34.72.97.81',
           /^http:\/\/localhost(:\d+)?$/,
           /^http:\/\/127\.0\.0\.1(:\d+)?$/,
         ];
