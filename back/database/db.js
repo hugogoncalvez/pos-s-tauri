@@ -178,11 +178,11 @@ const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
     timezone: '-03:00',
 
     pool: {
-        max: 5,          // Reducido a 5 para ahorrar RAM en e2-micro
-        min: 1,          // Mantener al menos 1 para evitar reconexiones constantes
-        acquire: 20000,  // 20s de margen para la red
-        idle: 60000,     // Mantener viva 1 min si no se usa
-        evict: 30000      // Limpiar cada 30s
+        max: 10,         // Aumentado de 5 a 10 para mayor concurrencia
+        min: 2,          // Mantener 2 para respuesta rápida
+        acquire: 30000,  // 30s para obtener conexión
+        idle: 30000,     // Liberar tras 30s de inactividad
+        evict: 10000      // Limpiar cada 10s
     },
 
     retry: {
