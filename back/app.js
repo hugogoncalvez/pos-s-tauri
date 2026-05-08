@@ -239,6 +239,7 @@ import dotenv from 'dotenv';
 import sessionHeaderMiddleware from './middleware/sessionHeaderMiddleware.js';
 import { sessionPool, closeSessionPool } from './database/sessionPool.js';
 import { closeConnection } from './database/db.js';
+import { getHealthStatus } from './database/healthMonitor.js';
 
 dotenv.config();
 
@@ -330,6 +331,22 @@ app.use((req, res, next) => {
 });
 
 app.use(sessionHeaderMiddleware);
+
+// ─── HEALTH CHECK ──────────────────────────────────────────────────────────
+// CRÍTICO: Este bloque está ANTES del middleware de sesión a propósito.
+// La sesión lee de Aiven (sessionPool). Si Aiven tiene un micro-corte,
+// el session middleware se cuelga y el frontend recibe timeout → falso "offline".
+// Al registrar /api/health AQUÍ, saltamos el session store y siempre respondemos < 1ms.
+app.get('/api/health', (req, res) => {
+    const dbStatus = getHealthStatus();
+    res.status(200).json({
+        status: dbStatus.overall,
+        backend: true,
+        database: dbStatus,
+        timestamp: new Date().toISOString()
+    });
+});
+// ───────────────────────────────────────────────────────────────────────────
 
 const MySQLStoreSession = MySQLStore(session);
 export const sessionStore = new MySQLStoreSession({
