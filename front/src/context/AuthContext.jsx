@@ -60,8 +60,15 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await Api.get('/health', { timeout: 10000 });
       const data = response.data;
-      return data && (data.status === 'ok' || data.status === 'warning');
-    } catch {
+      const isOk = data && (data.status === 'ok' || data.status === 'warning');
+      if (!isOk) {
+        info(`[AuthContext] ⚠️ Ping respondió pero estado inesperado: ${JSON.stringify(data)}`);
+      }
+      return isOk;
+    } catch (err) {
+      const errMsg = err.code || err.message || 'Error desconocido';
+      const status = err.response?.status || 'sin respuesta';
+      info(`[AuthContext] ❌ Ping falló: ${errMsg} | status: ${status} | timeout: ${err.code === 'ECONNABORTED' ? 'SÍ' : 'NO'}`);
       return false;
     }
   }, []);
