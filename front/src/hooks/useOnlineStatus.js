@@ -1,9 +1,18 @@
 import { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
+/**
+ * Hook para acceder al estado de conectividad.
+ * connectionStatus: 'online' | 'degraded' | 'offline'
+ * isOnline: true si no es 'offline' (compatible con código existente)
+ */
 export const useOnlineStatus = () => {
-  const { isOnline } = useContext(AuthContext);
-  // El estado principal de conexión ahora se gestiona en AuthContext.
-  // Devolvemos el isOnline de AuthContext, y otros placeholders para compatibilidad.
-  return { isOnline: isOnline, isInternetOnline: isOnline, isServerOnline: isOnline };
+  const { isOnline, connectionStatus } = useContext(AuthContext);
+  return {
+    isOnline,
+    connectionStatus,
+    isInternetOnline: isOnline,
+    isServerOnline: isOnline,
+    isDegraded: connectionStatus === 'degraded',
+  };
 };

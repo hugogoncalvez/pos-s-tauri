@@ -27,7 +27,8 @@ import { UseFetchQuery } from '../hooks/useQuery';
 import CashMovementModal from '../styledComponents/CashMovementModal';
 import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
 
-export default function DenseAppBar({ isOnline, pendingSyncCount, onSyncClick }) {
+export default function DenseAppBar({ connectionStatus = 'online', pendingSyncCount, onSyncClick }) {
+  const isOnline = connectionStatus !== 'offline';
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -178,15 +179,28 @@ export default function DenseAppBar({ isOnline, pendingSyncCount, onSyncClick })
           <Box component={'div'} sx={{ display: 'flex', alignItems: 'center' }}>
             {usuario && (
               <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-                <Tooltip title={isOnline ? 'Online' : 'Offline'}>
+                <Tooltip title={
+                  connectionStatus === 'online' ? 'Online' :
+                  connectionStatus === 'degraded' ? 'Conexión inestable' : 'Offline'
+                }>
                   <Box
                     sx={{
                       width: 12,
                       height: 12,
                       borderRadius: '50%',
-                      backgroundColor: isOnline ? theme.palette.success.main : theme.palette.error.main,
+                      backgroundColor:
+                        connectionStatus === 'online' ? theme.palette.success.main :
+                        connectionStatus === 'degraded' ? theme.palette.warning.main :
+                        theme.palette.error.main,
                       border: `1px solid ${theme.palette.background.paper}`,
-                      mr: 1
+                      mr: 1,
+                      // Animación de pulso cuando está degradado
+                      animation: connectionStatus === 'degraded' ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                      '@keyframes pulse': {
+                        '0%': { opacity: 1, transform: 'scale(1)' },
+                        '50%': { opacity: 0.5, transform: 'scale(1.3)' },
+                        '100%': { opacity: 1, transform: 'scale(1)' },
+                      },
                     }}
                   />
                 </Tooltip>

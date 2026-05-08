@@ -13,7 +13,7 @@ import { initializeOfflineUser } from './db/offlineDB';
 function App() {
   const theme = useTheme();
   const isDesktopUp = useMediaQuery(theme.breakpoints.up('sm'));
-  const { user, isAuthenticated, isOnline } = useAuth();
+  const { user, isAuthenticated, isOnline, connectionStatus } = useAuth();
 
   const {
     pendingSync,
@@ -49,7 +49,7 @@ function App() {
   return (
     <div className="App">
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <DenseAppBar isOnline={isOnline} pendingSyncCount={totalPendingCount} onSyncClick={handleSyncClick} />
+        <DenseAppBar connectionStatus={connectionStatus} pendingSyncCount={totalPendingCount} onSyncClick={handleSyncClick} />
         <Box sx={{ height: appBarHeight }} />
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
           <AnimatePresence mode='wait'>

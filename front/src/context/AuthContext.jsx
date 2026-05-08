@@ -6,7 +6,7 @@ import { mostrarHTML } from '../functions/mostrarHTML';
 
 import { useIsTauri } from '../hooks/useIsTauri';
 import { exit } from '@tauri-apps/plugin-process';
-import { debounce } from '../functions/Debounce'; // Importar debounce
+import { debounce } from '../functions/Debounce';
 import { info, error } from '@tauri-apps/plugin-log';
 import { onlineManager } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,12 +21,14 @@ export const AuthContext = createContext({
   logoutAndExit: async () => { },
   verificarSesion: async () => { },
   updateUserTheme: () => { },
-  isOnline: navigator.onLine,
+  isOnline: true,
+  connectionStatus: 'online', // 'online' | 'degraded' | 'offline'
 });
 export const useAuth = () => useContext(AuthContext);
 
-const MAX_CONSECUTIVE_ERRORS = 8; // Más tolerante para la nube
-const MIN_CONSECUTIVE_SUCCESS = 1;
+// Pings de confirmación antes de declarar offline definitivo
+const CONFIRMATION_PINGS = 2;
+const CONFIRMATION_DELAY_MS = 3000;
 
 export const AuthProvider = ({ children }) => {
   const { isTauri, isLoading: isTauriLoading } = useIsTauri();
@@ -36,59 +38,99 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [permisos, setPermisos] = useState([]);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // Usar useRef para los contadores para no disparar re-renders
-  const errorCountRef = useRef(0);
-  const successCountRef = useRef(0);
+  // Sistema de 3 estados: 'online' | 'degraded' | 'offline'
+  const [connectionStatus, setConnectionStatus] = useState('online');
+
   const checkIntervalRef = useRef(null);
+  const isConfirmingRef = useRef(false); // evita múltiples loops de confirmación en paralelo
+  // Ref para leer el estado actual sin stale closures
+  const connectionStatusRef = useRef('online');
+
+  // isOnline como derivado para compatibilidad con el resto del código
+  const isOnline = connectionStatus !== 'offline';
+
+  // Sincronizar ref con estado
+  useEffect(() => {
+    connectionStatusRef.current = connectionStatus;
+  }, [connectionStatus]);
+
+  // Ping único: retorna true/false sin excepciones
+  const doPing = useCallback(async () => {
+    try {
+      const response = await Api.get('/health', { timeout: 10000 });
+      const data = response.data;
+      return data && (data.status === 'ok' || data.status === 'warning');
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Loop de confirmación: lanza N pings con delay.
+  // Si alguno funciona → vuelve a ONLINE. Si todos fallan → OFFLINE.
+  const runConfirmationLoop = useCallback(async () => {
+    if (isConfirmingRef.current) return;
+    isConfirmingRef.current = true;
+    info(`[AuthContext] 🟡 Conexión inestable. Iniciando ${CONFIRMATION_PINGS} pings de confirmación...`);
+
+    let recovered = false;
+    for (let i = 0; i < CONFIRMATION_PINGS; i++) {
+      await new Promise(res => setTimeout(res, CONFIRMATION_DELAY_MS));
+      const ok = await doPing();
+      if (ok) {
+        recovered = true;
+        break;
+      }
+      info(`[AuthContext] ❌ Confirmación ${i + 1}/${CONFIRMATION_PINGS} fallida.`);
+    }
+
+    if (recovered) {
+      info(`[AuthContext] 🟢 Conexión recuperada durante confirmación. Volviendo a ONLINE.`);
+      onlineManager.setOnline(true);
+      setConnectionStatus('online');
+    } else {
+      error(`[AuthContext] 🔴 Sin conexión confirmado. Cambiando a OFFLINE.`);
+      onlineManager.setOnline(false);
+      setConnectionStatus('offline');
+    }
+
+    isConfirmingRef.current = false;
+  }, [doPing]);
 
   const checkRealConnectivity = useCallback(async () => {
-    try {
-      // Timeout extendido a 10 segundos (más tolerante a la latencia de la nube)
-      const response = await Api.get('/health', { timeout: 10000 }); 
-      const data = response.data;
+    // No interferir si hay un loop de confirmación en curso
+    if (isConfirmingRef.current) return;
 
-      // Si el servidor responde (aunque diga warning), estamos ONLINE (el servidor está vivo)
-      if (data && (data.status === 'ok' || data.status === 'warning')) {
-        errorCountRef.current = 0;
+    const ok = await doPing();
+    const current = connectionStatusRef.current;
 
-        if (!isOnline) {
-          successCountRef.current += 1;
-          if (successCountRef.current >= MIN_CONSECUTIVE_SUCCESS) {
-            info(`[AuthContext] 🔄 Conexión restablecida. Cambiando a ONLINE.`);
-            onlineManager.setOnline(true);
-            setIsOnline(true);
-            successCountRef.current = 0;
-          }
-        }
-      } else {
-        throw new Error('Servidor respondió pero el estado no es saludable.');
+    if (ok) {
+      if (current !== 'online') {
+        info(`[AuthContext] 🟢 Conexión restaurada. Cambiando a ONLINE.`);
+        onlineManager.setOnline(true);
+        setConnectionStatus('online');
       }
-    } catch (err) {
-      successCountRef.current = 0;
-      errorCountRef.current += 1;
-
-      if (isOnline && errorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
-        error(`[AuthContext] ⚠️ Conexión perdida tras ${errorCountRef.current} intentos. Cambiando a OFFLINE.`);
-        onlineManager.setOnline(false);
-        setIsOnline(false);
-        errorCountRef.current = 0;
+    } else {
+      if (current === 'online') {
+        // Primer fallo: pasar a DEGRADADO e iniciar confirmación en paralelo (sin bloquear el intervalo)
+        info(`[AuthContext] 🟡 Primer fallo detectado. Cambiando a DEGRADADO.`);
+        setConnectionStatus('degraded');
+        connectionStatusRef.current = 'degraded';
+        runConfirmationLoop();
       }
+      // Si ya estamos en 'degraded' → runConfirmationLoop ya está corriendo
+      // Si ya estamos en 'offline' → esperamos a que un ping futuro funcione (rama ok arriba)
     }
-  }, [isOnline]);
+  }, [doPing, runConfirmationLoop]);
 
   useEffect(() => {
     if (isTauriLoading) return;
 
-    info('[AuthContext] 🌐 Verificación activa de conectividad.');
-    checkRealConnectivity(); // chequeo inicial
-    // Intervalo aumentado a 15s para reducir carga de red
+    info('[AuthContext] 🌐 Verificación activa de conectividad (3 estados).');
+    checkRealConnectivity();
     checkIntervalRef.current = setInterval(checkRealConnectivity, 15000);
     return () => {
-      if (checkIntervalRef.current) {
-        clearInterval(checkIntervalRef.current);
-      }
+      if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
     };
   }, [isTauri, isTauriLoading, checkRealConnectivity]);
 
@@ -155,50 +197,35 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       error(`[AuthContext] Error al notificar al backend sobre el logout. Procediendo con limpieza local: ${err}`);
     } finally {
-      // Limpieza profunda del estado de la aplicación
       setUsuario(null);
       setIsAuthenticated(false);
       setPermisos([]);
       localStorage.removeItem('sessionID');
-      
-      // Limpiar la sesión de caja activa de la base de datos local
       await db.active_cash_session.clear();
-
-      // Limpiar la caché de React Query para eliminar todos los datos del usuario anterior
       queryClient.clear();
-
       info('[AuthContext] ✅ Limpieza de sesión completa. Redirigiendo a login.');
-
-      // Forzar recarga a la página de login para un estado 100% limpio.
       window.location.href = '/auth';
     }
   }, [isOnline, queryClient]);
 
   const logoutAndExit = useCallback(async () => {
     info('[AuthContext] 🚪 Ejecutando logoutAndExit...');
-
-    // Set state to logged out to prevent new operations
     setUsuario(null);
     setIsAuthenticated(false);
     setPermisos([]);
 
     try {
       if (isOnline) {
-        // Fire and forget is fine, we are exiting anyway
         Api.post('/auth/logout');
       }
     } catch (err) {
       error(`[AuthContext] Error al notificar al backend sobre el logout: ${err}`);
     } finally {
-      // Limpiar la caché de React Query primero
       queryClient.clear();
-
       localStorage.clear();
       sessionStorage.clear();
       info('[AuthContext] ✅ Limpieza de storage completada. Cerrando aplicación en 300ms.');
-      setTimeout(() => {
-        exit(0);
-      }, 300);
+      setTimeout(() => { exit(0); }, 300);
     }
   }, [isOnline, queryClient]);
 
@@ -208,14 +235,11 @@ export const AuthProvider = ({ children }) => {
       try {
         const { data } = await Api.post('/auth/login', { username, password });
         info(`[AuthContext] ✅ Login exitoso: ${JSON.stringify(data)}`);
-
         setUsuario(data.usuario);
         setIsAuthenticated(true);
         setPermisos(data.usuario.permisos || []);
         if (data.sessionID) localStorage.setItem('sessionID', data.sessionID);
-
         syncService.loadReferenceData(data.usuario.id);
-
         return { success: true, usuario: data.usuario };
       } catch (err) {
         error(`[AuthContext] ❌ Error en login: ${err.message}`);
@@ -229,7 +253,6 @@ export const AuthProvider = ({ children }) => {
       try {
         const offlineUserConfig = await db.offline_config.get('OFFLINE_USER');
         if (!offlineUserConfig) return { success: false, error: 'Configuración offline no encontrada.' };
-
         const offlineUser = offlineUserConfig.value;
         if (username === offlineUser.username && password === offlineUser.password) {
           setUsuario(offlineUser);
@@ -272,7 +295,8 @@ export const AuthProvider = ({ children }) => {
     verificarSesion,
     updateUserTheme,
     isOnline,
-  }), [usuario, isAuthenticated, isLoading, permisos, isOnline, login, logout, logoutAndExit, verificarSesion, updateUserTheme]);
+    connectionStatus,
+  }), [usuario, isAuthenticated, isLoading, permisos, isOnline, connectionStatus, login, logout, logoutAndExit, verificarSesion, updateUserTheme]);
 
   if (isTauriLoading) {
     return null;
