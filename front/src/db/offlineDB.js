@@ -64,6 +64,28 @@ export const OFFLINE_USER = {
   ]
 };
 
+// --- Definición de Tarjetas del Landing Offline ---
+export const OFFLINE_LANDING_ELEMENTS = [
+  {
+    id: 1,
+    nombre: 'Ventas',
+    descripcion: 'Gestionar el proceso de ventas y transacciones.',
+    imagen: '/ventas.png',
+    navegar: '/ventas',
+    orden: 0,
+    permiso_requerido: 'ver_vista_ventas'
+  },
+  {
+    id: 4,
+    nombre: 'Caja',
+    descripcion: 'Controlar las operaciones de caja.',
+    imagen: '/cajero.png',
+    navegar: '/caja',
+    orden: 1,
+    permiso_requerido: 'ver_mi_caja'
+  }
+];
+
 // --- Funciones Auxiliares ---
 
 /**

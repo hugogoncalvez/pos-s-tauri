@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Api } from "../api/api";
-import { db, OFFLINE_USER, getVisiblePendingTickets, syncServerTicketsToLocal } from "../db/offlineDB";
+import { db, OFFLINE_USER, OFFLINE_LANDING_ELEMENTS, getVisiblePendingTickets, syncServerTicketsToLocal } from "../db/offlineDB";
 import { useOnlineStatus } from "./useOnlineStatus";
 
 const ENDPOINT_TO_TABLE = {
@@ -73,30 +73,10 @@ const handleOfflineQuery = async (url) => {
 
     if (tableName === 'elements') {
       //console.log('[Offline Query] Modo offline detectado para /elements.');
-      const allCards = [
-        {
-          id: 5,
-          nombre: 'Ventas',
-          descripcion: 'Registrar ventas y gestionar el punto de venta.',
-          imagen: '/ventas.png',
-          navegar: '/ventas',
-          orden: 1,
-          permiso_requerido: 'ver_vista_ventas'
-        },
-        {
-          id: 6,
-          nombre: 'Caja',
-          descripcion: 'Gestión de turnos y movimientos de efectivo.',
-          imagen: '/caja.png', // Ajustar si el nombre de la imagen es otro
-          navegar: '/mi-caja',
-          orden: 2,
-          permiso_requerido: 'ver_mi_caja'
-        }
-      ];
-
-      const filteredCards = allCards.filter(card => 
+      
+      const filteredCards = OFFLINE_LANDING_ELEMENTS.filter(card => 
         OFFLINE_USER.permisos.includes(card.permiso_requerido)
-      );
+      ).sort((a, b) => a.orden - b.orden);
 
       //console.log(`[Offline Query] ✅ Retornando ${filteredCards.length} tarjetas para /elements.`);
       return filteredCards;
