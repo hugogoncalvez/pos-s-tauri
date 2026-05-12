@@ -4992,11 +4992,17 @@ export const getPendingTicketById = async (req, res) => {
 export const getCombosSummary = async (req, res) => {
     try {
         const currentDate = new Date();
+        const startOfDay = new Date(currentDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date(currentDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
         const activeCount = await ComboModel.count({
             where: {
                 is_active: true,
-                start_date: { [Op.lte]: currentDate },
-                end_date: { [Op.gte]: currentDate }
+                start_date: { [Op.lte]: endOfDay },
+                end_date: { [Op.gte]: startOfDay }
             }
         });
         const latestCombo = await ComboModel.findOne({
@@ -5078,9 +5084,15 @@ export const getPromotions = async (req, res) => {
 
         // Filtro por estado activo y vigente
         if (is_active === 'true') {
+            const startOfDay = new Date(currentDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            
+            const endOfDay = new Date(currentDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
             whereClause.is_active = true;
-            whereClause.start_date = { [Op.lte]: currentDate };
-            whereClause.end_date = { [Op.gte]: currentDate };
+            whereClause.start_date = { [Op.lte]: endOfDay };
+            whereClause.end_date = { [Op.gte]: startOfDay };
         }
 
         const promotions = await PromotionModel.findAll({
@@ -5366,14 +5378,26 @@ export const getCombos = async (req, res) => {
 
         // Filtrar por estado si se proporciona is_active
         if (is_active === 'true') {
+            const startOfDay = new Date(currentDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            
+            const endOfDay = new Date(currentDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
             whereClause.is_active = true;
-            whereClause.start_date = { [Op.lte]: currentDate };
-            whereClause.end_date = { [Op.gte]: currentDate };
+            whereClause.start_date = { [Op.lte]: endOfDay };
+            whereClause.end_date = { [Op.gte]: startOfDay };
         } else if (is_active === 'false') {
+            const startOfDay = new Date(currentDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            
+            const endOfDay = new Date(currentDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
             whereClause[Op.or] = [
                 { is_active: false },
-                { start_date: { [Op.gt]: currentDate } },
-                { end_date: { [Op.lt]: currentDate } }
+                { start_date: { [Op.gt]: endOfDay } },
+                { end_date: { [Op.lt]: startOfDay } }
             ];
         }
 
@@ -5685,11 +5709,17 @@ export const generateInternalBarcode = async (req, res) => {
 export const getPromotionsSummary = async (req, res) => {
     try {
         const currentDate = new Date();
+        const startOfDay = new Date(currentDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date(currentDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
         const activeCount = await PromotionModel.count({
             where: {
                 is_active: true,
-                start_date: { [Op.lte]: currentDate },
-                end_date: { [Op.gte]: currentDate }
+                start_date: { [Op.lte]: endOfDay },
+                end_date: { [Op.gte]: startOfDay }
             }
         });
         const latestPromotion = await PromotionModel.findOne({
