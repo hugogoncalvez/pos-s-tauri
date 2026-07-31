@@ -96,7 +96,7 @@ const CustomerModalContent = ({
             />
             <TextFieldWithClear
               fullWidth
-              label="CPF *"
+              label="DNI *"
               name="dni"
               value={formData.dni || ''}
               onChange={(e) => {
@@ -116,7 +116,7 @@ const CustomerModalContent = ({
               onChange={handleInputChange}
               onClear={() => handleInputChange({ target: { name: 'phone', value: '' } })}
               required
-              helperText="Mínimo 8 dígitos (celular con DDD, ej: 11999999999)"
+              helperText="Mínimo 10 dígitos, ej: 1123456789"
             />
             <TextFieldWithClear
               fullWidth

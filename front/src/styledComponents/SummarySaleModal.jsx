@@ -172,8 +172,8 @@ const SummarySaleModal = ({
         setSelectedProduct(null);
         setCurrentTicketId(null);
         const defaultMethod = paymentMethods?.find(method =>
-          method.method?.toLowerCase().includes('pix') ||
-          method.nombre?.toLowerCase().includes('pix')
+          method.method?.toLowerCase().includes('efectivo') ||
+          method.nombre?.toLowerCase().includes('efectivo')
         );
         setSelectedSinglePaymentType(defaultMethod || null);
         setPaymentOption('single');
@@ -308,7 +308,7 @@ const SummarySaleModal = ({
             type="number"
             value={descuento}
             onChange={(e) => setDescuento(parseFloat(e.target.value) || 0)}
-            InputProps={{ startAdornment: <InputAdornment position="start">R$</InputAdornment> }}
+            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
             size="small"
             fullWidth
             autoComplete="off"
@@ -366,7 +366,7 @@ const SummarySaleModal = ({
                 value={amountReceived}
                 onChange={(e) => setAmountReceived(e.target.value)} // Set as string
                 disabled={selectedSinglePaymentType?.method?.toLowerCase().includes('credito') || selectedSinglePaymentType?.nombre?.toLowerCase().includes('credito')}
-                InputProps={{ startAdornment: <InputAdornment position="start">R$</InputAdornment> }}
+                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                 size="medium"
                 fullWidth
                 inputRef={amountReceivedInputRef}

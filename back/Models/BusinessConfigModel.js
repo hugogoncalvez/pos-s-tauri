@@ -10,13 +10,17 @@ const BusinessConfigModel = db.define('BusinessConfigs', {
   name: {
     type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'Meu Negócio'
+    defaultValue: 'Mi Negocio'
   },
-  cnpj: {
+  cuit: {
     type: DataTypes.STRING,
     allowNull: true
   },
-  ie: {
+  iibb: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  taxCondition: {
     type: DataTypes.STRING,
     allowNull: true
   },

@@ -79,7 +79,7 @@ const Customers = () => {
     const { tienePermiso } = usePermissions(); // Usar el hook usePermissions
 
     const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
-    const formatCurrency = (amount) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount || 0);
+    const formatCurrency = (amount) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount || 0);
 
     const { usuario: user } = useContext(AuthContext); // Added to get user.id            const { 
     const {
@@ -293,7 +293,7 @@ const Customers = () => {
         { id: 'email', label: 'Email', valueGetter: ({ row }) => row.email || '-', align: 'left' },
         { id: 'phone', label: 'Teléfono', valueGetter: ({ row }) => row.phone || '-', align: 'center' },
         { id: 'address', label: 'Dirección', valueGetter: ({ row }) => row.address || '-', align: 'left' },
-        { id: 'dni', label: 'CPF', valueGetter: ({ row }) => row.dni || '-', align: 'center' },
+        { id: 'dni', label: 'DNI', valueGetter: ({ row }) => row.dni || '-', align: 'center' },
         {
             id: 'debt',
             label: 'Deuda',

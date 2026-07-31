@@ -120,7 +120,7 @@ const Ventas = () => {
 
   const theme = useTheme(); // Inicializar el hook useTheme
   const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
-  const formatCurrency = (amount) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount || 0);
+  const formatCurrency = (amount) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount || 0);
 
   const { usuario } = useContext(AuthContext);
   const queryClient = useQueryClient();
@@ -272,8 +272,8 @@ const Ventas = () => {
     setSelectedProduct(null);
     setCurrentTicketId(null);
     const defaultMethod = paymentMethods?.find(method =>
-      method.method?.toLowerCase().includes('pix') ||
-      method.nombre?.toLowerCase().includes('pix')
+      method.method?.toLowerCase().includes('efectivo') ||
+      method.nombre?.toLowerCase().includes('efectivo')
     );
     setSelectedSinglePaymentType(defaultMethod || null);
     setPaymentOption('single');
@@ -816,8 +816,8 @@ const Ventas = () => {
               setSelectedProduct(null);
               setCurrentTicketId(null);
               const defaultMethod = paymentMethods?.find(method =>
-                method.method?.toLowerCase().includes('pix') ||
-                method.nombre?.toLowerCase().includes('pix')
+                method.method?.toLowerCase().includes('efectivo') ||
+                method.nombre?.toLowerCase().includes('efectivo')
               );
               setSelectedSinglePaymentType(defaultMethod || null);
               setPaymentOption('single');
@@ -988,8 +988,8 @@ const Ventas = () => {
   useEffect(() => {
     if (paymentMethods && Array.isArray(paymentMethods) && paymentMethods.length > 0 && !selectedSinglePaymentType && paymentOption === 'single') {
       const defaultMethod = paymentMethods.find(method =>
-        method.method?.toLowerCase().includes('pix') ||
-        method.nombre?.toLowerCase().includes('pix')
+        method.method?.toLowerCase().includes('efectivo') ||
+        method.nombre?.toLowerCase().includes('efectivo')
       );
       if (defaultMethod) {
         setSelectedSinglePaymentType(defaultMethod);
@@ -1758,7 +1758,7 @@ const Ventas = () => {
   const columns = useMemo(() => [
     {
       id: 'name',
-      label: 'Produto',
+      label: 'Producto',
       align: 'left',
       valueGetter: ({ row }) => (
         <Box>
@@ -1773,7 +1773,7 @@ const Ventas = () => {
     },
     {
       id: 'quantity',
-      label: 'Qtd.',
+      label: 'Cant.',
       align: 'center',
       valueGetter: ({ row }) => {
         const num = parseFloat(row.quantity);
@@ -1785,7 +1785,7 @@ const Ventas = () => {
     },
     {
       id: 'price',
-      label: 'Preço Unit.',
+      label: 'Precio Unit.',
       align: 'center',
       valueGetter: ({ row }) => formatCurrency(row.price),
     },
@@ -1797,7 +1797,7 @@ const Ventas = () => {
     },
     {
       id: 'actions',
-      label: 'Ações',
+      label: 'Acciones',
       align: 'center',
       valueGetter: ({ row }) => (
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
@@ -2098,7 +2098,7 @@ const Ventas = () => {
                 <Paper elevation={2} sx={{ backgroundColor: theme.palette.background.tableHeader, color: 'primary.contrastText', display: 'flex', mt: -0.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-evenly', alignItems: 'center', width: '100%', m: 0, p: 0 }}>
                     <Typography variant="h6" sx={{ fontWeight: 'medium' }}>TOTAL:</Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>R${totalFinal.toFixed(2)}</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>${totalFinal.toFixed(2)}</Typography>
                   </Box>
                 </Paper>
               </Grid>

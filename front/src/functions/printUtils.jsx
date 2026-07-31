@@ -1,6 +1,6 @@
 /**
  * Utilidad para imprimir recibos de venta y comprobantes de pago.
- * Personalizado para el mercado brasileño con soporte para datos dinámicos de la empresa.
+ * Personalizado para el mercado argentino con soporte para datos dinámicos de la empresa.
  */
 
 const sanitizeHtml = (str) => {
@@ -29,12 +29,13 @@ const removeIframe = (iframe) => {
 };
 
 export const printReceipt = (data, type, customerName = '', businessData = null, isThermal = false) => {
-    // Si no hay businessData, usamos valores por defecto en portugués
+    // Si no hay businessData, usamos valores por defecto en español
     const business = businessData || {
-        name: 'Meu Negócio',
-        footerText: 'Obrigado pela sua preferência!',
-        cnpj: '',
-        ie: '',
+        name: 'Mi Negocio',
+        footerText: '¡Gracias por su preferencia!',
+        cuit: '',
+        iibb: '',
+        taxCondition: '',
         address: '',
         logo: ''
     };
@@ -194,42 +195,43 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
                 ${business.logo && !isThermal ? `<img src="${sanitizeHtml(business.logo)}" class="logo-img" />` : ''}
                 <div class="company-name">${sanitizeHtml(business.name)}</div>
                 <div class="business-info">
-                    ${business.cnpj ? `CNPJ: ${sanitizeHtml(business.cnpj)} <br>` : ''}
-                    ${business.ie ? `IE: ${sanitizeHtml(business.ie)} <br>` : ''}
+                    ${business.cuit ? `CUIT: ${sanitizeHtml(business.cuit)} <br>` : ''}
+                    ${business.iibb ? `IIBB: ${sanitizeHtml(business.iibb)} <br>` : ''}
+                    ${business.taxCondition ? `Cond. Fiscal: ${sanitizeHtml(business.taxCondition)} <br>` : ''}
                     ${business.address ? `${sanitizeHtml(business.address)}` : ''}
                 </div>
-                ${isThermal ? '<div class="non-fiscal-warning">DOCUMENTO NÃO FISCAL</div>' : ''}
-                <div class="receipt-title">Recibo de Venda</div>
+                ${isThermal ? '<div class="non-fiscal-warning">DOCUMENTO NO FISCAL</div>' : ''}
+                <div class="receipt-title">Recibo de Venta</div>
                 ${sale.id && sale.id !== 'PREVIEW' ? `<div class="receipt-number">#${sanitizeHtml(sale.id)}</div>` : ''}
             </div>
             <div class="receipt-body">
                 <div class="info-section">
                     <div class="info-row"><span>Cliente:</span> <span>${sanitizeHtml(customerName) || 'Consumidor Final'}</span></div>
-                    <div class="info-row"><span>Data:</span> <span>${new Date(sale.createdAt).toLocaleString('pt-BR')}</span></div>
+                    <div class="info-row"><span>Fecha:</span> <span>${new Date(sale.createdAt).toLocaleString('es-AR')}</span></div>
                 </div>
         `;
 
         if (sale.sale_payments && sale.sale_payments.length > 0) {
-            receiptContent += '<div class="payment-methods"><h4>Métodos de Pagamento</h4>';
+            receiptContent += '<div class="payment-methods"><h4>Métodos de Pago</h4>';
             sale.sale_payments.forEach(p => {
-                receiptContent += `<div class="payment-method-item"><span>${sanitizeHtml(p.payment?.method) || 'N/A'}</span><span>R$ ${parseMoney(p.amount).toFixed(2)}</span></div>`;
+                receiptContent += `<div class="payment-method-item"><span>${sanitizeHtml(p.payment?.method) || 'N/A'}</span><span>$ ${parseMoney(p.amount).toFixed(2)}</span></div>`;
             });
             receiptContent += '</div>';
         } else if (parseMoney(sale.total_neto) > 0) {
-            receiptContent += '<div class="payment-methods"><h4>Métodos de Pagamento</h4>';
-            receiptContent += `<div class="payment-method-item"><span>Crédito</span><span>R$ ${parseMoney(sale.total_neto).toFixed(2)}</span></div>`;
+            receiptContent += '<div class="payment-methods"><h4>Métodos de Pago</h4>';
+            receiptContent += `<div class="payment-method-item"><span>Crédito</span><span>$ ${parseMoney(sale.total_neto).toFixed(2)}</span></div>`;
             receiptContent += '</div>';
         }
 
-        receiptContent += '<table><thead><tr><th>Produto</th><th class="text-center">Qtd.</th><th class="text-right">Preço Unit.</th><th class="text-right">Subtotal</th></tr></thead><tbody>';
+        receiptContent += '<table><thead><tr><th>Producto</th><th class="text-center">Cant.</th><th class="text-right">Precio Unit.</th><th class="text-right">Subtotal</th></tr></thead><tbody>';
         if (sale.sale_details && sale.sale_details.length > 0) {
             sale.sale_details.forEach(detail => {
                 receiptContent += `
                     <tr>
-                        <td>${sanitizeHtml(detail.stock?.name) || 'Produto Desconhecido'}</td>
+                        <td>${sanitizeHtml(detail.stock?.name) || 'Producto Desconocido'}</td>
                         <td class="text-center">${sanitizeHtml(detail.quantity)}</td>
-                        <td class="text-right">R$ ${parseMoney(detail.price).toFixed(2)}</td>
-                        <td class="text-right">R$ ${(sanitizeHtml(detail.quantity) * parseMoney(detail.price)).toFixed(2)}</td>
+                        <td class="text-right">$ ${parseMoney(detail.price).toFixed(2)}</td>
+                        <td class="text-right">$ ${(sanitizeHtml(detail.quantity) * parseMoney(detail.price)).toFixed(2)}</td>
                     </tr>
                 `;
             });
@@ -238,15 +240,15 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
         receiptContent += `
             <tr>
                 <td colspan="3" class="text-right" style="border:none; padding-top: 10px;"><strong>Subtotal:</strong></td>
-                <td class="text-right" style="border:none; padding-top: 10px;">R$ ${parseMoney(sale.total_amount).toFixed(2)}</td>
+                <td class="text-right" style="border:none; padding-top: 10px;">$ ${parseMoney(sale.total_amount).toFixed(2)}</td>
             </tr>
         `;
 
         if (parseMoney(sale.surcharge_amount) > 0) {
             receiptContent += `
                 <tr>
-                    <td colspan="3" class="text-right" style="border:none;"><strong>Acréscimo:</strong></td>
-                    <td class="text-right" style="border:none;">R$ ${parseMoney(sale.surcharge_amount).toFixed(2)}</td>
+                    <td colspan="3" class="text-right" style="border:none;"><strong>Recargo:</strong></td>
+                    <td class="text-right" style="border:none;">$ ${parseMoney(sale.surcharge_amount).toFixed(2)}</td>
                 </tr>
             `;
         }
@@ -254,7 +256,7 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
         receiptContent += `
             <tr class="total-row">
                 <td colspan="3" class="text-right"><strong>TOTAL:</strong></td>
-                <td class="text-right"><strong>R$ ${parseMoney(sale.total_neto).toFixed(2)}</strong></td>
+                <td class="text-right"><strong>$ ${parseMoney(sale.total_neto).toFixed(2)}</strong></td>
             </tr>
         `;
         receiptContent += '</tfoot></table>';
@@ -267,20 +269,21 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
                  ${business.logo && !isThermal ? `<img src="${sanitizeHtml(business.logo)}" class="logo-img" />` : ''}
                  <div class="company-name">${sanitizeHtml(business.name)}</div>
                  <div class="business-info">
-                    ${business.cnpj ? `CNPJ: ${sanitizeHtml(business.cnpj)} <br>` : ''}
-                    ${business.ie ? `IE: ${sanitizeHtml(business.ie)} <br>` : ''}
+                    ${business.cuit ? `CUIT: ${sanitizeHtml(business.cuit)} <br>` : ''}
+                    ${business.iibb ? `IIBB: ${sanitizeHtml(business.iibb)} <br>` : ''}
+                    ${business.taxCondition ? `Cond. Fiscal: ${sanitizeHtml(business.taxCondition)} <br>` : ''}
                     ${business.address ? `${sanitizeHtml(business.address)}` : ''}
                  </div>
-                 <div class="receipt-title">Comprovante de Pagamento</div>
+                 <div class="receipt-title">Comprobante de Pago</div>
                  <div class="receipt-number">#${sanitizeHtml(payment.id)}</div>
             </div>
             <div class="receipt-body">
                  <div class="info-section">
                     <div class="info-row"><span>Cliente:</span> <span>${sanitizeHtml(customerName) || 'N/A'}</span></div>
-                    <div class="info-row"><span>Data do Pagamento:</span> <span>${new Date(payment.payment_date).toLocaleString('pt-BR')}</span></div>
-                    <div class="info-row"><span>Método de Pagamento:</span> <span>${sanitizeHtml(payment.payment_method) || 'N/A'}</span></div>
+                    <div class="info-row"><span>Fecha de Pago:</span> <span>${new Date(payment.payment_date).toLocaleString('es-AR')}</span></div>
+                    <div class="info-row"><span>Método de Pago:</span> <span>${sanitizeHtml(payment.payment_method) || 'N/A'}</span></div>
                  </div>
-                 <h3 style="text-align: center; margin-top: 30px;">Valor Pago: R$ ${parseMoney(payment.amount).toFixed(2)}</h3>
+                 <h3 style="text-align: center; margin-top: 30px;">Valor Pagado: $ ${parseMoney(payment.amount).toFixed(2)}</h3>
                  ${payment.notes ? `<p><strong>Notas:</strong> ${sanitizeHtml(payment.notes)}</p>` : ''}
             </div>
         `;
@@ -288,7 +291,7 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
 
     receiptContent += `
         <div class="receipt-footer">
-            <div class="footer-text">${sanitizeHtml(business.footerText) || 'Obrigado pela preferência!'}</div>
+            <div class="footer-text">${sanitizeHtml(business.footerText) || '¡Gracias por su preferencia!'}</div>
         </div>
     `;
     receiptContent += '</div></body></html>';

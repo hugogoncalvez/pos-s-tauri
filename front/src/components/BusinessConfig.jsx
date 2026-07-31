@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Paper, TextField, Grid, useTheme, CircularProgress, InputAdornment, Divider, Avatar } from '@mui/material';
+import { Box, Typography, Paper, TextField, Grid, useTheme, CircularProgress, InputAdornment, Divider, Avatar, MenuItem } from '@mui/material';
 import { Business, Badge, Phone, Email, Language, LocationOn, Notes, CloudUpload, Storefront, ReceiptLong } from '@mui/icons-material';
 import { StyledButton as Button } from '../styledComponents/ui/StyledButton';
 import { UseFetchQuery } from '../hooks/useQuery';
@@ -18,7 +18,7 @@ const BusinessConfig = () => {
     const { data: config, isLoading, refetch } = UseFetchQuery('businessConfig', '/business-config', true);
     
     const [formData, setFormData] = useState({
-        name: '', cnpj: '', ie: '', address: '', phone: '', email: '', website: '', footerText: '', logo: ''
+        name: '', cuit: '', iibb: '', taxCondition: '', address: '', phone: '', email: '', website: '', footerText: '', logo: ''
     });
 
     useEffect(() => {
@@ -193,14 +193,31 @@ const BusinessConfig = () => {
                         <Paper sx={{ p: 4, borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                             <Box>
                                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, color: theme.palette.primary.main }}>
-                                    <Badge /> Datos Fiscales (Brasil)
+                                    <Badge /> Datos Fiscales (Argentina)
                                 </Typography>
                                 <Grid container spacing={2}>
                                     <Grid item xs={12} sm={6}>
-                                        <TextField fullWidth label="CNPJ" name="cnpj" value={formData.cnpj} onChange={handleChange} placeholder="00.000.000/0000-00" />
+                                        <TextField fullWidth label="CUIT" name="cuit" value={formData.cuit} onChange={handleChange} placeholder="20-12345678-9" />
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
-                                        <TextField fullWidth label="Inscripción Estatal (IE)" name="ie" value={formData.ie} onChange={handleChange} />
+                                        <TextField fullWidth label="Ingresos Brutos (IIBB)" name="iibb" value={formData.iibb} onChange={handleChange} placeholder="Ej: 901-123456-7" />
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <TextField
+                                            fullWidth
+                                            select
+                                            label="Condición Fiscal"
+                                            name="taxCondition"
+                                            value={formData.taxCondition || ''}
+                                            onChange={handleChange}
+                                            helperText="Condición frente a AFIP que aparecerá en los recibos."
+                                        >
+                                            <MenuItem value="">Sin especificar</MenuItem>
+                                            <MenuItem value="Monotributo">Monotributo</MenuItem>
+                                            <MenuItem value="Responsable Inscripto">Responsable Inscripto</MenuItem>
+                                            <MenuItem value="Exento">Exento</MenuItem>
+                                            <MenuItem value="No Responsable">No Responsable</MenuItem>
+                                        </TextField>
                                     </Grid>
                                 </Grid>
                             </Box>

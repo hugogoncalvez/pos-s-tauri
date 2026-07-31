@@ -6016,15 +6016,16 @@ export const getBusinessConfig = async (req, res) => {
         let config = await BusinessConfigModel.findOne();
         if (!config) {
             config = await BusinessConfigModel.create({
-                name: 'Meu Negócio',
-                cnpj: '',
-                ie: '',
+                name: 'Mi Negocio',
+                cuit: '',
+                iibb: '',
+                taxCondition: '',
                 address: '',
                 phone: '',
                 email: '',
                 website: '',
                 logo: '',
-                footerText: 'Obrigado pela sua preferência!'
+                footerText: '¡Gracias por su preferencia!'
             });
         }
         res.json(config);

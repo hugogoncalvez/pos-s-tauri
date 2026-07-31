@@ -44,7 +44,7 @@ const InfoItem = ({ label, value }) => {
     );
 }
 
-const formatCurrency = (amount) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount || 0);
+const formatCurrency = (amount) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount || 0);
 const formatDate = (dateString) => moment(dateString).format('DD/MM/YYYY HH:mm:ss');
 
 const SaleDetailsModal = ({ open, onClose, saleId }) => {
