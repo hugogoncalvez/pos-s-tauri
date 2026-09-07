@@ -4276,7 +4276,9 @@ export const getPurchasesToday = async (req, res) => {
 // Total de clientes
 export const getTotalCustomers = async (req, res) => {
     try {
-        const total = await CustomerModel.count();
+        // Excluir el id 1 ("Consumidor Final"): es un placeholder del modal de ventas,
+        // no un cliente real (no se muestra en el componente Clientes).
+        const total = await CustomerModel.count({ where: { id: { [Op.ne]: 1 } } });
         res.json({ total });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -5565,6 +5567,20 @@ export const deleteCombo = async (req, res) => {
     try {
         const { id } = req.params;
 
+        const combo = await ComboModel.findByPk(id, { transaction });
+        if (!combo) {
+            await transaction.rollback();
+            return res.status(404).json({ message: 'Combo no encontrado.' });
+        }
+
+        // Si el combo ya se vendió, la FK de sale_details lo protege: no se puede
+        // eliminar físicamente. Se informa y se sugiere desactivarlo en su lugar.
+        const salesCount = await SaleDetailModel.count({ where: { combo_id: id }, transaction });
+        if (salesCount > 0) {
+            await transaction.rollback();
+            return res.status(409).json({ message: `No se puede eliminar el combo "${combo.name}" porque tiene ${salesCount} venta(s) asociada(s). Desactívalo (is_active) en lugar de eliminarlo.` });
+        }
+
         await ComboItem.destroy({ where: { combo_id: id }, transaction });
 
         await ComboModel.destroy({ where: { id }, transaction });
@@ -5574,7 +5590,7 @@ export const deleteCombo = async (req, res) => {
     } catch (error) {
         await transaction.rollback();
         console.error("Error en deleteCombo:", error);
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ message: 'Error al eliminar el combo', error: error.message });
     }
 };
 

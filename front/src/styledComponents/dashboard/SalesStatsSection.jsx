@@ -17,7 +17,7 @@ const SalesStatsSection = () => {
           <Box sx={{ flex: '1 1 48%' }}>
             <SalesStatCard title="Ventas Semana" endpoint="/dashboard/ventas/semana" icon={<DateRange />} color="#03a9f4" periodText="vs semana anterior" />
           </Box>
-          <Box sx={{ flex: '1 1 48%' }}>
+          <Box sx={{ flex: '1 1 100%' }}>
             <SalesStatCard title="Ventas Hoy" endpoint="/dashboard/ventas/hoy" icon={<CalendarToday />} color="#ffc107" periodText="vs ayer" />
           </Box>
         </Box>

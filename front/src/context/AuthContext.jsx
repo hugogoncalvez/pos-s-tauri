@@ -284,7 +284,14 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(false);
         setUsuario(null);
         setPermisos([]);
-        return { success: false, error: 'Error de red' };
+        // 401 = credenciales inválidas (el backend lo informa); sin response = red/servidor caído
+        if (err.response?.status === 401) {
+          return { success: false, error: err.response?.data?.error || err.response?.data?.message || 'Usuario o contraseña incorrectos.' };
+        }
+        if (!err.response) {
+          return { success: false, error: 'Error de red: no se pudo conectar con el servidor.' };
+        }
+        return { success: false, error: err.response?.data?.error || err.response?.data?.message || 'Error al iniciar sesión.' };
       }
     } else {
       info('[AuthContext] 🔐 Login offline...');

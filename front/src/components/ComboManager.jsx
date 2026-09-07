@@ -14,7 +14,9 @@ import {
   useMediaQuery,
   Chip,
   InputAdornment,
-  CircularProgress
+  CircularProgress,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
@@ -42,6 +44,7 @@ const ComboManager = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [showInactiveCombos, setShowInactiveCombos] = useState(false); // Ocultar inactivos/finalizados por defecto
   const [openComboModal, setOpenComboModal] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [currentCombo, setCurrentCombo] = useState(null);
@@ -321,9 +324,15 @@ const ComboManager = () => {
       });
   }, [combos]);
 
+  // Solo vigentes (Activo/Programado) salvo que se pidan los inactivos/finalizados
+  const visibleCombos = useMemo(() => {
+    if (showInactiveCombos) return processedCombos;
+    return processedCombos.filter(c => c.status === 'Activo' || c.status === 'Programado');
+  }, [processedCombos, showInactiveCombos]);
+
   const paginatedCombos = useMemo(() => {
-    return processedCombos.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  }, [processedCombos, page, rowsPerPage]);
+    return visibleCombos.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  }, [visibleCombos, page, rowsPerPage]);
 
   // --- Definición de Columnas ---
   const comboColumns = useMemo(() => [
@@ -462,8 +471,18 @@ const ComboManager = () => {
       </Paper>
 
       <Paper elevation={3} sx={{ p: { xs: 1, sm: 2 }, mb: 3 }}>
-        <Box mb={2} p={1}>
+        <Box mb={2} p={1} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <Typography variant="h5">Listado de Combos</Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showInactiveCombos}
+                onChange={(e) => { setShowInactiveCombos(e.target.checked); setPage(0); }}
+                size="small"
+              />
+            }
+            label="Mostrar inactivos y finalizados"
+          />
         </Box>
         {isErrorCombos && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -474,7 +493,7 @@ const ComboManager = () => {
           columns={comboColumns}
           data={paginatedCombos}
           loading={combosLoading}
-          count={processedCombos.length}
+          count={visibleCombos.length}
           page={page}
           rowsPerPage={rowsPerPage}
           onPageChange={(e, newPage) => setPage(newPage)}

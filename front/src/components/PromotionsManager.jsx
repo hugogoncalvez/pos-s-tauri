@@ -13,7 +13,9 @@ import {
   useTheme,
   useMediaQuery,
   CircularProgress,
-  Chip
+  Chip,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
@@ -40,6 +42,7 @@ const PromotionsManager = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [showInactivePromotions, setShowInactivePromotions] = useState(false); // Ocultar inactivas/finalizadas por defecto
   const [openPromotionModal, setOpenPromotionModal] = useState(false);
   const startDateRef = useRef(null);
   const endDateRef = useRef(null);
@@ -236,9 +239,15 @@ const PromotionsManager = () => {
 
   console.log("Processed Promotions:", processedPromotions);
 
+  // Solo activas salvo que se pidan las inactivas/finalizadas
+  const visiblePromotions = useMemo(() => {
+    if (showInactivePromotions) return processedPromotions;
+    return processedPromotions.filter(p => p.status === 'Activa');
+  }, [processedPromotions, showInactivePromotions]);
+
   const paginatedPromotions = useMemo(() => {
-    return processedPromotions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  }, [processedPromotions, page, rowsPerPage]);
+    return visiblePromotions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  }, [visiblePromotions, page, rowsPerPage]);
 
   // --- Definición de Columnas ---
   const promotionColumns = useMemo(() => [
@@ -384,8 +393,18 @@ const PromotionsManager = () => {
       </Paper>
 
       <Paper elevation={3} sx={{ p: { xs: 1, sm: 2 }, mb: 3 }}>
-        <Box mb={2} p={1}>
+        <Box mb={2} p={1} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <Typography variant="h5">Listado de Promociones</Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showInactivePromotions}
+                onChange={(e) => { setShowInactivePromotions(e.target.checked); setPage(0); }}
+                size="small"
+              />
+            }
+            label="Mostrar inactivas y finalizadas"
+          />
         </Box>
         {isErrorPromotions && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -396,7 +415,7 @@ const PromotionsManager = () => {
           columns={promotionColumns}
           data={paginatedPromotions}
           loading={isLoadingPromotions}
-          count={processedPromotions.length}
+          count={visiblePromotions.length}
           page={page}
           rowsPerPage={rowsPerPage}
           onPageChange={(e, newPage) => setPage(newPage)}
