@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "pnpm --prefix front dev",
-    "build": "pnpm --prefix front build"
+    "dev": "pnpm --dir front dev",
+    "build": "pnpm --dir front build"
   },
   "keywords": [],
   "author": "",

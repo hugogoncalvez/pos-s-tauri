@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../front/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build"
+    "beforeDevCommand": "pnpm --dir front dev",
+    "beforeBuildCommand": "pnpm --dir front build"
   },
   "app": {
     "enableGTKAppId": true,

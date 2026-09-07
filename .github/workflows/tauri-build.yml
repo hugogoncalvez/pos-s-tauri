@@ -17,10 +17,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.3
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            front/pnpm-lock.yaml
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -34,9 +44,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm install -g pnpm@10
-          pnpm install --no-frozen-lockfile
-          pnpm --dir front install --no-frozen-lockfile
+          pnpm install --frozen-lockfile
+          pnpm --dir front install --frozen-lockfile
+        shell: pwsh
 
       - name: Build Tauri app
         run: pnpm tauri build
