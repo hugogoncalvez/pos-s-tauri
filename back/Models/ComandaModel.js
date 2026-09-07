@@ -44,4 +44,11 @@ const ComandaModel = db.define('comandas', {
   tableName: 'comandas'
 });
 
+// Sincronizar automáticamente la tabla en MySQL si no existe
+ComandaModel.sync().then(() => {
+  console.log('✅ Tabla "comandas" verificada/creada en la base de datos MySQL.');
+}).catch((err) => {
+  console.error('⚠️ Error al sincronizar la tabla "comandas":', err.message);
+});
+
 export default ComandaModel;
