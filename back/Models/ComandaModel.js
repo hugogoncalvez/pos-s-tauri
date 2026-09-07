@@ -32,7 +32,7 @@ const ComandaModel = db.define('comandas', {
     }
   },
   cash_session_id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.BIGINT,
     allowNull: true,
     references: {
       model: 'cash_sessions',
