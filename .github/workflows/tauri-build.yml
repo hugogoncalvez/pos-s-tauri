@@ -34,8 +34,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm install -g pnpm
-          pnpm install -r
+          npm install -g pnpm@10
+          pnpm install --no-frozen-lockfile
+          pnpm --dir front install --no-frozen-lockfile
 
       - name: Build Tauri app
         run: pnpm tauri build
@@ -64,6 +65,8 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: "Tauri Build #${{ github.run_number }}"
           body: "Versión generada automáticamente desde GitHub Actions"
-          files: dist/**/*.msi
+          files: |
+            dist/**/*.exe
+            dist/**/*.msi
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
