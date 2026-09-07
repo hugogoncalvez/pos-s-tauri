@@ -242,7 +242,11 @@ export const closeLocalPendingTicket = async (localId) => {
 // --- Comandas Offline Functions ---
 
 export const getVisibleComandas = async () => {
-  return await db.comandas.where('sync_status').notEqual('deleted').toArray();
+  const all = await db.comandas.where('sync_status').notEqual('deleted').toArray();
+  return all.filter(c => {
+    const status = c.status || c.data?.status || c.data?.comanda_data?.status;
+    return status !== 'facturada' && status !== 'cancelada';
+  });
 };
 
 export const addLocalComanda = async (comandaData) => {
@@ -269,6 +273,27 @@ export const updateLocalComandaStatus = async (localId, newStatus) => {
   return localId;
 };
 
+/**
+ * Actualiza nombre/estado/datos de una comanda local (p. ej. agregar ítems).
+ * Acepta patch { name?, status?, comanda_data? } y lo fusiona en `data`.
+ * Preserva 'created' en comandas offline; sino marca 'updated' para sincronizar.
+ */
+export const updateLocalComanda = async (localId, patch = {}) => {
+  const comanda = await db.comandas.get(localId);
+  if (!comanda) return null;
+  const currentData = comanda.data && typeof comanda.data === 'object' ? comanda.data : {};
+  const newData = { ...currentData };
+  if (patch.name !== undefined) newData.name = patch.name;
+  if (patch.status !== undefined) newData.status = patch.status;
+  if (patch.comanda_data !== undefined) newData.comanda_data = patch.comanda_data;
+  await db.comandas.update(localId, {
+    status: patch.status ?? comanda.status,
+    data: newData,
+    sync_status: comanda.sync_status === 'created' ? 'created' : 'updated'
+  });
+  return localId;
+};
+
 export const closeLocalComanda = async (localId) => {
   const comanda = await db.comandas.get(localId);
   if (!comanda) return;
@@ -277,6 +302,57 @@ export const closeLocalComanda = async (localId) => {
     await db.comandas.delete(localId);
   } else {
     await db.comandas.update(localId, { sync_status: 'deleted', status: 'facturada' });
+  }
+};
+
+/**
+ * Sincroniza comandas del servidor hacia Dexie preservando cambios locales.
+ * Equivalente a syncServerTicketsToLocal pero para comandas.
+ * La UI siempre lee desde Dexie (getVisibleComandas) para forma consistente.
+ */
+export const syncServerComandasToLocal = async (serverComandas) => {
+  try {
+    const list = Array.isArray(serverComandas) ? serverComandas : [];
+    const localComandas = await db.comandas.toArray();
+    const localByServerId = new Map(
+      localComandas.filter(c => c.server_id).map(c => [c.server_id, c])
+    );
+    const serverIds = new Set(list.map(c => c.id));
+
+    const toAdd = [];
+    for (const serverComanda of list) {
+      const existing = localByServerId.get(serverComanda.id);
+      if (!existing) {
+        toAdd.push({
+          server_id: serverComanda.id,
+          status: serverComanda.status || 'pendiente',
+          data: serverComanda,
+          sync_status: 'synced'
+        });
+      } else if (existing.sync_status === 'synced') {
+        // Refrescar datos del servidor si no hay cambios locales pendientes
+        await db.comandas.update(existing.local_id, {
+          status: serverComanda.status || existing.status,
+          data: serverComanda
+        });
+      }
+    }
+
+    const toDelete = [];
+    for (const local of localComandas) {
+      if (local.server_id && local.sync_status === 'synced' && !serverIds.has(local.server_id)) {
+        toDelete.push(local.local_id);
+      }
+    }
+
+    if (toAdd.length > 0 || toDelete.length > 0) {
+      await db.transaction('rw', db.comandas, async () => {
+        if (toAdd.length > 0) await db.comandas.bulkAdd(toAdd);
+        if (toDelete.length > 0) await db.comandas.bulkDelete(toDelete);
+      });
+    }
+  } catch (error) {
+    console.error('Error durante la sincronización de comandas:', error);
   }
 };
 

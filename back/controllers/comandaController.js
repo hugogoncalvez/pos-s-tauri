@@ -17,7 +17,10 @@ export const getComandas = async (req, res) => {
     };
 
     if (cash_session_id) {
-      whereClause.cash_session_id = cash_session_id;
+      const numericSession = Number(cash_session_id);
+      if (Number.isInteger(numericSession) && numericSession > 0) {
+        whereClause.cash_session_id = numericSession;
+      }
     }
 
     const comandas = await ComandaModel.findAll({
@@ -25,6 +28,7 @@ export const getComandas = async (req, res) => {
       include: [
         {
           model: UsuarioModel,
+          as: 'usuario',
           attributes: ['id', 'nombre', 'username']
         }
       ],
@@ -43,24 +47,59 @@ export const getComandas = async (req, res) => {
  */
 export const createComanda = async (req, res) => {
   try {
-    const { name, status = 'pendiente', comanda_data, user_id, cash_session_id } = req.body;
+    let { name, status = 'pendiente', comanda_data, user_id, cash_session_id } = req.body;
 
     if (!name || !comanda_data) {
       return res.status(400).json({ message: 'El nombre y los datos de la comanda son requeridos' });
+    }
+
+    name = String(name).trim();
+    if (!name) {
+      return res.status(400).json({ message: 'El nombre de la comanda no puede estar vacío' });
+    }
+
+    // Normalizar user_id: aceptar req.usuario o req.user, descartar ids offline/inválidos
+    let finalUserId = user_id ?? req.usuario?.id ?? req.user?.id ?? null;
+    finalUserId = Number(finalUserId);
+    if (!Number.isInteger(finalUserId) || finalUserId <= 0) {
+      finalUserId = null;
+    }
+
+    // Normalizar cash_session_id: solo enteros positivos (BIGINT). UUIDs offline -> null
+    let finalCashSessionId = cash_session_id ?? null;
+    if (typeof finalCashSessionId === 'string' && !/^\d+$/.test(finalCashSessionId)) {
+      finalCashSessionId = null;
+    } else if (finalCashSessionId !== null && finalCashSessionId !== undefined) {
+      finalCashSessionId = Number(finalCashSessionId);
+      if (!Number.isInteger(finalCashSessionId) || finalCashSessionId <= 0) {
+        finalCashSessionId = null;
+      }
+    } else {
+      finalCashSessionId = null;
+    }
+
+    // Asegurar que comanda_data sea objeto y contenga nombre/usuario para el modal e impresión
+    if (typeof comanda_data === 'string') {
+      try { comanda_data = JSON.parse(comanda_data); } catch { comanda_data = {}; }
+    }
+    if (comanda_data && typeof comanda_data === 'object' && !Array.isArray(comanda_data)) {
+      if (!comanda_data.name) comanda_data.name = name;
+      if (!comanda_data.createdAt) comanda_data.createdAt = new Date().toISOString();
     }
 
     const newComanda = await ComandaModel.create({
       name,
       status,
       comanda_data,
-      user_id: user_id || req.user?.id || null,
-      cash_session_id: cash_session_id || null
+      user_id: finalUserId,
+      cash_session_id: finalCashSessionId
     });
 
     const comandaConUsuario = await ComandaModel.findByPk(newComanda.id, {
       include: [
         {
           model: UsuarioModel,
+          as: 'usuario',
           attributes: ['id', 'nombre', 'username']
         }
       ]
@@ -94,7 +133,11 @@ export const updateComandaStatus = async (req, res) => {
     comanda.status = status;
     await comanda.save();
 
-    res.status(200).json({ message: 'Estado de comanda actualizado con éxito', comanda });
+    const updated = await ComandaModel.findByPk(comanda.id, {
+      include: [{ model: UsuarioModel, as: 'usuario', attributes: ['id', 'nombre', 'username'] }]
+    });
+
+    res.status(200).json({ message: 'Estado de comanda actualizado con éxito', comanda: updated || comanda });
   } catch (error) {
     console.error('Error al actualizar estado de comanda:', error);
     res.status(500).json({ message: 'Error al actualizar el estado de la comanda', error: error.message });
@@ -114,13 +157,17 @@ export const updateComanda = async (req, res) => {
       return res.status(404).json({ message: 'Comanda no encontrada' });
     }
 
-    if (name) comanda.name = name;
+    if (name) comanda.name = String(name).trim() || comanda.name;
     if (status) comanda.status = status;
     if (comanda_data) comanda.comanda_data = comanda_data;
 
     await comanda.save();
 
-    res.status(200).json({ message: 'Comanda actualizada con éxito', comanda });
+    const updatedFull = await ComandaModel.findByPk(comanda.id, {
+      include: [{ model: UsuarioModel, as: 'usuario', attributes: ['id', 'nombre', 'username'] }]
+    });
+
+    res.status(200).json({ message: 'Comanda actualizada con éxito', comanda: updatedFull || comanda });
   } catch (error) {
     console.error('Error al actualizar comanda:', error);
     res.status(500).json({ message: 'Error al actualizar comanda', error: error.message });

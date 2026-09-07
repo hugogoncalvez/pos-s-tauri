@@ -102,11 +102,11 @@ PendingTicketModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id' 
 CashSessionsModel.hasMany(PendingTicketModel, { foreignKey: 'cash_session_id' });
 
 // --- Asociaciones de Comandas ---
-ComandaModel.belongsTo(UsuarioModel, { foreignKey: 'user_id' });
-UsuarioModel.hasMany(ComandaModel, { foreignKey: 'user_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
+ComandaModel.belongsTo(UsuarioModel, { foreignKey: 'user_id', as: 'usuario' });
+UsuarioModel.hasMany(ComandaModel, { foreignKey: 'user_id', as: 'comandas', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 
-ComandaModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id' });
-CashSessionsModel.hasMany(ComandaModel, { foreignKey: 'cash_session_id' });
+ComandaModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id', as: 'cash_session' });
+CashSessionsModel.hasMany(ComandaModel, { foreignKey: 'cash_session_id', as: 'comandas' });
 
 
 // --- Asociaciones de Auditoría ---

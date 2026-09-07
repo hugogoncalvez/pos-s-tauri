@@ -78,6 +78,29 @@ export const ProductModalContent = React.memo(({
     const { data: unitsData, isLoading: isLoadingUnits } = UseQueryWithCache('units', '/units', true, 0, { keepPreviousData: true });
     const { data: suppliersData, isLoading: isLoadingSuppliers } = UseQueryWithCache('suppliers', '/suppliers', true, 0, { keepPreviousData: true });
 
+    // Valores por defecto en el ALTA de productos (el negocio no vende al peso):
+    // tipo de venta "Unitario" y unidad de medida "Unidad".
+    // Solo se aplica con el formulario vacío (apertura o reseteo) para no pisar
+    // lo que el usuario cargue ni los datos al editar un producto existente.
+    useEffect(() => {
+        if (product?.id) return; // edición: no tocar
+        if (values?.name || values?.price) return; // el usuario ya empezó a cargar: no imponer
+        const updates = {};
+        if (!values?.tipo_venta) {
+            updates.tipo_venta = 'unitario';
+        }
+        if (!values?.units_id && Array.isArray(unitsData) && unitsData.length > 0) {
+            const unidad = unitsData.find(u => String(u?.name || '').trim().toLowerCase() === 'unidad')
+                || unitsData.find(u => String(u?.name || '').trim().toLowerCase().includes('unid'));
+            if (unidad) {
+                updates.units_id = unidad.id;
+            }
+        }
+        if (Object.keys(updates).length > 0) {
+            setValues(prev => ({ ...(prev || {}), ...updates }));
+        }
+    }, [product?.id, unitsData, values?.name, values?.price, values?.tipo_venta, values?.units_id, setValues]);
+
     const [barcodeToCheck, setBarcodeToCheck] = useState(null);
 
     // Query para verificar si un código de barras ya existe (en el modal)

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Api } from "../api/api";
-import { db, OFFLINE_USER, OFFLINE_LANDING_ELEMENTS, getVisiblePendingTickets, syncServerTicketsToLocal } from "../db/offlineDB";
+import { db, OFFLINE_USER, OFFLINE_LANDING_ELEMENTS, getVisiblePendingTickets, syncServerTicketsToLocal, getVisibleComandas, syncServerComandasToLocal } from "../db/offlineDB";
 import { useOnlineStatus } from "./useOnlineStatus";
 
 const ENDPOINT_TO_TABLE = {
@@ -14,6 +14,7 @@ const ENDPOINT_TO_TABLE = {
   '/cash-sessions/active': 'active_cash_session',
   '/units': 'units',
   '/pending-tickets': 'pending_tickets',
+  '/comandas': 'comandas',
   '/elements': 'elements',
   '/theme': 'theme_settings',
   '/business-config': 'business_configs',
@@ -98,6 +99,11 @@ const handleOfflineQuery = async (url) => {
       return getVisiblePendingTickets();
     }
 
+    if (tableName === 'comandas') {
+      //console.log('[Offline Query] Consultando comandas visibles.');
+      return getVisibleComandas();
+    }
+
     const data = await db[tableName].toArray();
     if (tableName === 'customers') {
       //console.log(`[Offline Query - Customers] Data from Dexie:`, data);
@@ -168,6 +174,20 @@ export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale
           }
         }
         return getVisiblePendingTickets(); // Always return local data for UI consistency (now potentially updated)
+      }
+
+      // Comandas: igual que tickets — sincronizar servidor->local y devolver Dexie
+      // para que la UI siempre reciba forma { local_id, server_id, status, data, sync_status }
+      if (queryFnOrUrl === '/comandas') {
+        if (isOnline) {
+          try {
+            const res = await Api.get(queryFnOrUrl);
+            await syncServerComandasToLocal(res.data);
+          } catch (error) {
+            console.error("Error fetching comandas from API:", error);
+          }
+        }
+        return getVisibleComandas();
       }
 
       const res = await Api.get(queryFnOrUrl);

@@ -45,10 +45,12 @@ const ComandaModel = db.define('comandas', {
 });
 
 // Sincronizar automáticamente la tabla en MySQL si no existe
-ComandaModel.sync().then(() => {
+// Se usa { force: false, alter: false } para evitar errores de FK en producción
+ComandaModel.sync({ force: false }).then(() => {
   console.log('✅ Tabla "comandas" verificada/creada en la base de datos MySQL.');
 }).catch((err) => {
-  console.error('⚠️ Error al sincronizar la tabla "comandas":', err.message);
+  // Si ya existe con error de FK, solo se loguea sin romper el servidor
+  console.warn('⚠️ Aviso al sincronizar la tabla "comandas":', err.message);
 });
 
 export default ComandaModel;

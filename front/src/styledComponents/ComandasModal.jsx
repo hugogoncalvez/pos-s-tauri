@@ -22,6 +22,7 @@ import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import PrintIcon from '@mui/icons-material/Print';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import { StyledTableCell, StyledTableRow } from '../styles/styles';
 import { StyledDialog } from './ui/StyledDialog';
 
@@ -38,6 +39,38 @@ const getStatusChip = (status) => {
   }
 };
 
+const parseComandaRow = (row) => {
+  if (!row) return {};
+  const root = row.data ? row.data : row;
+  const nested = root.data ? root.data : null;
+  const effective = nested && typeof nested === 'object' && (nested.comanda_data || nested.name) ? nested : root;
+
+  let comandaData = effective.comanda_data || {};
+  if (typeof comandaData === 'string') {
+    try { comandaData = JSON.parse(comandaData); } catch (e) { comandaData = {}; }
+  }
+
+  const name = effective.name || comandaData.name || comandaData.nombre || 'Comanda Sin Nombre';
+  const status = effective.status || row.status || comandaData.status || 'pendiente';
+  const items = comandaData.items || comandaData.productos || comandaData.tempTable || effective.items || [];
+  const usuarioObj = effective.usuario || effective.usuarios || effective.Usuario || effective.Usuarios || effective.user || null;
+  const userName = usuarioObj?.nombre || usuarioObj?.name || usuarioObj?.username || comandaData.user_name || comandaData.usuario?.nombre || 'N/A';
+  const createdAt = effective.createdAt || comandaData.createdAt;
+
+  const serverId = row.server_id ?? effective.id ?? row.id ?? null;
+
+  return {
+    id: serverId ?? row.local_id ?? null,
+    name,
+    status,
+    items,
+    userName,
+    createdAt,
+    raw: root,
+    comandaData
+  };
+};
+
 const ComandasModal = ({
   showComandas,
   setShowComandas,
@@ -46,6 +79,8 @@ const ComandasModal = ({
   handlePrintComanda,
   handleStatusChange,
   handleDeleteComanda,
+  handleAddToComanda,
+  hasCartItems = false,
   allowLoading = true,
 }) => {
   const theme = useTheme();
@@ -132,15 +167,10 @@ const ComandasModal = ({
               </TableHead>
               <TableBody>
                 {comandas.map((row) => {
-                  const comandaData = row.data?.comanda_data || row.data || {};
-                  const itemsList = comandaData.items || comandaData.productos || comandaData.tempTable || [];
-                  const comandaName = row.data?.name || comandaData.name || 'Comanda Sin Nombre';
-                  const currentStatus = row.status || row.data?.status || 'pendiente';
-                  const userName = row.data?.usuario?.nombre || row.data?.user?.name || comandaData.user_name || 'N/A';
-                  const createdAt = row.data?.createdAt || comandaData.createdAt;
+                  const { name: comandaName, status: currentStatus, items: itemsList, userName, createdAt } = parseComandaRow(row);
 
                   return (
-                    <StyledTableRow key={row.local_id || row.data?.id || Math.random()} hover>
+                    <StyledTableRow key={row.local_id ?? row.server_id ?? row.data?.id ?? row.id ?? Math.random()} hover>
                       <StyledTableCell component="th" scope="row">
                         <Typography variant="subtitle2" fontWeight="bold">
                           {comandaName}
@@ -154,7 +184,9 @@ const ComandasModal = ({
                       <StyledTableCell align="left">
                         <Box sx={{ maxWidth: '300px' }}>
                           <Typography variant="body2" color="text.primary">
-                            {itemsList.map(item => `${item.quantity || item.cantidad}x ${item.name || item.nombre}`).join(', ')}
+                            {itemsList.length > 0
+                              ? itemsList.map(item => `${item.quantity || item.cantidad || 1}x ${item.name || item.nombre || item.stock?.name || 'Producto'}`).join(', ')
+                              : 'Sin ítems'}
                           </Typography>
                         </Box>
                       </StyledTableCell>
@@ -178,6 +210,21 @@ const ComandasModal = ({
                               >
                                 <FileUploadIcon />
                               </IconButton>
+                            </Tooltip>
+                          )}
+
+                          {handleAddToComanda && (
+                            <Tooltip title={hasCartItems ? "Agregar ítems del carrito a esta comanda (impresión opcional)" : "Agrega productos al carrito para sumarlos a esta comanda"}>
+                              <span>
+                                <IconButton
+                                  color="warning"
+                                  size="small"
+                                  disabled={!hasCartItems}
+                                  onClick={() => handleAddToComanda(row)}
+                                >
+                                  <PlaylistAddIcon />
+                                </IconButton>
+                              </span>
                             </Tooltip>
                           )}
 

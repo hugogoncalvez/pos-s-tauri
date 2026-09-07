@@ -1,4 +1,4 @@
-import { db, setLastSyncTime, addLocalPendingTicket, closeLocalPendingTicket, syncServerTicketsToLocal, updateLocalPendingTicket, addLocalComanda, updateLocalComandaStatus, closeLocalComanda } from '../db/offlineDB';
+import { db, setLastSyncTime, addLocalPendingTicket, closeLocalPendingTicket, syncServerTicketsToLocal, updateLocalPendingTicket, addLocalComanda, updateLocalComandaStatus, updateLocalComanda, closeLocalComanda, syncServerComandasToLocal } from '../db/offlineDB';
 import { Api } from '../api/api';
 
 class SyncService {
@@ -324,65 +324,171 @@ class SyncService {
   }
 
   // --- MÉTODOS PARA COMANDAS ---
+  // La UI siempre trabaja con forma Dexie { local_id, server_id, status, data, sync_status }
+  // pero estos helpers también aceptan forma servidor { id, name, ... } por compatibilidad.
+
+  getComandaServerId(comanda) {
+    if (!comanda || typeof comanda !== 'object') return null;
+    return comanda.server_id ?? comanda.data?.id ?? comanda.raw?.id ?? comanda.id ?? null;
+  }
+
+  async getComandaLocalId(comanda) {
+    if (!comanda || typeof comanda !== 'object') return null;
+    if (comanda.local_id) return comanda.local_id;
+    const serverId = this.getComandaServerId(comanda);
+    if (serverId) {
+      const found = await db.comandas.where('server_id').equals(serverId).first();
+      if (found) return found.local_id;
+    }
+    return null;
+  }
 
   async saveComanda(comandaData, isOnline) {
+    // Sanitizar payload: nombre requerido, ids numéricos o null
+    const payload = { ...(comandaData || {}) };
+    if (typeof payload.name === 'string') payload.name = payload.name.trim();
+    const uid = Number(payload.user_id);
+    payload.user_id = Number.isInteger(uid) && uid > 0 ? uid : null;
+    const sid = payload.cash_session_id;
+    if (typeof sid === 'string' && !/^\d+$/.test(sid)) {
+      payload.cash_session_id = null;
+    } else if (sid !== null && sid !== undefined) {
+      const n = Number(sid);
+      payload.cash_session_id = Number.isInteger(n) && n > 0 ? n : null;
+    } else {
+      payload.cash_session_id = null;
+    }
+    if (payload.comanda_data && typeof payload.comanda_data === 'object') {
+      if (!payload.comanda_data.name && payload.name) payload.comanda_data.name = payload.name;
+      if (!payload.comanda_data.createdAt) payload.comanda_data.createdAt = new Date().toISOString();
+    }
+
     if (isOnline) {
       try {
-        const response = await Api.post('/comandas', comandaData);
+        const response = await Api.post('/comandas', payload);
         const serverComanda = response.data;
-        const newSyncedComanda = {
-          server_id: serverComanda.id,
-          status: serverComanda.status || 'pendiente',
-          data: serverComanda,
-          sync_status: 'synced'
-        };
-        await db.comandas.add(newSyncedComanda);
+        // Guardar/actualizar copia local como synced (evitar duplicados por server_id)
+        const existing = serverComanda?.id
+          ? await db.comandas.where('server_id').equals(serverComanda.id).first()
+          : null;
+        if (existing) {
+          await db.comandas.update(existing.local_id, {
+            status: serverComanda.status || 'pendiente',
+            data: serverComanda,
+            sync_status: 'synced'
+          });
+        } else {
+          await db.comandas.add({
+            server_id: serverComanda.id,
+            status: serverComanda.status || payload.status || 'pendiente',
+            data: serverComanda,
+            sync_status: 'synced'
+          });
+        }
         return { success: true, synced: true, comanda: serverComanda };
       } catch (error) {
         console.error('[SyncService] ⚠️ Error enviando comanda al servidor. Guardando localmente.', error);
-        const newLocalId = await addLocalComanda(comandaData);
+        const newLocalId = await addLocalComanda(payload);
         return { success: true, synced: false, localId: newLocalId };
       }
     } else {
-      const newLocalId = await addLocalComanda(comandaData);
+      const newLocalId = await addLocalComanda(payload);
       return { success: true, synced: false, localId: newLocalId };
     }
   }
 
   async updateComandaStatus(comanda, newStatus, isOnline) {
-    const serverId = comanda.server_id || comanda.data?.id;
-    const localId = comanda.local_id;
+    const serverId = this.getComandaServerId(comanda);
+    const localId = await this.getComandaLocalId(comanda);
 
     if (isOnline && serverId) {
       try {
-        await Api.put(`/comandas/${serverId}/status`, { status: newStatus });
+        const res = await Api.put(`/comandas/${serverId}/status`, { status: newStatus });
+        const updatedServer = res.data?.comanda || null;
         if (localId) {
           await db.comandas.update(localId, {
             status: newStatus,
-            'data.status': newStatus,
+            ...(updatedServer ? { data: updatedServer } : {}),
             sync_status: 'synced'
           });
+          // Dexie no soporta 'data.status' path en update directo; actualizar objeto completo
+          if (!updatedServer) {
+            const current = await db.comandas.get(localId);
+            if (current?.data && typeof current.data === 'object') {
+              await db.comandas.update(localId, {
+                data: { ...current.data, status: newStatus }
+              });
+            }
+          }
         }
         return { success: true, synced: true };
       } catch (error) {
         console.error('[SyncService] ⚠️ Error actualizando estado de comanda en el servidor.', error);
-        if (localId) await updateLocalComandaStatus(localId, newStatus);
+        if (localId) {
+          if (newStatus === 'facturada' || newStatus === 'cancelada') await closeLocalComanda(localId);
+          else await updateLocalComandaStatus(localId, newStatus);
+        }
         return { success: true, synced: false };
       }
     } else {
-      if (localId) await updateLocalComandaStatus(localId, newStatus);
+      if (localId) {
+        if (newStatus === 'facturada' || newStatus === 'cancelada') await closeLocalComanda(localId);
+        else await updateLocalComandaStatus(localId, newStatus);
+      }
       return { success: true, synced: false };
     }
   }
 
-  async deleteComanda(comanda, isOnline) {
-    const serverId = comanda.server_id || comanda.data?.id;
-    const localId = comanda.local_id;
+  /**
+   * Actualiza contenido de una comanda (nombre/estado/comanda_data, p. ej. agregar ítems).
+   * Usa PUT /comandas/:id online; offline fusiona en Dexie para sincronizar luego.
+   */
+  async updateComanda(comanda, patch = {}, isOnline) {
+    const serverId = this.getComandaServerId(comanda);
+    const localId = await this.getComandaLocalId(comanda);
+    const cleanPatch = {};
+    if (patch.name !== undefined) cleanPatch.name = patch.name;
+    if (patch.status !== undefined) cleanPatch.status = patch.status;
+    if (patch.comanda_data !== undefined) cleanPatch.comanda_data = patch.comanda_data;
+
+    if (isOnline && serverId) {
+      try {
+        const res = await Api.put(`/comandas/${serverId}`, cleanPatch);
+        const updatedServer = res.data?.comanda || null;
+        if (localId) {
+          const upd = { sync_status: 'synced' };
+          if (updatedServer) {
+            upd.data = updatedServer;
+            upd.status = updatedServer.status;
+          } else {
+            if (cleanPatch.status) upd.status = cleanPatch.status;
+            const current = await db.comandas.get(localId);
+            if (current?.data && typeof current.data === 'object') {
+              upd.data = { ...current.data, ...cleanPatch };
+            }
+          }
+          await db.comandas.update(localId, upd);
+        }
+        return { success: true, synced: true, comanda: updatedServer };
+      } catch (error) {
+        console.error('[SyncService] ⚠️ Error actualizando comanda en el servidor. Guardando localmente.', error);
+        if (localId) await updateLocalComanda(localId, cleanPatch);
+        return { success: true, synced: false };
+      }
+    } else {
+      if (localId) await updateLocalComanda(localId, cleanPatch);
+      return { success: true, synced: false };
+    }
+  }
+
+  async deleteComanda(comanda, isOnline) {    const serverId = this.getComandaServerId(comanda);
+    const localId = await this.getComandaLocalId(comanda);
 
     if (isOnline && serverId) {
       try {
         await Api.delete(`/comandas/${serverId}`);
         if (localId) await db.comandas.delete(localId);
+        else await db.comandas.where('server_id').equals(serverId).delete();
         return { success: true, synced: true };
       } catch (error) {
         console.error('[SyncService] ⚠️ Error al eliminar comanda en el servidor.', error);
@@ -392,6 +498,75 @@ class SyncService {
     } else {
       if (localId) await closeLocalComanda(localId);
       return { success: true, synced: false };
+    }
+  }
+
+  async syncPendingComandas(onProgress) {
+    if (this.isSyncing) {
+      console.warn('[SyncService] Sync already in progress, skipping comandas sync.');
+      return { synced: 0, failed: 0, alreadySyncing: true };
+    }
+    try {
+      this.isSyncing = true;
+      const toSync = await db.comandas.where('sync_status').notEqual('synced').toArray();
+      const total = toSync.length;
+      if (total === 0) return { synced: 0, failed: 0 };
+      let synced = 0, failed = 0;
+      for (let i = 0; i < toSync.length; i++) {
+        const c = toSync[i];
+        if (onProgress) onProgress({ current: i + 1, total });
+        try {
+          if (c.sync_status === 'created') {
+            const payload = c.data || {};
+            const res = await Api.post('/comandas', payload);
+            const serverComanda = res.data;
+            await db.comandas.update(c.local_id, {
+              server_id: serverComanda.id,
+              status: serverComanda.status || c.status,
+              data: serverComanda,
+              sync_status: 'synced'
+            });
+          } else if (c.sync_status === 'updated') {
+            if (c.server_id) {
+              // Enviar contenido completo (nombre/estado/comanda_data), no solo el estado,
+              // porque un 'updated' puede ser por ítems agregados offline.
+              const d = c.data && typeof c.data === 'object' ? c.data : {};
+              await Api.put(`/comandas/${c.server_id}`, {
+                name: d.name,
+                status: c.status || d.status,
+                comanda_data: d.comanda_data
+              });
+              await db.comandas.update(c.local_id, { sync_status: 'synced' });
+            }
+          } else if (c.sync_status === 'deleted') {
+            if (c.server_id) await Api.delete(`/comandas/${c.server_id}`);
+            await db.comandas.delete(c.local_id);
+          }
+          synced++;
+        } catch (e) {
+          console.error(`❌ Error sincronizando comanda local ${c.local_id}.`, e);
+          failed++;
+        }
+      }
+      return { synced, failed };
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  async syncAllComandas() {
+    if (this.isSyncing) {
+      console.warn('[SyncService] Sync already in progress, skipping full comandas sync-down.');
+      return;
+    }
+    this.isSyncing = true;
+    try {
+      const res = await Api.get('/comandas');
+      await syncServerComandasToLocal(res.data || []);
+    } catch (error) {
+      console.error('[SyncService] ❌ Error during full sync of comandas:', error);
+    } finally {
+      this.isSyncing = false;
     }
   }
 

@@ -304,9 +304,12 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
 /**
  * Imprime una comanda para cocina/barra en impresora térmica (80mm / 72mm imprimibles)
  * @param {Object} comandaData - Objeto con datos de la comanda (name, items, user_name, createdAt, observations)
+ * @param {Object} [options] - Opciones: { addition: true } imprime encabezado "AGREGADO A COMANDA"
+ *   (solo los ítems nuevos, para sumar a una comanda ya enviada a cocina sin duplicar).
  */
-export const printComanda = (comandaData) => {
+export const printComanda = (comandaData, options = {}) => {
     if (!comandaData) return;
+    const isAddition = options.addition === true;
 
     const iframe = document.createElement('iframe');
     iframe.style.position = 'absolute';
@@ -426,7 +429,7 @@ export const printComanda = (comandaData) => {
         </head>
         <body>
             <div class="comanda-header">
-                <div class="comanda-title">*** COMANDA DE COCINA ***</div>
+                <div class="comanda-title">${isAddition ? '*** AGREGADO A COMANDA ***' : '*** COMANDA DE COCINA ***'}</div>
                 <div class="comanda-name">${name}</div>
                 <div class="comanda-meta">
                     <span>Fecha: ${dateStr}</span>
@@ -469,7 +472,7 @@ export const printComanda = (comandaData) => {
 
     html += `
             <div class="comanda-footer">
-                *** FIN DE COMANDA ***
+                *** FIN DE ${isAddition ? 'AGREGADO' : 'COMANDA'} ***
             </div>
         </body>
         </html>
