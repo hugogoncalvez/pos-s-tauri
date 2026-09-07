@@ -300,3 +300,183 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
     printDocument.write(receiptContent);
     printDocument.close();
 };
+
+/**
+ * Imprime una comanda para cocina/barra en impresora térmica (80mm / 72mm imprimibles)
+ * @param {Object} comandaData - Objeto con datos de la comanda (name, items, user_name, createdAt, observations)
+ */
+export const printComanda = (comandaData) => {
+    if (!comandaData) return;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    iframe.onload = () => {
+        try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+        } catch (error) {
+            console.error('Error al intentar imprimir comanda:', error);
+            removeIframe(iframe);
+        } finally {
+            setTimeout(() => removeIframe(iframe), 500);
+        }
+    };
+
+    const printDocument = iframe.contentDocument || iframe.contentWindow.document;
+    const name = sanitizeHtml(comandaData.name || comandaData.nombre || 'Comanda Sin Nombre');
+    const userName = sanitizeHtml(comandaData.user_name || comandaData.usuario?.nombre || comandaData.user?.name || 'N/A');
+    const dateStr = comandaData.createdAt 
+        ? new Date(comandaData.createdAt).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : new Date().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const items = comandaData.items || comandaData.productos || comandaData.tempTable || [];
+    const observations = sanitizeHtml(comandaData.observations || comandaData.observaciones || '');
+
+    let html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Comanda - ${name}</title>
+            <style>
+                @page { margin: 0; }
+                body {
+                    font-family: 'Courier New', Courier, monospace;
+                    margin: 0;
+                    padding: 4mm 2mm;
+                    width: 72mm;
+                    font-size: 13px;
+                    line-height: 1.2;
+                    color: #000;
+                    background: #fff;
+                }
+                .comanda-header {
+                    text-align: center;
+                    border-bottom: 2px dashed #000;
+                    padding-bottom: 8px;
+                    margin-bottom: 8px;
+                }
+                .comanda-title {
+                    font-size: 14px;
+                    font-weight: bold;
+                    letter-spacing: 1px;
+                }
+                .comanda-name {
+                    font-size: 20px;
+                    font-weight: bold;
+                    margin: 6px 0;
+                    text-transform: uppercase;
+                    border: 2px solid #000;
+                    padding: 4px;
+                }
+                .comanda-meta {
+                    font-size: 11px;
+                    display: flex;
+                    justify-content: space-between;
+                }
+                .item-row {
+                    margin-bottom: 8px;
+                    border-bottom: 1px dotted #ccc;
+                    padding-bottom: 4px;
+                }
+                .item-header {
+                    display: flex;
+                    font-size: 15px;
+                    font-weight: bold;
+                }
+                .item-qty {
+                    width: 45px;
+                    font-size: 17px;
+                    font-weight: bold;
+                }
+                .item-name {
+                    flex: 1;
+                    font-size: 15px;
+                }
+                .item-note {
+                    font-size: 13px;
+                    font-weight: bold;
+                    margin-left: 20px;
+                    margin-top: 3px;
+                    background-color: #eee;
+                    padding: 2px 4px;
+                    border-left: 3px solid #000;
+                }
+                .general-obs {
+                    margin-top: 10px;
+                    padding: 6px;
+                    border: 1px dashed #000;
+                    font-weight: bold;
+                    font-size: 13px;
+                }
+                .comanda-footer {
+                    text-align: center;
+                    margin-top: 12px;
+                    border-top: 2px dashed #000;
+                    padding-top: 6px;
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="comanda-header">
+                <div class="comanda-title">*** COMANDA DE COCINA ***</div>
+                <div class="comanda-name">${name}</div>
+                <div class="comanda-meta">
+                    <span>Fecha: ${dateStr}</span>
+                </div>
+                <div class="comanda-meta">
+                    <span>Mozo/Cajero: ${userName}</span>
+                </div>
+            </div>
+
+            <div class="comanda-items">
+    `;
+
+    items.forEach(item => {
+        const qty = item.quantity || item.cantidad || 1;
+        const itemName = sanitizeHtml(item.name || item.nombre || item.stock?.name || 'Producto');
+        const presentationStr = item.presentation_name ? ` (${sanitizeHtml(item.presentation_name)})` : '';
+        const itemNote = sanitizeHtml(item.note || item.observaciones || item.observacion || '');
+
+        html += `
+            <div class="item-row">
+                <div class="item-header">
+                    <span class="item-qty">${qty} x</span>
+                    <span class="item-name">${itemName}${presentationStr}</span>
+                </div>
+                ${itemNote ? `<div class="item-note">👉 NOTA: ${itemNote}</div>` : ''}
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+
+    if (observations) {
+        html += `
+            <div class="general-obs">
+                ⚠️ OBSERVACIÓN GENERAL:<br/>
+                ${observations}
+            </div>
+        `;
+    }
+
+    html += `
+            <div class="comanda-footer">
+                *** FIN DE COMANDA ***
+            </div>
+        </body>
+        </html>
+    `;
+
+    printDocument.open();
+    printDocument.write(html);
+    printDocument.close();
+};
+

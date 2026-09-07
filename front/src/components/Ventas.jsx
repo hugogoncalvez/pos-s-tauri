@@ -14,6 +14,8 @@ import { motion } from "framer-motion"
 import EditIcon from '@mui/icons-material/Edit';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ReceiptIcon from '@mui/icons-material/Receipt';
+import SoupKitchenIcon from '@mui/icons-material/SoupKitchen';
+import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
 import LockClockIcon from '@mui/icons-material/LockClock';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import SyncProblemIcon from '@mui/icons-material/SyncProblem';
@@ -36,7 +38,7 @@ import { mostrarInfo } from '../functions/mostrarInfo';
 import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
 import { mostrarInput } from '../functions/mostrarInput'; // <-- AÑADIDO
 import { mostrarCarga } from '../functions/mostrarCarga';
-import { printReceipt } from '../functions/printUtils';
+import { printReceipt, printComanda } from '../functions/printUtils';
 import Swal from 'sweetalert2'; // Import Swal for closing loading messages
 import { Api } from '../api/api'; // Importar la instancia de axios
 import { db, syncServerTicketsToLocal } from '../db/offlineDB'; // Importar la instancia de Dexie
@@ -46,6 +48,8 @@ import { AuthContext } from '../context/AuthContext';
 import { CajaManager } from '../styledComponents/CajaManager';
 import PesableProductModal from '../styledComponents/PesableProductModal';
 import PendingTicketsModal from '../styledComponents/PendingTicketsModal';
+import ComandasModal from '../styledComponents/ComandasModal';
+import ComandaItemNoteModal from '../styledComponents/ComandaItemNoteModal';
 import SummarySaleModal from '../styledComponents/SummarySaleModal';
 import ManualEntryModal from '../styledComponents/ManualEntryModal';
 import { ProductPresentationModal } from '../styledComponents/ProductPresentationModal';
@@ -233,6 +237,11 @@ const Ventas = () => {
   const { data: paymentMethods, isLoading: paymentLoading } = UseQueryWithCache('payment', '/payment', !!usuario, 0, { staleTime: 0 });
   const { data: customers, isLoading: customersLoading } = UseQueryWithCache('customers', '/customers', !!usuario, 0, { staleTime: 1000 * 60 * 60 });
   const { data: pendingTickets = [], refetch: refetchPendingTickets, isLoading: pendingTicketsLoading } = UseQueryWithCache('pendingTickets', '/pending-tickets');
+  const { data: comandas = [], refetch: refetchComandas } = UseQueryWithCache('comandas', '/comandas');
+  const [showComandasModal, setShowComandasModal] = useState(false);
+  const [showItemNoteModal, setShowItemNoteModal] = useState(false);
+  const [selectedNoteItem, setSelectedNoteItem] = useState(null);
+  const [currentComandaId, setCurrentComandaId] = useState(null);
   const { data: promotions, isLoading: promotionsLoading } = UseQueryWithCache('promotions', '/promotions?is_active=true',);
   const { data: combos, isLoading: combosLoading } = UseQueryWithCache('combos', '/combos?is_active=true');
   // const { isOnline } = useOnlineStatus(); // <--- AÑADIR HOOK DE ESTADO DE CONEXIÓN
@@ -271,6 +280,7 @@ const Ventas = () => {
     setValues({});
     setSelectedProduct(null);
     setCurrentTicketId(null);
+    setCurrentComandaId(null);
     const defaultMethod = paymentMethods?.find(method =>
       method.method?.toLowerCase().includes('efectivo') ||
       method.nombre?.toLowerCase().includes('efectivo')
@@ -287,7 +297,139 @@ const Ventas = () => {
     localStorage.removeItem('tempTable');
     setAmountReceived('');
     focusBarcodeInput();
-  }, [paymentMethods, setValues, focusBarcodeInput]); // Dependencias necesarias para la función
+  }, [paymentMethods, setValues, focusBarcodeInput]);
+
+  // --- FUNCIONES Y MANEJADORES DE COMANDAS ---
+
+  const handleOpenItemNoteModal = (item) => {
+    setSelectedNoteItem(item);
+    setShowItemNoteModal(true);
+  };
+
+  const handleSaveItemNote = (itemToUpdate, noteText) => {
+    setTempTable(prev => prev.map(item => {
+      if (item.temp_id === itemToUpdate.temp_id || item === itemToUpdate || (item.id && item.id === itemToUpdate.id && item.presentation_id === itemToUpdate.presentation_id)) {
+        return { ...item, note: noteText, observaciones: noteText };
+      }
+      return item;
+    }));
+  };
+
+  const handleCreateAndPrintComanda = async () => {
+    if (!tempTable || tempTable.length === 0) {
+      mostrarInfo('El carrito está vacío. Agrega productos para generar una comanda.', theme);
+      return;
+    }
+
+    try {
+      const result = await mostrarInput({
+        title: 'Generar Comanda',
+        inputLabel: 'Ingrese el nombre de la Mesa o Pedido (ej: Mesa 3, Pedido #12, Barra):',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) {
+            return '¡El nombre de la mesa/pedido es requerido!';
+          }
+        }
+      }, theme);
+
+      if (result.isConfirmed && result.value) {
+        const comandaName = result.value.trim();
+        const comandaPayload = {
+          name: comandaName,
+          status: 'en_preparacion',
+          comanda_data: {
+            name: comandaName,
+            items: [...tempTable],
+            customer: selectedCustomer,
+            user_name: usuario.nombre,
+            createdAt: new Date().toISOString()
+          },
+          user_id: usuario.id,
+          cash_session_id: activeSessionData?.id
+        };
+
+        mostrarCarga('Guardando e Imprimiendo Comanda...', theme);
+
+        const response = await syncService.saveComanda(comandaPayload, isOnline);
+
+        printComanda({
+          name: comandaName,
+          items: tempTable,
+          user_name: usuario.nombre,
+          createdAt: new Date()
+        });
+
+        Swal.close();
+
+        if (response.success) {
+          mostrarExito('Comanda generada e impresa correctamente.', theme);
+          clearSaleState();
+          refetchComandas();
+        } else {
+          mostrarError('Error al guardar la comanda.', theme);
+        }
+      }
+    } catch (error) {
+      console.error('Error al generar comanda:', error);
+      mostrarError('Error al generar la comanda: ' + (error.message || 'Error desconocido'), theme);
+    } finally {
+      Swal.close();
+    }
+  };
+
+  const handleLoadComanda = (comanda) => {
+    const data = comanda.data?.comanda_data || comanda.data || {};
+    const items = data.items || data.productos || data.tempTable || [];
+
+    if (items.length === 0) {
+      mostrarError('La comanda seleccionada no contiene productos.', theme);
+      return;
+    }
+
+    setTempTable(items);
+    if (data.customer) {
+      setSelectedCustomer(data.customer);
+    }
+    setCurrentComandaId(comanda.data?.id || comanda.id || comanda.server_id || comanda.local_id);
+    setShowComandasModal(false);
+    mostrarInfo(`Comanda "${comanda.data?.name || 'Mesa'}" cargada al carrito de ventas.`, theme);
+  };
+
+  const handlePrintComandaDirect = (comanda) => {
+    const data = comanda.data?.comanda_data || comanda.data || {};
+    printComanda({
+      name: comanda.data?.name || data.name,
+      items: data.items || data.productos || data.tempTable || [],
+      user_name: comanda.data?.usuario?.nombre || data.user_name || usuario.nombre,
+      createdAt: comanda.data?.createdAt || data.createdAt
+    });
+
+    syncService.updateComandaStatus(comanda, 'en_preparacion', isOnline).then(() => {
+      refetchComandas();
+    });
+
+    mostrarExito('Comanda enviada a la impresora.', theme);
+  };
+
+  const handleStatusChangeComanda = (comanda, newStatus) => {
+    syncService.updateComandaStatus(comanda, newStatus, isOnline).then(() => {
+      refetchComandas();
+      mostrarExito(`Comanda actualizada a estado "${newStatus}".`, theme);
+    });
+  };
+
+  const handleDeleteComanda = async (comanda) => {
+    const isConfirmed = await mostrarConfirmacion('¿Deseas cancelar/eliminar esta comanda?', theme);
+    if (isConfirmed) {
+      const res = await syncService.deleteComanda(comanda, isOnline);
+      if (res.success) {
+        mostrarExito('Comanda eliminada.', theme);
+        refetchComandas();
+      } else {
+        mostrarError('Error al eliminar comanda.', theme);
+      }
+    }
+  }; // Dependencias necesarias para la función
 
   // Nueva función para cancelar la edición de un ticket pendiente
   const handleCancelEdit = () => {
@@ -460,6 +602,21 @@ const Ventas = () => {
               console.error("Error al eliminar el ticket pendiente después de la venta:", deleteError);
               mostrarError('La venta se completó, pero no se pudo eliminar el ticket pendiente.', theme);
             }
+          }
+        }
+
+        if (currentComandaId) {
+          try {
+            const comandaToDelete = comandas.find(c => (c.data?.id === currentComandaId || c.id === currentComandaId || c.local_id === currentComandaId));
+            if (comandaToDelete) {
+              await syncService.deleteComanda(comandaToDelete, isOnline);
+            } else {
+              await syncService.deleteComanda({ server_id: currentComandaId, local_id: currentComandaId }, isOnline);
+            }
+            queryClient.invalidateQueries({ queryKey: ['comandas'] });
+            refetchComandas();
+          } catch (comandaError) {
+            console.error("Error al cerrar comanda después de la venta:", comandaError);
           }
         }
 
@@ -1768,6 +1925,11 @@ const Ventas = () => {
               {row.promotion.name}
             </Typography>
           )}
+          {(row.note || row.observaciones) && (
+            <Typography variant="caption" sx={{ display: 'block', color: 'warning.main', fontWeight: 'bold' }}>
+              👉 Nota: {row.note || row.observaciones}
+            </Typography>
+          )}
         </Box>
       ),
     },
@@ -1801,6 +1963,11 @@ const Ventas = () => {
       align: 'center',
       valueGetter: ({ row }) => (
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+          <Tooltip title="Nota para Cocina">
+            <IconButton color="warning" size="small" onClick={() => handleOpenItemNoteModal(row)}>
+              <RestaurantMenuIcon />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Editar">
             <IconButton color="primary" size="small" onClick={() => editItemTempTable(row.temp_id)}>
               <EditIcon />
@@ -1994,18 +2161,32 @@ const Ventas = () => {
                 </Tooltip>
               </Box>
             )}
-            {/* Botón de tickets pendientes */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, flexDirection: 'column', alignItems: 'center' }}>
+            {/* Botones de tickets pendientes y comandas */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
               <StyledButton
                 variant="outlined" color="info" onClick={() => { setPendingTicketsModalMode('full'); setShowPendingTickets(true); }}
                 startIcon={<ReceiptIcon />} size="small"
-                sx={{ mt: 1, color: theme.palette.info.main, borderColor: theme.palette.info.main, '&:hover': { borderColor: theme.palette.info.main, color: theme.palette.info.main } }}
+                sx={{ color: theme.palette.info.main, borderColor: theme.palette.info.main, '&:hover': { borderColor: theme.palette.info.main } }}
               >
                 Tickets Pendientes ({pendingTickets.length})
               </StyledButton>
-              <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}> {/* New Box for chips */}
-                <Chip label="Alt + P: Guardar" size="small" color="info" />
-              </Box>
+
+              <StyledButton
+                variant="contained" color="warning" onClick={handleCreateAndPrintComanda}
+                startIcon={<SoupKitchenIcon />} size="small"
+                disabled={tempTable.length === 0}
+                sx={{ borderRadius: '8px', color: '#fff', fontWeight: 'bold' }}
+              >
+                Generar Comanda (80mm)
+              </StyledButton>
+
+              <StyledButton
+                variant="outlined" color="warning" onClick={() => setShowComandasModal(true)}
+                startIcon={<SoupKitchenIcon />} size="small"
+                sx={{ color: theme.palette.warning.main, borderColor: theme.palette.warning.main, '&:hover': { borderColor: theme.palette.warning.main } }}
+              >
+                Comandas Activas ({comandas.length})
+              </StyledButton>
             </Box>
           </Grid>
           <Grid container rowSpacing={2} columnSpacing={2} sx={{ display: 'flex', justifyContent: 'center', alignContent: 'center' }}>
@@ -2239,6 +2420,28 @@ const Ventas = () => {
           handleLoadPendingTicket={pendingTicketsModalMode === 'full' ? handleLoadPendingTicket : null}
           handleDeletePendingTicket={handleDeletePendingTicket}
           allowLoading={pendingTicketsModalMode === 'full'}
+        />
+
+        {/* Modal para comandas activas */}
+        <ComandasModal
+          showComandas={showComandasModal}
+          setShowComandas={setShowComandasModal}
+          comandas={comandas}
+          handleLoadComanda={handleLoadComanda}
+          handlePrintComanda={handlePrintComandaDirect}
+          handleStatusChange={handleStatusChangeComanda}
+          handleDeleteComanda={handleDeleteComanda}
+        />
+
+        {/* Modal para observaciones de preparación de un ítem */}
+        <ComandaItemNoteModal
+          open={showItemNoteModal}
+          onClose={() => {
+            setShowItemNoteModal(false);
+            setSelectedNoteItem(null);
+          }}
+          item={selectedNoteItem}
+          onSaveNote={handleSaveItemNote}
         />
 
         <PesableProductModal

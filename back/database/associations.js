@@ -19,6 +19,7 @@ import SupplierModel from '../Models/SuppliersModel.js';
 import CashSessionMovementModel from '../Models/CashSessionMovementModel.js';
 import ThemeSettingModel from '../Models/ThemeSettingModel.js';
 import PendingTicketModel from '../Models/PendingTicketModel.js';
+import ComandaModel from '../Models/ComandaModel.js';
 import { ProductPresentationsModel } from '../Models/ProductPresentationsModel.js';
 import { ProductPromotionsModel } from '../Models/ProductPromotionsModel.js';
 import ComboModel from '../Models/ComboModel.js';
@@ -99,6 +100,13 @@ UsuarioModel.hasMany(PendingTicketModel, { foreignKey: 'user_id', onDelete: 'SET
 
 PendingTicketModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id' });
 CashSessionsModel.hasMany(PendingTicketModel, { foreignKey: 'cash_session_id' });
+
+// --- Asociaciones de Comandas ---
+ComandaModel.belongsTo(UsuarioModel, { foreignKey: 'user_id' });
+UsuarioModel.hasMany(ComandaModel, { foreignKey: 'user_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
+
+ComandaModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id' });
+CashSessionsModel.hasMany(ComandaModel, { foreignKey: 'cash_session_id' });
 
 
 // --- Asociaciones de Auditoría ---
@@ -195,6 +203,6 @@ export {
   StockCategoryModel, StockModel, PurchaseModel, PurchasesDetailsModel, UnitModel,
   SaleModel, SaleDetailModel, CustomerModel, PaymentModel, PromotionModel, UsuarioModel,
   CashSessionsModel, AuditLogModel, CustomerPaymentsModel, SupplierModel, RoleModel, SalePaymentModel,
-  CashSessionMovementModel, ThemeSettingModel, PendingTicketModel, ProductPresentationsModel, ProductPromotionsModel,
+  CashSessionMovementModel, ThemeSettingModel, PendingTicketModel, ComandaModel, ProductPresentationsModel, ProductPromotionsModel,
   ComboModel, ComboItem, UserPermissionModel, PermissionModel, BusinessConfigModel
 };

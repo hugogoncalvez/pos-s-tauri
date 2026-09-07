@@ -2,7 +2,7 @@ import Dexie from 'dexie';
 
 export const db = new Dexie('POSOfflineDB');
 
-db.version(6).stores({
+db.version(7).stores({
   // --- Datos Maestros (Caché del servidor) ---
   stock: '++id, name, barcode, price, stock, tipo_venta, category_id',
   presentations: '++id, stock_id, barcode, name, price',
@@ -23,8 +23,9 @@ db.version(6).stores({
   // --- Colas de Sincronización ---
   pending_sales: '++local_id, timestamp, synced, server_id, cash_session_id, user_id',
   pending_tickets: '++local_id, server_id, sync_status',
+  comandas: '++local_id, server_id, status, sync_status',
   pending_cash_movements: '++local_id, synced, user_id, cash_session_id',
-  local_cash_sessions: 'id, [status+user_id]', // <--- AGREGAR ÍNDICE COMPUESTO
+  local_cash_sessions: 'id, [status+user_id]',
 
   // --- Configuración y Metadatos Offline ---
   sync_metadata: 'key, value, updated_at', // 'key' será 'last_sync'
@@ -235,6 +236,47 @@ export const closeLocalPendingTicket = async (localId) => {
   } else {
     // Synced from server or updated locally, mark for deletion.
     await db.pending_tickets.update(localId, { sync_status: 'deleted' });
+  }
+};
+
+// --- Comandas Offline Functions ---
+
+export const getVisibleComandas = async () => {
+  return await db.comandas.where('sync_status').notEqual('deleted').toArray();
+};
+
+export const addLocalComanda = async (comandaData) => {
+  const newComanda = {
+    server_id: null,
+    status: comandaData.status || 'pendiente',
+    data: comandaData,
+    sync_status: 'created'
+  };
+  return await db.comandas.add(newComanda);
+};
+
+export const updateLocalComandaStatus = async (localId, newStatus) => {
+  const comanda = await db.comandas.get(localId);
+  if (!comanda) return;
+  await db.comandas.update(localId, {
+    status: newStatus,
+    data: {
+      ...comanda.data,
+      status: newStatus
+    },
+    sync_status: comanda.sync_status === 'created' ? 'created' : 'updated'
+  });
+  return localId;
+};
+
+export const closeLocalComanda = async (localId) => {
+  const comanda = await db.comandas.get(localId);
+  if (!comanda) return;
+
+  if (comanda.sync_status === 'created') {
+    await db.comandas.delete(localId);
+  } else {
+    await db.comandas.update(localId, { sync_status: 'deleted', status: 'facturada' });
   }
 };
 

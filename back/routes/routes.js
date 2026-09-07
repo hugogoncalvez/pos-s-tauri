@@ -57,6 +57,7 @@ import {
     updateBusinessConfig
 } from "../controllers/Controller.js";
 import authRoutes from './auth.js';
+import * as comandaController from '../controllers/comandaController.js';
 //import fiscalRoutes from './fiscal.js';
 import db from '../database/db.js'; // Import the database instance
 
@@ -216,6 +217,13 @@ authenticatedRouter.post('/pending-tickets', checkPermission('accion_crear_venta
 authenticatedRouter.put('/pending-tickets/:id', checkPermission('accion_crear_venta'), updatePendingTicket);
 authenticatedRouter.get('/pending-tickets/:id', checkPermission('accion_crear_venta'), getPendingTicketById);
 authenticatedRouter.delete('/pending-tickets/:id', checkPermission('accion_crear_venta'), deletePendingTicket);
+
+// --- RUTAS DE COMANDAS ---
+authenticatedRouter.get('/comandas', checkPermission('accion_crear_venta'), comandaController.getComandas);
+authenticatedRouter.post('/comandas', checkPermission('accion_crear_venta'), comandaController.createComanda);
+authenticatedRouter.put('/comandas/:id/status', checkPermission('accion_crear_venta'), comandaController.updateComandaStatus);
+authenticatedRouter.put('/comandas/:id', checkPermission('accion_crear_venta'), comandaController.updateComanda);
+authenticatedRouter.delete('/comandas/:id', checkPermission('accion_crear_venta'), comandaController.deleteComanda);
 
 authenticatedRouter.get('/promotions', checkPermission(['ver_vista_promociones', 'accion_crear_venta']), getPromotions);
 authenticatedRouter.get('/promotions/summary', checkPermission('ver_vista_promociones'), getPromotionsSummary);
