@@ -162,6 +162,7 @@
 
 import { Sequelize } from "sequelize";
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { updateHealthStatus } from './healthMonitor.js';
@@ -170,6 +171,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+// TLS hacia Aiven: cifrado siempre; verificado contra la CA cuando existe.
+// Poner el ca.pem de la consola de Aiven en back/certs/ca.pem
+// (o apuntar DB_SSL_CA a su ruta). Sin el archivo, igual cifra pero sin verificar.
+const resolveMysqlSsl = () => {
+    const caPath = process.env.DB_SSL_CA || path.join(__dirname, '..', 'certs', 'ca.pem');
+    try {
+        if (fs.existsSync(caPath)) {
+            console.log('🔒 MySQL TLS con verificación (ca.pem)');
+            return { ca: fs.readFileSync(caPath), rejectUnauthorized: true };
+        }
+    } catch (error) {
+        console.warn(`⚠️ No se pudo leer ${caPath}: ${error.message}`);
+    }
+    console.warn('⚠️ MySQL TLS sin verificación (falta ca.pem)');
+    return { rejectUnauthorized: false };
+};
+
+const mysqlSsl = resolveMysqlSsl();
 
 const DB_NAME = process.env.DB_NAME;
 const DB_USER = process.env.DB_USER;
@@ -210,6 +230,7 @@ const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
 
     dialectOptions: {
         connectTimeout: 20000,  // 20s
+        ssl: mysqlSsl,
     },
 
     logging: false // Desactivado para maximizar rendimiento (I/O)

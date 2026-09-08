@@ -160,6 +160,7 @@
 
 import mysql2 from 'mysql2/promise';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { updateHealthStatus } from './healthMonitor.js';
@@ -168,6 +169,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+// TLS hacia Aiven: igual criterio que en db.js (ver comentario ahí).
+const resolveMysqlSsl = () => {
+    const caPath = process.env.DB_SSL_CA || path.join(__dirname, '..', 'certs', 'ca.pem');
+    try {
+        if (fs.existsSync(caPath)) {
+            return { ca: fs.readFileSync(caPath), rejectUnauthorized: true };
+        }
+    } catch {
+        // cae al modo cifrado sin verificar
+    }
+    return { rejectUnauthorized: false };
+};
+
+const mysqlSsl = resolveMysqlSsl();
 
 // Helper para aplicar timeout a cualquier promesa
 const withTimeout = (promise, ms, label = 'operación') =>
@@ -194,6 +210,7 @@ const createPool = () => mysql2.createPool({
     keepAliveInitialDelay: 10000,
 
     connectTimeout: 10000,   // 10s — antes 60s
+    ssl: mysqlSsl,
     // idleTimeout no es una opción válida en mysql2, se eliminó
 });
 
