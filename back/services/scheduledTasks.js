@@ -213,13 +213,15 @@ const checkAllStocksForLowAlerts = async () => {
 export const initScheduledTasks = () => {
     //console.log('⏰ Inicializando tareas programadas...');
 
-    // Cierre automático de sesiones a medianoche (00:00)
-    cron.schedule('0 0 * * *', () => {
-        //console.log('🕛 Ejecutando cierre automático de sesiones de caja...');
-        autoCloseCashSessions();
-    }, {
-        timezone: "America/Buenos_Aires"
-    });
+    // Cierre automático de sesiones a medianoche (00:00) — DESACTIVADO.
+    // El negocio opera pasada la medianoche y cerraba cajas en uso.
+    // Se mantiene la función (autoCloseCashSessions/manualAutoClose) por si
+    // se quiere correr manual, y la alerta horaria de sesiones +12h sigue activa.
+    // cron.schedule('0 0 * * *', () => {
+    //     autoCloseCashSessions();
+    // }, {
+    //     timezone: "America/Buenos_Aires"
+    // });
 
     // Limpieza de logs antiguos cada domingo a las 2:00 AM
     cron.schedule('0 2 * * 0', () => {
@@ -286,7 +288,7 @@ export const initScheduledTasks = () => {
     });
 
     //console.log('✅ Tareas programadas configuradas:');
-    //console.log('   - Cierre automático: Todos los días a las 00:00');
+    //console.log('   - Cierre automático: DESACTIVADO (el local opera pasada la medianoche)');
     //console.log('   - Limpieza de logs: Domingos a las 02:00');
     //console.log('   - Verificación de sesiones: Cada hora');
     //console.log('   - Verificación de stock bajo: Todos los días a la 01:00 AM');
