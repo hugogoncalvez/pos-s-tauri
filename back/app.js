@@ -7,7 +7,7 @@ import MySQLStore from 'express-mysql-session';
 import { randomUUID } from 'crypto';
 import dotenv from 'dotenv';
 import sessionHeaderMiddleware from './middleware/sessionHeaderMiddleware.js';
-import { sessionPool, closeSessionPool } from './database/sessionPool.js';
+import { sessionPoolProxy, closeSessionPool } from './database/sessionPool.js';
 import { closeConnection } from './database/db.js';
 import { getHealthStatus } from './database/healthMonitor.js';
 
@@ -135,7 +135,7 @@ export const sessionStore = new MySQLStoreSession({
             data: 'data'
         }
     }
-}, sessionPool);
+}, sessionPoolProxy);
 
 const sessionKey = process.env.SESSION_KEY || 'pos_session_key';
 

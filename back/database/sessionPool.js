@@ -197,7 +197,54 @@ const createPool = () => mysql2.createPool({
     // idleTimeout no es una opción válida en mysql2, se eliminó
 });
 
-export let sessionPool = createPool();
+export let sessionPool = null;
+
+// Holder + proxy estable: el sessionStore recibe el proxy UNA vez y siempre
+// delega en el pool vigente, aunque el monitor lo recree por un micro-corte.
+// Sin esto, el store quedaba atado al pool viejo (muerto) y las sesiones
+// fallaban hasta reiniciar el proceso.
+const poolHolder = { current: null };
+
+const attachPoolListeners = (pool) => {
+    pool.on('connection', () => {
+        console.log('🔌 [SessionPool] Nueva conexión establecida');
+    });
+
+    pool.on('enqueue', () => {
+        console.warn('⏳ [SessionPool] Esperando conexión disponible (cola llena)');
+    });
+
+    pool.on('error', (err) => {
+        console.error('❌ [SessionPool] Error en el pool:', err.message);
+    });
+};
+
+const buildPool = () => {
+    const pool = createPool();
+    attachPoolListeners(pool);
+    return pool;
+};
+
+const setCurrentPool = (pool) => {
+    poolHolder.current = pool;
+    sessionPool = pool;
+};
+
+setCurrentPool(buildPool());
+
+export const getSessionPool = () => poolHolder.current;
+
+export const sessionPoolProxy = new Proxy({}, {
+    get: (_target, prop) => {
+        const pool = poolHolder.current;
+        const value = pool[prop];
+        return typeof value === 'function' ? value.bind(pool) : value;
+    },
+    set: (_target, prop, value) => {
+        poolHolder.current[prop] = value;
+        return true;
+    }
+});
 
 // Verificación inicial
 (async () => {
@@ -213,19 +260,6 @@ export let sessionPool = createPool();
         console.error('❌ [SessionPool] Conexión inicial fallida:', error.message);
     }
 })();
-
-// Event listeners del pool
-sessionPool.on('connection', () => {
-    console.log('🔌 [SessionPool] Nueva conexión establecida');
-});
-
-sessionPool.on('enqueue', () => {
-    console.warn('⏳ [SessionPool] Esperando conexión disponible (cola llena)');
-});
-
-sessionPool.on('error', (err) => {
-    console.error('❌ [SessionPool] Error en el pool:', err.message);
-});
 
 // Health check con timeout explícito y recreación del pool si falla
 // Sin esto, getConnection() se colgaba indefinidamente si el pool estaba lleno de zombies
@@ -249,11 +283,12 @@ export const sessionPoolHealthCheck = async () => {
         // las conexiones zombie quedan atrapadas hasta que se destruye el pool
         console.log('🔄 [SessionPool] Recreando pool...');
         try {
-            await withTimeout(sessionPool.end(), 3000, 'pool.end');
+            await withTimeout(poolHolder.current.end(), 3000, 'pool.end');
         } catch (_) {
             // Ignorar error al cerrar, puede que ya esté roto
         }
-        sessionPool = createPool();
+        // El proxy del sessionStore sigue apuntando al vigente: no hay que tocar app.js
+        setCurrentPool(buildPool());
         console.log('✅ [SessionPool] Pool recreado');
 
         return {
@@ -268,11 +303,9 @@ export const sessionPoolHealthCheck = async () => {
 // SIGINT/SIGTERM se manejan solo en app.js para evitar doble cierre
 export const closeSessionPool = async () => {
     try {
-        await sessionPool.end();
+        await poolHolder.current.end();
         console.log('🔌 [SessionPool] Pool cerrado correctamente');
     } catch (error) {
         console.error('❌ [SessionPool] Error al cerrar pool:', error.message);
     }
 };
-
-export default sessionPool;
