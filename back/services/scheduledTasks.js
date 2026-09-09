@@ -223,8 +223,8 @@ export const initScheduledTasks = () => {
     //     timezone: "America/Buenos_Aires"
     // });
 
-    // Limpieza de logs antiguos cada domingo a las 8:30 AM (local abierto, poca gente)
-    cron.schedule('30 8 * * 0', () => {
+    // Limpieza de logs antiguos cada sábado a las 8:30 AM (local abierto, poca gente)
+    cron.schedule('30 8 * * 6', () => {
         //console.log('🧹 Ejecutando limpieza de logs antiguos...');
         cleanOldAuditLogs();
     }, {
@@ -289,7 +289,7 @@ export const initScheduledTasks = () => {
 
     //console.log('✅ Tareas programadas configuradas:');
     //console.log('   - Cierre automático: DESACTIVADO (el local opera pasada la medianoche)');
-    //console.log('   - Limpieza de logs: Domingos a las 08:30');
+    //console.log('   - Limpieza de logs: Sábados a las 08:30');
     //console.log('   - Verificación de sesiones: Cada hora');
     //console.log('   - Verificación de stock bajo: Todos los días a las 08:00');
 };
