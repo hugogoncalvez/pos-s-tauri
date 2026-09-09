@@ -223,8 +223,8 @@ export const initScheduledTasks = () => {
     //     timezone: "America/Buenos_Aires"
     // });
 
-    // Limpieza de logs antiguos cada domingo a las 2:00 AM
-    cron.schedule('0 2 * * 0', () => {
+    // Limpieza de logs antiguos cada domingo a las 8:30 AM (local abierto, poca gente)
+    cron.schedule('30 8 * * 0', () => {
         //console.log('🧹 Ejecutando limpieza de logs antiguos...');
         cleanOldAuditLogs();
     }, {
@@ -280,8 +280,8 @@ export const initScheduledTasks = () => {
         timezone: "America/Buenos_Aires"
     });
 
-    // Tarea programada de verificación de stock bajo (una vez al día a la 1:00 AM)
-    cron.schedule('0 1 * * *', async () => {
+    // Tarea programada de verificación de stock bajo (una vez al día a las 8:00 AM)
+    cron.schedule('0 8 * * *', async () => {
         await checkAllStocksForLowAlerts();
     }, {
         timezone: "America/Buenos_Aires"
@@ -289,9 +289,9 @@ export const initScheduledTasks = () => {
 
     //console.log('✅ Tareas programadas configuradas:');
     //console.log('   - Cierre automático: DESACTIVADO (el local opera pasada la medianoche)');
-    //console.log('   - Limpieza de logs: Domingos a las 02:00');
+    //console.log('   - Limpieza de logs: Domingos a las 08:30');
     //console.log('   - Verificación de sesiones: Cada hora');
-    //console.log('   - Verificación de stock bajo: Todos los días a la 01:00 AM');
+    //console.log('   - Verificación de stock bajo: Todos los días a las 08:00');
 };
 
 // Función para ejecutar cierre manual (para testing)
