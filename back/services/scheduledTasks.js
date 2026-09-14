@@ -158,13 +158,13 @@ const autoCloseCashSessions = async () => {
 };
 
 // Función para limpiar logs de auditoría antiguos (opcional)
-const cleanOldAuditLogs = async () => {
+const cleanOldAuditLogs = async (retentionDays = 90) => {
     try {
         //console.log('🧹 Limpiando logs de auditoría antiguos...');
 
-        // Eliminar logs de más de 30 días
+        // Eliminar logs con más de retentionDays (por defecto 90 días = 3 meses)
         const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - 30);
+        cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
         const deletedCount = await db.query(
             'DELETE FROM audit_logs WHERE createdAt < ?',
@@ -223,26 +223,26 @@ export const initScheduledTasks = () => {
     //     timezone: "America/Buenos_Aires"
     // });
 
-    // Limpieza de logs antiguos cada sábado a las 8:30 AM (local abierto, poca gente)
-    cron.schedule('30 8 * * 6', () => {
+    // Limpieza de logs de auditoría: lunes a las 10:00 AM (retención 3 meses / 90 días)
+    cron.schedule('0 10 * * 1', () => {
         //console.log('🧹 Ejecutando limpieza de logs antiguos...');
-        cleanOldAuditLogs();
+        cleanOldAuditLogs(90);
     }, {
         timezone: "America/Buenos_Aires"
     });
 
-    // Tarea de verificación cada hora para detectar sesiones muy largas (más de 12 horas)
-    cron.schedule('0 * * * *', async () => {
+    // Tarea de verificación una vez al día a las 09:00 para detectar sesiones muy largas (más de 18 horas)
+    cron.schedule('0 9 * * *', async () => {
         const systemUserId = await getSystemUserId(); // Obtener el ID del usuario del sistema
         try {
-            const twelveHoursAgo = new Date();
-            twelveHoursAgo.setHours(twelveHoursAgo.getHours() - 12);
+            const eighteenHoursAgo = new Date();
+            eighteenHoursAgo.setHours(eighteenHoursAgo.getHours() - 18);
 
             const longSessions = await CashSessionsModel.findAll({
                 where: {
                     status: 'abierta',
                     opened_at: {
-                        [Op.lt]: twelveHoursAgo
+                        [Op.lt]: eighteenHoursAgo
                     }
                 },
                 include: [
@@ -259,7 +259,7 @@ export const initScheduledTasks = () => {
             });
 
             if (longSessions.length > 0) {
-                //console.log(`⚠️ Detectadas ${longSessions.length} sesiones abiertas por más de 12 horas`);
+                //console.log(`⚠️ Detectadas ${longSessions.length} sesiones abiertas por más de 18 horas`);
 
                 for (const session of longSessions) {
                     await logAudit({
@@ -267,7 +267,7 @@ export const initScheduledTasks = () => {
                         action: 'ALERTA_SESION_PROLONGADA',
                         entity_type: 'cash_session',
                         entity_id: session.id,
-                        details: `La sesión ha estado abierta por más de 12 horas - Usuario: ${session.Usuario?.username}`,
+                        details: `La sesión ha estado abierta por más de 18 horas - Usuario: ${session.Usuario?.username}`,
                         ip_address: '127.0.0.1',
                         user_agent: 'System Monitor'
                     });
@@ -280,8 +280,8 @@ export const initScheduledTasks = () => {
         timezone: "America/Buenos_Aires"
     });
 
-    // Tarea programada de verificación de stock bajo (una vez al día a las 8:00 AM)
-    cron.schedule('0 8 * * *', async () => {
+    // Tarea programada de verificación de stock bajo (una vez al día a las 9:15 AM)
+    cron.schedule('15 9 * * *', async () => {
         await checkAllStocksForLowAlerts();
     }, {
         timezone: "America/Buenos_Aires"
@@ -289,9 +289,9 @@ export const initScheduledTasks = () => {
 
     //console.log('✅ Tareas programadas configuradas:');
     //console.log('   - Cierre automático: DESACTIVADO (el local opera pasada la medianoche)');
-    //console.log('   - Limpieza de logs: Sábados a las 08:30');
-    //console.log('   - Verificación de sesiones: Cada hora');
-    //console.log('   - Verificación de stock bajo: Todos los días a las 08:00');
+    //console.log('   - Limpieza de logs: Lunes a las 10:00 (retención 90 días)');
+    //console.log('   - Verificación de sesiones +18h: Todos los días a las 09:00');
+    //console.log('   - Verificación de stock bajo: Todos los días a las 09:15');
 };
 
 // Función para ejecutar cierre manual (para testing)
