@@ -195,6 +195,9 @@ const createPool = () => mysql2.createPool({
 
     connectTimeout: 10000,   // 10s — antes 60s
     // idleTimeout no es una opción válida en mysql2, se eliminó
+
+    // TiDB Cloud exige TLS. Activar con DB_SSL=true en .env
+    ...(process.env.DB_SSL === 'true' ? { ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: true } } : {}),
 });
 
 export let sessionPool = null;

@@ -210,6 +210,8 @@ const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
 
     dialectOptions: {
         connectTimeout: 20000,  // 20s
+        // TiDB Cloud exige TLS. Activar con DB_SSL=true en .env
+        ...(process.env.DB_SSL === 'true' ? { ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: true } } : {}),
     },
 
     logging: false // Desactivado para maximizar rendimiento (I/O)
