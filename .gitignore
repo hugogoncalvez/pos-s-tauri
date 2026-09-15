@@ -20,6 +20,7 @@ pnpm-debug.log*
 .env.development
 .env.test
 .env.production
+.env.corralon
 .envrc
 
 # Logs
