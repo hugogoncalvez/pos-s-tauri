@@ -162,6 +162,7 @@
 
 import { Sequelize } from "sequelize";
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { updateHealthStatus } from './healthMonitor.js';
@@ -176,6 +177,22 @@ const DB_USER = process.env.DB_USER;
 const DB_PASSWORD = process.env.DB_PASSWORD;
 const DB_HOST = process.env.DB_HOST;
 const DB_PORT = process.env.DB_PORT;
+
+// TLS para endpoints públicos (TiDB Cloud lo exige). DB_SSL=true activa,
+// DB_SSL_CA=/ruta/ca.pem fija la CA (si no, usa las del sistema).
+const getSslConfig = () => {
+    if (process.env.DB_SSL !== 'true') return null;
+    const cfg = { minVersion: 'TLSv1.2', rejectUnauthorized: true };
+    if (process.env.DB_SSL_CA) {
+        try {
+            cfg.ca = fs.readFileSync(process.env.DB_SSL_CA, 'utf8');
+        } catch (e) {
+            console.error('❌ No se pudo leer DB_SSL_CA:', e.message);
+        }
+    }
+    return cfg;
+};
+const sslConfig = getSslConfig();
 
 const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
     host: DB_HOST,
@@ -210,8 +227,7 @@ const db = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
 
     dialectOptions: {
         connectTimeout: 20000,  // 20s
-        // TiDB Cloud exige TLS. Activar con DB_SSL=true en .env
-        ...(process.env.DB_SSL === 'true' ? { ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: true } } : {}),
+        ...(sslConfig ? { ssl: sslConfig } : {}),
     },
 
     logging: false // Desactivado para maximizar rendimiento (I/O)
