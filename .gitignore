@@ -21,6 +21,7 @@ pnpm-debug.log*
 .env.test
 .env.production
 .env.corralon
+.env-poli24
 .envrc
 
 # Logs
