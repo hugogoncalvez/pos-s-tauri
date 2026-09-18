@@ -321,7 +321,7 @@ const PurchasesManager = () => {
     }, [purchasesData]);
 
     useEffect(() => {
-        if (isPesableProduct) {
+        if (Object.hasOwn(itemValues, 'quantity') || Object.hasOwn(itemValues, 'cost')) {
             const totalPerUnits = parseFloat(itemValues.quantity || 0);
             const costPerUnits = (parseFloat(itemValues.cost || 0) / (totalPerUnits || 1));
             setItemValues(prevValues => ({
@@ -329,16 +329,8 @@ const PurchasesManager = () => {
                 totalPerUnits: totalPerUnits,
                 costPerUnits: isFinite(costPerUnits) ? costPerUnits.toFixed(3) : 0
             }));
-        } else if (Object.hasOwn(itemValues, 'boxes') || Object.hasOwn(itemValues, 'unitsPerBox') || Object.hasOwn(itemValues, 'quantityPerUnits') || Object.hasOwn(itemValues, 'cost')) {
-            const totalPerUnits = (parseFloat(itemValues.boxes || 0) || 1) * (parseFloat(itemValues.unitsPerBox || 0) || 1) * (parseFloat(itemValues.quantityPerUnits || 0) || 1);
-            const costPerUnits = (parseFloat(itemValues.cost || 0) / (totalPerUnits || 1));
-            setItemValues(prevValues => ({
-                ...prevValues,
-                totalPerUnits: totalPerUnits,
-                costPerUnits: isFinite(costPerUnits) ? costPerUnits.toFixed(3) : 0
-            }));
         }
-    }, [itemValues.boxes, itemValues.unitsPerBox, itemValues.quantityPerUnits, itemValues.cost, itemValues.quantity, isPesableProduct]);
+    }, [itemValues.quantity, itemValues.cost]);
 
 
     // --- Handlers de UI ---
@@ -352,7 +344,6 @@ const PurchasesManager = () => {
             });
             setTempItems(purchase.details.map(detail => {
                 const product = detail.stock; // The backend now sends the necessary stock info
-                const isDetailPesable = product && kilogramoUnitId && product.units_id === kilogramoUnitId && product.tipo_venta === 'pesable';
 
                 return {
                     stock_id: detail.stock_id,
@@ -362,15 +353,8 @@ const PurchasesManager = () => {
                     tipo_venta: product.tipo_venta, // Store necessary fields
                     cost: detail.cost * detail.quantity, // Costo total del item
                     costPerUnits: detail.cost, // Costo por unidad
-                    ...(isDetailPesable ? {
-                        quantity: parseFloat(detail.quantity),
-                        totalPerUnits: parseFloat(detail.quantity)
-                    } : {
-                        boxes: 1,
-                        unitsPerBox: 1,
-                        quantityPerUnits: detail.quantity,
-                        totalPerUnits: detail.quantity
-                    })
+                    quantity: parseFloat(detail.quantity),
+                    totalPerUnits: parseFloat(detail.quantity)
                 };
             }) || []);
         } else {
@@ -440,9 +424,9 @@ const PurchasesManager = () => {
                 handleItemInputChange({ target: { name: 'name', value: product.name } }); // Pre-fill name
                 handleItemInputChange({ target: { name: 'description', value: product.description } }); // Pre-fill description
 
-                // For non-pesable products, pre-fill quantity and cost if available
+                // Para productos no pesables, precargar cantidad 1 por defecto
                 if (product.tipo_venta !== 'pesable') {
-                    handleItemInputChange({ target: { name: 'quantityPerUnits', value: 1 } }); // Default to 1 unit
+                    handleItemInputChange({ target: { name: 'quantity', value: 1 } }); // Default to 1 unit
                 } else {
                     // For pesable products, clear quantity fields and focus on quantity input
                     handleItemInputChange({ target: { name: 'quantity', value: '' } });
@@ -488,27 +472,12 @@ const PurchasesManager = () => {
         // Crear una copia de los valores para poder modificarlos
         let processedItemValues = { ...itemValues };
 
-        if (!isPesableProduct) {
-            // Si los campos están vacíos o son 0, establecerlos a 1 por defecto.
-            if (!processedItemValues.boxes || parseFloat(processedItemValues.boxes) <= 0) {
-                processedItemValues.boxes = 1;
-            }
-            if (!processedItemValues.unitsPerBox || parseFloat(processedItemValues.unitsPerBox) <= 0) {
-                processedItemValues.unitsPerBox = 1;
-            }
-        }
-
         let isValid = false;
-        if (isPesableProduct) {
-            const { quantity, cost } = processedItemValues;
-            isValid = selectedProduct && validator.isNumeric((quantity || '').toString()) && quantity > 0 && validator.isNumeric((cost || '').toString()) && cost > 0;
-        } else {
-            const { boxes, unitsPerBox, quantityPerUnits, cost } = processedItemValues;
-            isValid = selectedProduct && validator.isNumeric((boxes || '').toString()) && boxes > 0 && validator.isNumeric((unitsPerBox || '').toString()) && unitsPerBox > 0 && validator.isNumeric((quantityPerUnits || '').toString()) && quantityPerUnits > 0 && validator.isNumeric((cost || '').toString()) && cost > 0;
-        }
+        const { quantity, cost } = processedItemValues;
+        isValid = selectedProduct && validator.isNumeric((quantity || '').toString()) && quantity > 0 && validator.isNumeric((cost || '').toString()) && cost > 0;
 
         if (!isValid) {
-            setModalError('Por favor, comprueba los campos del item. Producto, Cant/Unidad y Costo son requeridos y deben ser mayores a 0.');
+            setModalError('Por favor, comprueba los campos del item. Producto, Cantidad y Costo son requeridos y deben ser mayores a 0.');
             return;
         }
 
@@ -940,57 +909,18 @@ const PurchasesManager = () => {
                                     renderInput={(params) => <TextFieldWithClear {...params} label="Selecciona un producto" onClear={() => setSelectedProduct(null)} InputProps={{...params.InputProps, endAdornment: (<>{isLoadingStock ? <CircularProgress size={20} /> : null}{params.InputProps.endAdornment}</>)}} />}
                                 />
                             </Grid>
-                            {isPesableProduct ? (
-                                <Grid xs={6} md={3} lg={2}>
-                                    <TextFieldWithClear
-                                        fullWidth
-                                        label="Cantidad (Kg)"
-                                        type='number'
-                                        name='quantity'
-                                        value={itemValues.quantity || ''}
-                                        onChange={handleItemInputChange}
-                                        onClear={() => handleItemInputChange({ target: { name: 'quantity', value: '' } })}
-                                        inputRef={quantityInputRef}
-                                    />
-                                </Grid>
-                            ) : (
-                                <>
-                                    <Grid xs={6} md={3} lg={2}>
-                                        <TextFieldWithClear
-                                            fullWidth
-                                            label="Cajas/Bultos"
-                                            type='number'
-                                            name='boxes'
-                                            value={itemValues.boxes || ''}
-                                            onChange={handleItemInputChange}
-                                            onClear={() => handleItemInputChange({ target: { name: 'boxes', value: '' } })}
-                                        />
-                                    </Grid>
-                                    <Grid xs={6} md={3} lg={2}>
-                                        <TextFieldWithClear
-                                            fullWidth
-                                            label="Unidades/Caja"
-                                            type='number'
-                                            name='unitsPerBox'
-                                            value={itemValues.unitsPerBox || ''}
-                                            onChange={handleItemInputChange}
-                                            onClear={() => handleItemInputChange({ target: { name: 'unitsPerBox', value: '' } })}
-                                        />
-                                    </Grid>
-                                    <Grid xs={6} md={3} lg={2}>
-                                        <TextFieldWithClear
-                                            fullWidth
-                                            label="Cant/Unidad"
-                                            type='number'
-                                            name='quantityPerUnits'
-                                            value={itemValues.quantityPerUnits || ''}
-                                            onChange={handleItemInputChange}
-                                            onClear={() => handleItemInputChange({ target: { name: 'quantityPerUnits', value: '' } })}
-                                            inputRef={quantityInputRef}
-                                        />
-                                    </Grid>
-                                </>
-                            )}
+                            <Grid xs={6} md={3} lg={2}>
+                                <TextFieldWithClear
+                                    fullWidth
+                                    label={isPesableProduct ? 'Cantidad (Kg)' : 'Cantidad'}
+                                    type='number'
+                                    name='quantity'
+                                    value={itemValues.quantity || ''}
+                                    onChange={handleItemInputChange}
+                                    onClear={() => handleItemInputChange({ target: { name: 'quantity', value: '' } })}
+                                    inputRef={quantityInputRef}
+                                />
+                            </Grid>
                             <Grid xs={6} md={3} lg={2}>
                                 <TextFieldWithClear
                                     fullWidth
@@ -1002,7 +932,6 @@ const PurchasesManager = () => {
                                     onClear={() => handleItemInputChange({ target: { name: 'cost', value: '' } })}
                                 />
                             </Grid>
-                            <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Total Unidades" type='number' name='totalPerUnits' value={itemValues.totalPerUnits || 0} InputProps={{ readOnly: true }} /></Grid>
                             <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Costo/Unidad" type='text' name='costPerUnits' value={formatCurrency(itemValues.costPerUnits) || ''} InputProps={{ readOnly: true }} /></Grid>
                             <Grid xs={12} md={2} sx={{ display: 'flex', alignItems: 'center' }}><StyledButton fullWidth variant="outlined" onClick={handleAddItem} startIcon={<PlaylistAddIcon />}>{editingItemIndex !== null ? 'Actualizar' : 'Agregar'}</StyledButton></Grid>
                         </Grid>
