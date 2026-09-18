@@ -451,13 +451,13 @@ const BarcodePrinter = () => {
                             display: 'grid',
                             gridTemplateColumns: {
                                 xs: '1fr',
-                                sm: 'repeat(3, 1fr)',
-                                md: 'repeat(3, 1fr)'
+                                sm: 'repeat(2, 1fr)',
+                                md: 'repeat(2, 1fr)'
                             },
                             gap: 2
                         }}
                     >
-                        {/* Presentations Filter */}
+                        {/* 1) Buscar Presentación */}
                         <StyledTextField
                             label="Buscar Presentación"
                             name="presentationSearch"
@@ -471,6 +471,38 @@ const BarcodePrinter = () => {
                                 )
                             }}
                         />
+
+                        {/* 2) Buscar Combo */}
+                        <StyledTextField
+                            label="Buscar Combo"
+                            name="comboSearch"
+                            value={comboSearchInput}
+                            onChange={(e) => setComboSearchInput(e.target.value)}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton onClick={() => setComboSearchInput('')}><ClearIcon /></IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
+
+                        {/* 3) Buscar Producto Base */}
+                        <StyledTextField
+                            label="Buscar Producto Base"
+                            name="productSearch"
+                            value={productSearchInput}
+                            onChange={(e) => setProductSearchInput(e.target.value)}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton onClick={() => setProductSearchInput('')}><ClearIcon /></IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
+
+                        {/* 4) Filtrar por Categoría */}
                         <StyledAutocomplete
                             options={Array.isArray(categoriesData) ? categoriesData : []}
                             getOptionLabel={(option) => option.name || ''}
@@ -493,35 +525,6 @@ const BarcodePrinter = () => {
                             )}
                         />
 
-                        {/* Combos Filter */}
-                        <StyledTextField
-                            label="Buscar Combo"
-                            name="comboSearch"
-                            value={comboSearchInput}
-                            onChange={(e) => setComboSearchInput(e.target.value)}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton onClick={() => setComboSearchInput('')}><ClearIcon /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-
-                        {/* Base Products Filter */}
-                        <StyledTextField
-                            label="Buscar Producto Base"
-                            name="productSearch"
-                            value={productSearchInput}
-                            onChange={(e) => setProductSearchInput(e.target.value)}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton onClick={() => setProductSearchInput('')}><ClearIcon /></IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
                     </Box>
                 </Box>
 
