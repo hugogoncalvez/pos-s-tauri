@@ -41,11 +41,13 @@ const BarcodePrinter = () => {
 
     const [presentationSearchInput, setPresentationSearchInput] = useState('');
     const [comboSearchInput, setComboSearchInput] = useState('');
+    const [productSearchInput, setProductSearchInput] = useState('');
 
 
     const [filters, handleFilterChange, resetFilters] = useForm({
         presentationSearch: '',
         comboSearch: '',
+        productSearch: '',
         promotionSearch: '',
         presentationCategory: '',
         promotionType: ''
@@ -65,6 +67,13 @@ const BarcodePrinter = () => {
         return () => clearTimeout(handler);
     }, [comboSearchInput]);
 
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            handleFilterChange({ target: { name: 'productSearch', value: productSearchInput } });
+        }, 500);
+        return () => clearTimeout(handler);
+    }, [productSearchInput]);
+
     // Fetch data for Presentations, Combos, and Promotions
     const { data: presentationsData, isLoading: isLoadingPresentations, isError: isErrorPresentations, error: errorPresentations } = UseFetchQuery(
         ['allPresentations', filters.presentationSearch, filters.presentationCategory],
@@ -76,6 +85,14 @@ const BarcodePrinter = () => {
         `/combos?search=${filters.comboSearch}`,
         true
     );
+
+    // Productos base (stocks) con código de barras, filtrados por búsqueda y categoría
+    const { data: productsData, isLoading: isLoadingProducts, isError: isErrorProducts, error: errorProducts } = UseFetchQuery(
+        ['allProducts', filters.productSearch, filters.presentationCategory],
+        `/stock?limit=200&name=${filters.productSearch}&category_id=${filters.presentationCategory}&unpaginated=true`,
+        true
+    );
+    const productsWithBarcode = (productsData?.products || []).filter(p => p.barcode && String(p.barcode).trim() !== '');
 
     const { data: categoriesData, isLoading: isLoadingCategories } = UseFetchQuery('categories', '/category', true);
 
@@ -98,6 +115,22 @@ const BarcodePrinter = () => {
             } else {
                 return [...prevSelected, { ...item, type }];
             }
+        });
+    }, []);
+
+    // Seleccionar/deseleccionar todos los ítems visibles de una lista (por ej. toda una categoría filtrada)
+    const handleSelectAll = useCallback((list, type) => {
+        setSelectedItems(prevSelected => {
+            const ids = new Set(list.map(item => item.id));
+            const allSelected = list.length > 0 && list.every(item =>
+                prevSelected.some(selected => selected.id === item.id && selected.type === type)
+            );
+            if (allSelected) {
+                return prevSelected.filter(selected => !(selected.type === type && ids.has(selected.id)));
+            }
+            const existing = new Set(prevSelected.filter(s => s.type === type).map(s => s.id));
+            const toAdd = list.filter(item => !existing.has(item.id)).map(item => ({ ...item, type }));
+            return [...prevSelected, ...toAdd];
         });
     }, []);
 
@@ -147,7 +180,8 @@ const BarcodePrinter = () => {
         const [barcodeImage, setBarcodeImage] = useState('');
 
         useEffect(() => {
-            const imageUrl = generateBarcode(value, type === 'presentation' ? 'EAN13' : 'CODE128');
+            const strValue = String(value || '');
+            const imageUrl = generateBarcode(value, /^\d{12,13}$/.test(strValue) ? 'EAN13' : 'CODE128');
             setBarcodeImage(imageUrl);
         }, [value, description, type, generateBarcode]);
 
@@ -387,7 +421,7 @@ const BarcodePrinter = () => {
         </Alert>
     );
 
-    const isPageLoading = isLoadingPresentations || isLoadingCombos || isLoadingCategories;
+    const isPageLoading = isLoadingPresentations || isLoadingCombos || isLoadingProducts || isLoadingCategories;
 
     if (isPageLoading) {
         return <BarcodePrinterSkeleton />;
@@ -399,7 +433,7 @@ const BarcodePrinter = () => {
                 <Grid container justifyContent="space-between" alignItems="center">
                     <Grid>
                         <Typography variant="h4" gutterBottom>Imprimir Códigos de Barras</Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.9 }}>Genera e imprime códigos de barras para tus productos y combos.</Typography>
+                        <Typography variant="body1" sx={{ opacity: 0.9 }}>Genera e imprime códigos de barras para tus productos, presentaciones y combos.</Typography>
                     </Grid>
                     <Grid>
                         <StyledButton variant="outlined" onClick={handlePrint} startIcon={<PrintIcon />}>
@@ -446,7 +480,7 @@ const BarcodePrinter = () => {
                             renderInput={(params) => (
                                 <StyledTextField
                                     {...params}
-                                    label="Filtrar Presentación por Categoría"
+                                    label="Filtrar por Categoría (presentaciones y productos)"
                                     InputProps={{
                                         ...params.InputProps,
                                         endAdornment: (
@@ -473,13 +507,42 @@ const BarcodePrinter = () => {
                                 )
                             }}
                         />
+
+                        {/* Base Products Filter */}
+                        <StyledTextField
+                            label="Buscar Producto Base"
+                            name="productSearch"
+                            value={productSearchInput}
+                            onChange={(e) => setProductSearchInput(e.target.value)}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton onClick={() => setProductSearchInput('')}><ClearIcon /></IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
                     </Box>
                 </Box>
 
                 <Grid container spacing={2} sx={{ mt: 3 }}>
                     {/* Presentations List */}
-                    <Grid item xs={12} md={6}>
-                        <Typography variant="h6" gutterBottom>Presentaciones</Typography>
+                    <Grid item xs={12} md={4}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="h6" gutterBottom>Presentaciones</Typography>
+                            <StyledButton
+                                size="small"
+                                variant="outlined"
+                                disabled={!presentationsData?.presentations?.length}
+                                onClick={() => handleSelectAll(presentationsData?.presentations || [], 'presentation')}
+                            >
+                                {(presentationsData?.presentations || []).every(item =>
+                                    selectedItems.some(s => s.id === item.id && s.type === 'presentation')
+                                ) && (presentationsData?.presentations || []).length > 0
+                                    ? 'Quitar todos'
+                                    : `Seleccionar todos (${presentationsData?.presentations?.length || 0})`}
+                            </StyledButton>
+                        </Box>
                         {isLoadingPresentations && renderLoading()}
                         {isErrorPresentations && renderError(errorPresentations)}
                         {!isLoadingPresentations && !isErrorPresentations && presentationsData?.presentations?.length === 0 && (
@@ -503,9 +566,63 @@ const BarcodePrinter = () => {
                         </Box>
                     </Grid>
 
+                    {/* Base Products List */}
+                    <Grid item xs={12} md={4}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="h6" gutterBottom>Productos Base</Typography>
+                            <StyledButton
+                                size="small"
+                                variant="outlined"
+                                disabled={productsWithBarcode.length === 0}
+                                onClick={() => handleSelectAll(productsWithBarcode, 'product')}
+                            >
+                                {productsWithBarcode.length > 0 && productsWithBarcode.every(item =>
+                                    selectedItems.some(s => s.id === item.id && s.type === 'product')
+                                )
+                                    ? 'Quitar todos'
+                                    : `Seleccionar todos (${productsWithBarcode.length})`}
+                            </StyledButton>
+                        </Box>
+                        {isLoadingProducts && renderLoading()}
+                        {isErrorProducts && renderError(errorProducts)}
+                        {!isLoadingProducts && !isErrorProducts && productsWithBarcode.length === 0 && (
+                            <Typography>No hay productos con código de barras.</Typography>
+                        )}
+                        <Box sx={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #eee', p: 1 }}>
+                            {productsWithBarcode.map(item => (
+                                <FormControlLabel
+                                    key={item.id}
+                                    control={
+                                        <Checkbox
+                                            checked={selectedItems.some(
+                                                selected => selected.id === item.id && selected.type === 'product'
+                                            )}
+                                            onChange={() => handleCheckboxChange(item, 'product')}
+                                        />
+                                    }
+                                    label={`${item.name} (${item.barcode})`}
+                                />
+                            ))}
+                        </Box>
+                    </Grid>
+
                     {/* Combos List */}
-                    <Grid item xs={12} md={6}>
-                        <Typography variant="h6" gutterBottom>Combos</Typography>
+                    <Grid item xs={12} md={4}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="h6" gutterBottom>Combos</Typography>
+                            <StyledButton
+                                size="small"
+                                variant="outlined"
+                                disabled={!combosData?.length}
+                                onClick={() => handleSelectAll(combosData || [], 'combo')}
+                            >
+                                {(combosData || []).every(item =>
+                                    selectedItems.some(s => s.id === item.id && s.type === 'combo')
+                                ) && (combosData || []).length > 0
+                                    ? 'Quitar todos'
+                                    : `Seleccionar todos (${combosData?.length || 0})`}
+                            </StyledButton>
+                        </Box>
                         {isLoadingCombos && renderLoading()}
                         {isErrorCombos && renderError(errorCombos)}
                         {!isLoadingCombos && !isErrorCombos && combosData?.length === 0 && (
@@ -550,6 +667,21 @@ const BarcodePrinter = () => {
                                                 value={item.barcode}
                                                 description={`${item.name} - ${item.productDescription || ''}`}
                                                 type="presentation"
+                                            />
+                                        ))}
+                                    </Box>
+                                </Box>
+                            )}
+                            {groupedItems.product && groupedItems.product.length > 0 && (
+                                <Box className="barcode-group">
+                                    <Typography variant="h6" className="group-title">Productos Base</Typography>
+                                    <Box className="barcode-grid">
+                                        {groupedItems.product.map(item => (
+                                            <BarcodeDisplay
+                                                key={item.id}
+                                                value={item.barcode}
+                                                description={item.name}
+                                                type="product"
                                             />
                                         ))}
                                     </Box>
