@@ -82,6 +82,11 @@ const SalesDetailsModel = db.define('sale_detail', {
         allowNull: true,
         comment: 'Unidad base al momento de la venta'
     },
+    product_name: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Nombre del producto manual al momento de la venta'
+    },
     line_total: {
         type: DataTypes.DECIMAL(12, 2),
         allowNull: true,

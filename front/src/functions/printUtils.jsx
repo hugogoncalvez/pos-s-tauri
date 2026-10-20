@@ -242,9 +242,10 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
                     : parseMoney(detail.price);
                 const presentationSuffix = detail.presentation_name ? ` (${detail.presentation_name})` : '';
                 const unitSuffix = !hasPresentation && detail.unit_name ? ` ${detail.unit_name}` : '';
+                const productName = detail.stock?.name || detail.combo?.name || detail.product_name;
                 receiptContent += `
                     <tr>
-                        <td>${sanitizeHtml(detail.stock?.name) || 'Producto Desconocido'}${sanitizeHtml(presentationSuffix)}</td>
+                        <td>${sanitizeHtml(productName) || 'Producto Desconocido'}${sanitizeHtml(presentationSuffix)}</td>
                         <td class="text-center">${sanitizeHtml(formatQuantity(displayQuantity))}${sanitizeHtml(unitSuffix)}</td>
                         <td class="text-right">$ ${unitPrice.toFixed(2)}</td>
                         <td class="text-right">$ ${lineTotal.toFixed(2)}</td>

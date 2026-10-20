@@ -353,7 +353,7 @@ const Informes = () => {
             return {
                 id: item.id,
                 date: moment(isSale ? item.sale?.createdAt : item.purchase?.createdAt).format('DD/MM/YYYY'),
-                product: stockItem?.name || 'N/A',
+                product: stockItem?.name || item.product_name || 'N/A',
                 description: stockItem?.description || 'N/A',
                 supplier: stockItem?.supplier?.nombre || 'N/A',
                 type: isSale ? 'Venta/Egreso' : 'Ingreso',

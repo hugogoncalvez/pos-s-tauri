@@ -459,6 +459,8 @@ const Ventas = () => {
         quantity: item.quantity_for_stock_deduction || item.quantity,
         price: item.price,
         final_price: item.cost,
+        purchase_cost: item.is_manual_entry ? (item.purchase_cost ?? null) : null,
+        product_name: item.is_manual_entry ? item.name : null,
         force_sale: item.force_sale || false,
         is_manual_entry: item.is_manual_entry || false,
         type: item.type
@@ -921,7 +923,7 @@ const Ventas = () => {
         if (e.altKey && key === 'x') { // Alt+X for Manual Entry
           e.preventDefault();
           setShowManualEntryModal(true);
-          setFormValues({});
+          setFormValues({ quantityPerUnits: 1 });
           setSelectedProduct(null);
         }
         if (e.altKey && key === 'c') { // Alt+C for Custom Quantity
@@ -1081,7 +1083,7 @@ const Ventas = () => {
       quantityPerUnits: displayQuantity,
       category_id: item.category_id,
       units_id: item.units_id,
-      cost: item.cost
+      purchaseCost: item.purchase_cost ?? ''
     });
   };
 
@@ -1160,7 +1162,7 @@ const Ventas = () => {
   };
 
   const handleManualEntrySubmit = () => {
-    const { quantityPerUnits, price, name, description, category_id, units_id, stock_id } = formValues;
+    const { quantityPerUnits, price, purchaseCost, name, description, category_id, units_id, stock_id } = formValues;
     // Validaciones básicas
     if (!name || !price || !quantityPerUnits) {
       mostrarError('Por favor complete los campos obligatorios: Nombre, Precio y Cantidad', theme);
@@ -1215,6 +1217,13 @@ const Ventas = () => {
       itemToAdd.price = parseFloat(price) || 0; // Unit price
       itemToAdd.cost = itemToAdd.quantity * itemToAdd.price; // Total cost
       itemToAdd.quantity_for_stock_deduction = itemToAdd.quantity; // Same as display quantity
+    }
+
+    if (itemToAdd.is_manual_entry) {
+      const parsedPurchaseCost = Number.parseFloat(purchaseCost);
+      itemToAdd.purchase_cost = Number.isFinite(parsedPurchaseCost) && parsedPurchaseCost > 0
+        ? parsedPurchaseCost
+        : itemToAdd.price;
     }
 
     if (itemToAdd.stock_id) {

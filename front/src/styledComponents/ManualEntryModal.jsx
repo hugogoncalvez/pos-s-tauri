@@ -32,6 +32,15 @@ const ManualEntryModal = ({
   handleManualEntrySubmit
 }) => {
   const theme = useTheme();
+  const showPurchaseCost = !editingItem || !!editingItem.is_manual_entry;
+  const saleUnitPrice = parseFloat(formValues.price) || 0;
+  const quantity = parseFloat(formValues.quantityPerUnits) || 0;
+  const parsedPurchaseCost = parseFloat(formValues.purchaseCost);
+  const effectiveUnitCost = Number.isFinite(parsedPurchaseCost) && parsedPurchaseCost > 0
+    ? parsedPurchaseCost
+    : saleUnitPrice;
+  const estimatedProfit = (saleUnitPrice - effectiveUnitCost) * quantity;
+
   return (
     <StyledDialog
       open={showManualEntryModal}
@@ -126,6 +135,30 @@ const ManualEntryModal = ({
             autoComplete="off"
           />
 
+          {showPurchaseCost && (
+            <Box sx={{ gridColumn: '1 / -1' }}>
+              <TextFieldWithClear
+                fullWidth
+                size="small"
+                label="Costo unitario de compra (opcional)"
+                name="purchaseCost"
+                type="number"
+                value={formValues.purchaseCost ?? ''}
+                onChange={handleInputChange}
+                onClear={() => handleInputChange({ target: { name: 'purchaseCost', value: '' } })}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">$
+                    </InputAdornment>
+                  ),
+                }}
+                inputProps={{ min: 0, step: '0.01' }}
+                helperText="Si se deja vacío o en 0, se usa el precio de venta y la ganancia queda en $0."
+                autoComplete="off"
+              />
+            </Box>
+          )}
+
           <Box sx={{ gridColumn: '1 / -1' }}>
             <TextFieldWithClear
               fullWidth
@@ -148,6 +181,13 @@ const ManualEntryModal = ({
                 <Typography variant="h6" align="center" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
                   💰 Total: ${((parseFloat(formValues.price) || 0) * (parseFloat(formValues.quantityPerUnits) || 0)).toFixed(2)}
                 </Typography>
+                {showPurchaseCost && (
+                  <Typography variant="body2" align="center" sx={{ mt: 1 }}>
+                    {Number.isFinite(parsedPurchaseCost) && parsedPurchaseCost > 0
+                      ? `Ganancia estimada: $${estimatedProfit.toFixed(2)}`
+                      : 'Sin costo informado: ganancia $0'}
+                  </Typography>
+                )}
               </StyledCard>
             </Box>
           )}

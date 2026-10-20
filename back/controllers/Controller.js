@@ -1892,17 +1892,28 @@ export const createSale = async (req, res) => {
 
             for (const item of tempValues) {
                 if (item.is_manual_entry) {
+                    const manualQuantity = toPositiveNumber(item.quantity);
+                    if (manualQuantity === null || manualQuantity <= 0) {
+                        validationErrors.push(`${item.name || 'El producto manual'} requiere una cantidad mayor a cero`);
+                        continue;
+                    }
                     const lineTotal = toPositiveNumber(item.final_price);
                     if (lineTotal === null || lineTotal < 0) {
                         validationErrors.push(`Importe inválido para ${item.name || 'producto manual'}`);
                         continue;
                     }
+                    const rawUnitCost = toPositiveNumber(item.purchase_cost);
+                    const unitCost = rawUnitCost !== null && rawUnitCost > 0
+                        ? rawUnitCost
+                        : lineTotal / manualQuantity;
                     normalizedItems.set(item, {
-                        baseQuantity: Number(item.quantity) || 1,
+                        baseQuantity: manualQuantity,
                         lineTotal,
                         presentation: null,
                         presentationCount: null,
-                        unitName: item.unit_name || null
+                        unitName: item.unit_name || null,
+                        unitCost,
+                        productName: item.product_name || item.name || null
                     });
                     continue;
                 }
@@ -2014,9 +2025,14 @@ export const createSale = async (req, res) => {
                         lineTotal: toPositiveNumber(item.final_price) ?? 0,
                         presentation: null,
                         presentationCount: null,
-                        unitName: null
+                        unitName: null,
+                        unitCost: null,
+                        productName: null
                     };
-                    const { baseQuantity, lineTotal, presentation, presentationCount, unitName } = normalized;
+                    const { baseQuantity, lineTotal, presentation, presentationCount, unitName, unitCost, productName } = normalized;
+                    const resolvedUnitCost = item.is_manual_entry
+                        ? (unitCost ?? (baseQuantity > 0 ? lineTotal / baseQuantity : 0))
+                        : (stockItem?.cost || 0);
 
                     saleDetailsToCreate.push({
                         sales_Id: newSale.id,
@@ -2024,16 +2040,17 @@ export const createSale = async (req, res) => {
                         promotion_id: promotion_id || null,
                         quantity: baseQuantity,
                         price: lineTotal / baseQuantity,
-                        cost: stockItem?.cost || 0,
+                        cost: resolvedUnitCost,
                         presentation_id: presentation?.id || null,
                         presentation_name: presentation?.name || null,
                         presentation_quantity: presentationCount,
                         unit_name: unitName,
+                        product_name: item.is_manual_entry ? (productName || item.name || 'Producto manual') : null,
                         line_total: lineTotal
                     });
 
                     if (item.is_manual_entry) {
-                        auditLogsToCreate.push({ user_id, action: 'VENTA_PRODUCTO_MANUAL', entity_type: 'sale_item', entity_id: newSale.id, session_id: activeSession.id, new_values: { product_name: item.name, price: item.price, quantity: item.quantity }, details: `Venta de producto manual: ${item.quantity} x ${item.name}` });
+                        auditLogsToCreate.push({ user_id, action: 'VENTA_PRODUCTO_MANUAL', entity_type: 'sale_item', entity_id: newSale.id, session_id: activeSession.id, new_values: { product_name: productName || item.name, price: item.price, quantity: baseQuantity, cost: resolvedUnitCost }, details: `Venta de producto manual: ${baseQuantity} x ${item.name}` });
                     } else if (stock_id) {
                         stockUpdates.set(stock_id, (stockUpdates.get(stock_id) || 0) + baseQuantity);
                         stocksToCheck.add(stock_id);
@@ -4518,11 +4535,11 @@ export const getProfitMarginReport = async (req, res) => {
 
         const results = await SaleDetailModel.findAll({
             attributes: [
-                [db.fn('COALESCE', db.col('stock.name'), db.col('combo.name'), 'Producto Manual'), 'productName'],
+                [db.fn('COALESCE', db.col('stock.name'), db.col('combo.name'), db.col('sale_detail.product_name'), 'Producto Manual'), 'productName'],
                 [db.fn('SUM', db.col('quantity')), 'totalQuantitySold'],
                 [db.fn('SUM', db.literal('`sale_detail`.`quantity` * `sale_detail`.`price`')), 'totalRevenue'],
-                [db.literal(`SUM(\`sale_detail\`.\`quantity\` * CASE WHEN \`sale_detail\`.\`stock_id\` IS NOT NULL THEN \`sale_detail\`.\`cost\` WHEN \`sale_detail\`.\`combo_id\` IS NOT NULL THEN ${comboCostSubQuery} ELSE 0 END)`), 'totalCost'],
-                [db.literal(`(SUM(\`sale_detail\`.\`quantity\` * \`sale_detail\`.\`price\`) - SUM(\`sale_detail\`.\`quantity\` * CASE WHEN \`sale_detail\`.\`stock_id\` IS NOT NULL THEN \`sale_detail\`.\`cost\` WHEN \`sale_detail\`.\`combo_id\` IS NOT NULL THEN ${comboCostSubQuery} ELSE 0 END))`), 'totalProfit']
+                [db.literal(`SUM(\`sale_detail\`.\`quantity\` * CASE WHEN \`sale_detail\`.\`stock_id\` IS NOT NULL THEN \`sale_detail\`.\`cost\` WHEN \`sale_detail\`.\`combo_id\` IS NOT NULL THEN ${comboCostSubQuery} ELSE CASE WHEN \`sale_detail\`.\`cost\` > 0 THEN \`sale_detail\`.\`cost\` ELSE \`sale_detail\`.\`price\` END END)`), 'totalCost'],
+                [db.literal(`(SUM(\`sale_detail\`.\`quantity\` * \`sale_detail\`.\`price\`) - SUM(\`sale_detail\`.\`quantity\` * CASE WHEN \`sale_detail\`.\`stock_id\` IS NOT NULL THEN \`sale_detail\`.\`cost\` WHEN \`sale_detail\`.\`combo_id\` IS NOT NULL THEN ${comboCostSubQuery} ELSE CASE WHEN \`sale_detail\`.\`cost\` > 0 THEN \`sale_detail\`.\`cost\` ELSE \`sale_detail\`.\`price\` END END))`), 'totalProfit']
             ],
             include: [
                 { model: StockModel, as: 'stock', attributes: [], required: false },
@@ -4536,8 +4553,8 @@ export const getProfitMarginReport = async (req, res) => {
         const overallTotals = await SaleDetailModel.findOne({
             attributes: [
                 [db.literal('SUM(`sale_detail`.`quantity` * `sale_detail`.`price`)'), 'overallRevenue'],
-                [db.literal(`SUM(\`sale_detail\`.\`quantity\` * CASE WHEN \`sale_detail\`.\`stock_id\` IS NOT NULL THEN \`sale_detail\`.\`cost\` WHEN \`sale_detail\`.\`combo_id\` IS NOT NULL THEN ${comboCostSubQuery} ELSE 0 END)`), 'overallCost'],
-                [db.literal(`(SUM(\`sale_detail\`.\`quantity\` * \`sale_detail\`.\`price\`) - SUM(\`sale_detail\`.\`quantity\` * CASE WHEN \`sale_detail\`.\`stock_id\` IS NOT NULL THEN \`sale_detail\`.\`cost\` WHEN \`sale_detail\`.\`combo_id\` IS NOT NULL THEN ${comboCostSubQuery} ELSE 0 END))`), 'overallProfit']
+                [db.literal(`SUM(\`sale_detail\`.\`quantity\` * CASE WHEN \`sale_detail\`.\`stock_id\` IS NOT NULL THEN \`sale_detail\`.\`cost\` WHEN \`sale_detail\`.\`combo_id\` IS NOT NULL THEN ${comboCostSubQuery} ELSE CASE WHEN \`sale_detail\`.\`cost\` > 0 THEN \`sale_detail\`.\`cost\` ELSE \`sale_detail\`.\`price\` END END)`), 'overallCost'],
+                [db.literal(`(SUM(\`sale_detail\`.\`quantity\` * \`sale_detail\`.\`price\`) - SUM(\`sale_detail\`.\`quantity\` * CASE WHEN \`sale_detail\`.\`stock_id\` IS NOT NULL THEN \`sale_detail\`.\`cost\` WHEN \`sale_detail\`.\`combo_id\` IS NOT NULL THEN ${comboCostSubQuery} ELSE CASE WHEN \`sale_detail\`.\`cost\` > 0 THEN \`sale_detail\`.\`cost\` ELSE \`sale_detail\`.\`price\` END END))`), 'overallProfit']
             ],
             where: dateRangeWhere
         });
@@ -6002,6 +6019,11 @@ export const getDailyCutReport = async (req, res) => {
                             comboCost += parseFloat(comboItem.quantity) * parseFloat(comboItem.stock?.cost || 0);
                         }
                         totalCost += parseFloat(detail.quantity) * comboCost;
+                    } else if (!detail.combo_id) {
+                        const manualUnitCost = parseFloat(detail.cost || 0) > 0
+                            ? parseFloat(detail.cost)
+                            : parseFloat(detail.price || 0);
+                        totalCost += parseFloat(detail.quantity) * manualUnitCost;
                     }
                 }
             }
