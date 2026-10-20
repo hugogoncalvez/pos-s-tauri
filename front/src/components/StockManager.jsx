@@ -296,8 +296,8 @@ const StockManager = () => {
         { id: 'name', label: 'Producto', align: 'center' },
         { id: 'description', label: 'Descripción', align: 'center' },
         { id: 'categoryName', label: 'Categoría', align: 'center' },
-        { id: 'stock', label: 'Stock', align: 'center', valueGetter: ({ row }) => formatQuantity(row.stock, row.tipo_venta) },
-        { id: 'min_stock', label: 'Mínimo', align: 'center', valueGetter: ({ row }) => formatQuantity(row.min_stock, row.tipo_venta) },
+        { id: 'stock', label: 'Stock', align: 'center', valueGetter: ({ row }) => formatQuantity(row.stock, row) },
+        { id: 'min_stock', label: 'Mínimo', align: 'center', valueGetter: ({ row }) => formatQuantity(row.min_stock, row) },
         { id: 'unitName', label: 'Medida', align: 'center' },
         { id: 'tipo_venta', label: 'Tipo Venta', align: 'center' },
         { id: 'supplierName', label: 'Proveedor', align: 'center' },
@@ -325,11 +325,15 @@ const StockManager = () => {
     const visibleColumns = useMemo(() => allColumns.filter(col => columnVisibility[col.id]), [allColumns, columnVisibility]);
 
     // --- Funciones de Formato ---
-    const formatQuantity = (value, tipo_venta) => {
+    const formatQuantity = (value, row = {}) => {
         const num = parseFloat(value);
         if (isNaN(num)) return '';
-        if (tipo_venta === 'pesable') return num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        return num.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+        const flag = row?.permite_decimales;
+        const allowsDecimal = flag !== null && flag !== undefined
+            ? flag === true || Number(flag) === 1
+            : row?.tipo_venta === 'pesable';
+        if (allowsDecimal) return num.toLocaleString('es-AR', { maximumFractionDigits: 3 });
+        return num.toLocaleString('es-AR', { maximumFractionDigits: 0 });
     };
 
     const formatCurrency = (value) => {

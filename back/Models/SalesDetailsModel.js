@@ -61,6 +61,31 @@ const SalesDetailsModel = db.define('sale_detail', {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
         comment: 'Costo del producto al momento de la venta'
+    },
+    presentation_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'Presentación vendida; NULL si se vendió la unidad base'
+    },
+    presentation_name: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Nombre de la presentación al momento de la venta'
+    },
+    presentation_quantity: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'Cantidad de paquetes/presentaciones vendidas'
+    },
+    unit_name: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Unidad base al momento de la venta'
+    },
+    line_total: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: true,
+        comment: 'Importe total de la línea'
     }
 }, {
     timestamps: true,

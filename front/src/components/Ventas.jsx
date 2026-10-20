@@ -52,6 +52,24 @@ import { ProductPresentationModal } from '../styledComponents/ProductPresentatio
 import { applyPromotions } from '../functions/salesLogic';
 import VentasSkeleton from '../styledComponents/skeletons/VentasSkeleton';
 
+const DECIMAL_UNIT_NAMES = new Set([
+  'kilogramo',
+  'litro',
+  'metro cúbico',
+  'metro cubico',
+  'metro lineal',
+  'metro'
+]);
+
+const productAllowsDecimalQuantity = (product) => {
+  const flag = product?.permite_decimales;
+  if (flag !== null && flag !== undefined) {
+    return flag === true || Number(flag) === 1;
+  }
+  const unitName = String(product?.unitName || '').trim().toLowerCase();
+  return product?.tipo_venta === 'pesable' || DECIMAL_UNIT_NAMES.has(unitName);
+};
+
 /**
  * Calcula los totales, recargos y saldos para una venta con pagos mixtos,
  * utilizando una lógica de cálculo directo para los recargos.
@@ -434,6 +452,9 @@ const Ventas = () => {
         id: item.id,
         stock_id: item.stock_id,
         presentation_id: item.presentation_id || null,
+        presentation_name: item.presentation_name || null,
+        presentation_quantity: item.presentation_id ? item.quantity : null,
+        unit_name: item.unitName || item.unit_name || null,
         promotion_id: item.promotion?.id || null,
         quantity: item.quantity_for_stock_deduction || item.quantity,
         price: item.price,
@@ -499,9 +520,12 @@ const Ventas = () => {
       promotion_discount: descuentoAplicado,
       sale_details: tempTable.map(item => ({
         stock: { name: item.name },
-        quantity: item.quantity,
+        quantity: item.quantity_for_stock_deduction || item.quantity,
         price: item.price,
-        cost: item.cost
+        cost: item.cost,
+        presentation_quantity: item.presentation_id ? item.quantity : null,
+        unit_name: item.unitName || item.unit_name || null,
+        line_total: item.cost
       })),
       sale_payments: paymentOption === 'single'
         ? [{ payment: { method: selectedSinglePaymentType?.method || selectedSinglePaymentType?.nombre || 'Efectivo' }, amount: totalFinal }]
@@ -1046,28 +1070,18 @@ const Ventas = () => {
   };
 
   const setValuesForm = (item) => {
-    // Determine if the item is a presentation
-    const isPresentation = item.presentation_id !== undefined && item.presentation_id !== null;
-
-    let displayPrice = item.price;
-    let displayQuantity = item.quantity; // Changed from quantityPerUnits
-
-    if (isPresentation) {
-      // For presentations, item.price is the total price of the presentation
-      // item.quantity is the quantity_in_base_units
-      // So, price per base unit = item.price / item.quantity
-      displayPrice = item.price / item.quantity; // Price per base unit
-    }
+    const displayPrice = item.price;
+    const displayQuantity = item.quantity;
 
     setFormValues({
       stock_id: item.stock_id,
       name: item.name,
       description: item.description,
-      price: displayPrice, // This will be price per base unit for presentations
-      quantity: displayQuantity, // This will be quantity_in_base_units for presentations
+      price: displayPrice,
+      quantityPerUnits: displayQuantity,
       category_id: item.category_id,
       units_id: item.units_id,
-      cost: item.cost // This is the total cost of the item (presentation price or base product total)
+      cost: item.cost
     });
   };
 
@@ -1157,6 +1171,9 @@ const Ventas = () => {
       temp_id: editingItem?.temp_id || Date.now() + Math.random(),
       stock_id: stock_id || null,
       presentation_id: editingItem?.presentation_id || null,
+      presentation_name: editingItem?.presentation_name || null,
+      unitName: editingItem?.unitName || editingItem?.unit_name || null,
+      type: editingItem?.type || (editingItem?.presentation_id ? 'presentation' : (stock_id ? 'product' : undefined)),
       quantity: parseFloat(quantityPerUnits) || 1, // This is the display quantity (number of presentations or base units)
       name: name.trim(),
       description: description?.trim() || (editingItem ? editingItem.description : 'Producto manual'),
@@ -1168,6 +1185,10 @@ const Ventas = () => {
     const isPresentation = itemToAdd.presentation_id !== undefined && itemToAdd.presentation_id !== null;
 
     if (isPresentation) {
+      if (!Number.isInteger(itemToAdd.quantity)) {
+        mostrarError('La cantidad de presentaciones debe ser un número entero.', theme);
+        return;
+      }
       // For presentations, 'price' from the form is the price of one presentation.
       itemToAdd.price = parseFloat(price) || 0; // Price of one presentation
       itemToAdd.cost = itemToAdd.quantity * itemToAdd.price; // Total cost for X presentations
@@ -1181,6 +1202,11 @@ const Ventas = () => {
         itemToAdd.quantity_for_stock_deduction = itemToAdd.quantity;
       }
     } else {
+      const stockItemForValidation = stock?.products?.find(s => s.id === itemToAdd.stock_id);
+      if (stockItemForValidation && !productAllowsDecimalQuantity(stockItemForValidation) && !Number.isInteger(itemToAdd.quantity)) {
+        mostrarError(`${stockItemForValidation.name} requiere una cantidad entera.`, theme);
+        return;
+      }
       // For base products, 'price' from the form is unit price.
       itemToAdd.price = parseFloat(price) || 0; // Unit price
       itemToAdd.cost = itemToAdd.quantity * itemToAdd.price; // Total cost
@@ -1353,6 +1379,10 @@ const Ventas = () => {
   };
 
   const addPresentationToCart = (presentation, baseProduct, quantity, forceSale = false) => {
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      mostrarError('La cantidad de presentaciones debe ser un número entero mayor a cero.', theme);
+      return;
+    }
     const totalBaseUnitsForStock = quantity * presentation.quantity_in_base_units;
     const priceOfOnePresentation = presentation.price;
     const totalCostForPresentations = quantity * priceOfOnePresentation;
@@ -1379,12 +1409,14 @@ const Ventas = () => {
         temp_id: Date.now() + Math.random(),
         stock_id: baseProduct.id,
         presentation_id: presentation.id,
+        presentation_name: presentation.name,
         quantity: quantity,
         price: priceOfOnePresentation,
         name: `${baseProduct.name} (${presentation.name})`,
         description: baseProduct.description,
         category_id: baseProduct.category_id,
         units_id: baseProduct.units_id,
+        unitName: baseProduct.unitName,
         cost: totalCostForPresentations,
         force_sale: forceSale,
         is_manual_entry: false,
@@ -1403,6 +1435,14 @@ const Ventas = () => {
   };
 
   const addItem = (product, quantity, forceSale = false) => {
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      mostrarError('Ingrese una cantidad mayor a cero.', theme);
+      return;
+    }
+    if (!productAllowsDecimalQuantity(product) && !Number.isInteger(quantity)) {
+      mostrarError(`${product.name} requiere una cantidad entera.`, theme);
+      return;
+    }
     const existingItemIndex = tempTable.findIndex(item => item.stock_id === product.id && item.type === 'product');
 
     if (existingItemIndex !== -1) {
@@ -1428,6 +1468,7 @@ const Ventas = () => {
         description: product.description,
         category_id: product.category_id,
         units_id: product.units_id,
+        unitName: product.unitName,
         cost: quantity * parseFloat(product.price),
         force_sale: forceSale,
         quantity_for_stock_deduction: quantity,
@@ -1449,6 +1490,14 @@ const Ventas = () => {
   }, [addItem]);
 
   const handleAddItemToCart = useCallback((product, quantity) => {
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      mostrarError('Ingrese una cantidad mayor a cero.', theme);
+      return;
+    }
+    if (!productAllowsDecimalQuantity(product) && !Number.isInteger(quantity)) {
+      mostrarError(`${product.name} requiere una cantidad entera.`, theme);
+      return;
+    }
     const existingItem = tempTable.find(item => item.stock_id === product.id && item.type === 'product');
     const currentQuantityInCart = existingItem ? existingItem.quantity : 0;
     const requestedQuantity = currentQuantityInCart + quantity;

@@ -16,6 +16,12 @@ const StocksModel = db.define('stock', {
         allowNull: false,
         defaultValue: 'unitario'
     },
+    permite_decimales: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue: null,
+        comment: 'Permite vender fracciones de la unidad base. NULL usa el fallback por unidad.'
+    },
     cost: { type: DataTypes.DECIMAL(10, 2) },
     stock: { type: DataTypes.DECIMAL(10, 3) },
     min_stock: { type: DataTypes.DECIMAL(10, 2) },

@@ -18,6 +18,12 @@ const parseMoney = (value) => {
     return isNaN(parsed) ? 0 : parsed;
 };
 
+const formatQuantity = (value) => {
+    const parsed = parseFloat(value);
+    if (isNaN(parsed)) return '';
+    return parsed % 1 === 0 ? String(parsed) : parsed.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+};
+
 const removeIframe = (iframe) => {
     if (iframe && iframe.parentNode) {
         try {
@@ -226,12 +232,22 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
         receiptContent += '<table><thead><tr><th>Producto</th><th class="text-center">Cant.</th><th class="text-right">Precio Unit.</th><th class="text-right">Subtotal</th></tr></thead><tbody>';
         if (sale.sale_details && sale.sale_details.length > 0) {
             sale.sale_details.forEach(detail => {
+                const hasPresentation = detail.presentation_quantity !== null && detail.presentation_quantity !== undefined;
+                const displayQuantity = hasPresentation ? detail.presentation_quantity : detail.quantity;
+                const lineTotal = detail.line_total !== null && detail.line_total !== undefined
+                    ? parseMoney(detail.line_total)
+                    : parseMoney(detail.quantity) * parseMoney(detail.price);
+                const unitPrice = hasPresentation
+                    ? lineTotal / Math.max(1, parseMoney(detail.presentation_quantity))
+                    : parseMoney(detail.price);
+                const presentationSuffix = detail.presentation_name ? ` (${detail.presentation_name})` : '';
+                const unitSuffix = !hasPresentation && detail.unit_name ? ` ${detail.unit_name}` : '';
                 receiptContent += `
                     <tr>
-                        <td>${sanitizeHtml(detail.stock?.name) || 'Producto Desconocido'}</td>
-                        <td class="text-center">${sanitizeHtml(detail.quantity)}</td>
-                        <td class="text-right">$ ${parseMoney(detail.price).toFixed(2)}</td>
-                        <td class="text-right">$ ${(sanitizeHtml(detail.quantity) * parseMoney(detail.price)).toFixed(2)}</td>
+                        <td>${sanitizeHtml(detail.stock?.name) || 'Producto Desconocido'}${sanitizeHtml(presentationSuffix)}</td>
+                        <td class="text-center">${sanitizeHtml(formatQuantity(displayQuantity))}${sanitizeHtml(unitSuffix)}</td>
+                        <td class="text-right">$ ${unitPrice.toFixed(2)}</td>
+                        <td class="text-right">$ ${lineTotal.toFixed(2)}</td>
                     </tr>
                 `;
             });

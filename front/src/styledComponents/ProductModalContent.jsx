@@ -15,7 +15,9 @@ import {
     CircularProgress,
     DialogContent,
     DialogActions,
-    Paper
+    Paper,
+    Checkbox,
+    FormControlLabel
 } from '@mui/material';
 import {
     Clear as ClearIcon,
@@ -43,6 +45,27 @@ const tipoVentaOptions = [
     { value: 'unitario', label: 'Unitario' },
     { value: 'pesable', label: 'Pesable' }
 ];
+
+const DECIMAL_UNIT_NAMES = new Set([
+    'kilogramo',
+    'litro',
+    'metro cúbico',
+    'metro cubico',
+    'metro lineal',
+    'metro'
+]);
+
+const allowsDecimalForForm = (values, unitsData) => {
+    const flag = values?.permite_decimales;
+    if (flag !== null && flag !== undefined) {
+        return flag === true || Number(flag) === 1;
+    }
+    if (values?.tipo_venta === 'pesable') return true;
+    const unitName = String(unitsData?.find(u => u.id === values?.units_id)?.name || '')
+        .trim()
+        .toLowerCase();
+    return DECIMAL_UNIT_NAMES.has(unitName);
+};
 
 export const ProductModalContent = React.memo(({
     product,
@@ -636,6 +659,17 @@ export const ProductModalContent = React.memo(({
                             />
                         )}
                     />
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={allowsDecimalForForm(values, unitsData)}
+                                    onChange={(e) => handleLocalInputChange({ target: { name: 'permite_decimales', value: e.target.checked } })}
+                                />
+                            }
+                            label='Permite decimales'
+                        />
+                    </Box>
                     <Autocomplete
                         options={unitsData || []}
                         getOptionLabel={(option) => option.name || ''}

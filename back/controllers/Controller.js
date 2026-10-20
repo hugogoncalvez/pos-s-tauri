@@ -25,6 +25,31 @@ class ValidationError extends Error {
     }
 }
 
+const DECIMAL_UNIT_NAMES = new Set([
+    'kilogramo',
+    'litro',
+    'metro cúbico',
+    'metro cubico',
+    'metro lineal',
+    'metro'
+]);
+
+const stockAllowsDecimalQuantity = (stockItem) => {
+    const flag = stockItem?.permite_decimales;
+    if (flag !== null && flag !== undefined) {
+        return flag === true || Number(flag) === 1;
+    }
+    const unitName = String(stockItem?.unit?.name || stockItem?.unitName || '')
+        .trim()
+        .toLowerCase();
+    return stockItem?.tipo_venta === 'pesable' || DECIMAL_UNIT_NAMES.has(unitName);
+};
+
+const toPositiveNumber = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
 /**
  * @description Obtiene todos los permisos disponibles en el sistema.
  */
@@ -828,8 +853,9 @@ export const getStocks = async (req, res) => {
             attributes: [
                 'id', 'barcode', 'name', 'description', 'cost', 'stock', 'visible',
                 'category_id', 'createdAt', 'updatedAt', 'units_id', 'price',
-                'min_stock', 'tipo_venta', 'supplier_id',
+                'min_stock', 'tipo_venta', 'supplier_id', 'permite_decimales',
                 [db.col('unit.name'), 'unitName'],
+                [db.col('unit.abreviatura'), 'unitAbbreviation'],
                 [db.col('stockCategory.name'), 'categoryName']
             ],
             include: [
@@ -931,7 +957,7 @@ export const getProductByBarcode = async (req, res) => {
                     model: StockModel,
                     as: 'stock', // Asegúrate que este alias es correcto
                     include: [
-                        { model: UnitModel, as: 'unit', attributes: ['name'] },
+                        { model: UnitModel, as: 'unit', attributes: ['name', 'abreviatura'] },
                         { model: StockCategoryModel, as: 'stockCategory', attributes: ['name'] }
                     ]
                 }
@@ -940,8 +966,10 @@ export const getProductByBarcode = async (req, res) => {
 
         if (presentation) {
             const presentationJson = presentation.toJSON();
-            // Añadir nombres para conveniencia del frontend
+            // Añadir datos de la unidad base para conveniencia del frontend
             presentationJson.unitName = presentationJson.stock.unit.name;
+            presentationJson.unitAbbreviation = presentationJson.stock.unit.abreviatura;
+            presentationJson.permite_decimales = presentationJson.stock.permite_decimales;
             presentationJson.categoryName = presentationJson.stock.stockCategory.name;
             // Devolver con un tipo específico
             return res.json({ ...presentationJson, type: 'presentation' });
@@ -951,7 +979,7 @@ export const getProductByBarcode = async (req, res) => {
         const product = await StockModel.findOne({
             where: { barcode, visible: 1 },
             include: [
-                { model: UnitModel, as: 'unit', attributes: ['name'] },
+                { model: UnitModel, as: 'unit', attributes: ['name', 'abreviatura'] },
                 { model: StockCategoryModel, as: 'stockCategory', attributes: ['name'] },
                 { model: SupplierModel, as: 'supplier', attributes: ['nombre'] },
                 { model: ProductPresentationsModel, as: 'presentations', required: false }
@@ -962,6 +990,7 @@ export const getProductByBarcode = async (req, res) => {
             const productJson = product.toJSON();
             // Añadir nombres para conveniencia del frontend
             productJson.unitName = productJson.unit.name;
+            productJson.unitAbbreviation = productJson.unit.abreviatura;
             productJson.categoryName = productJson.stockCategory.name;
             productJson.supplierName = productJson.supplier ? productJson.supplier.nombre : null;
             // Devolver con un tipo específico
@@ -1809,15 +1838,27 @@ export const createSale = async (req, res) => {
             const stockIds = [...new Set(tempValues.filter(i => i.stock_id && !i.is_manual_entry).map(i => i.stock_id))];
             const comboIds = [...new Set(tempValues.filter(i => i.type === 'combo').map(i => i.id))];
             const paymentMethodIds = [...new Set(payments.map(p => p.payment_method_id))];
+            const presentationIds = [...new Set(tempValues
+                .filter(i => i.presentation_id && !i.is_manual_entry)
+                .map(i => Number(i.presentation_id)))];
 
-            const [stockItems, comboItems, paymentMethodsList] = await Promise.all([
-                stockIds.length ? StockModel.findAll({ where: { id: { [Op.in]: stockIds } }, transaction }) : [],
+            const [stockItems, comboItems, paymentMethodsList, presentationItems] = await Promise.all([
+                stockIds.length ? StockModel.findAll({
+                    where: { id: { [Op.in]: stockIds } },
+                    include: [{ model: UnitModel, as: 'unit', attributes: ['id', 'name', 'abreviatura'], required: false }],
+                    transaction
+                }) : [],
                 comboIds.length ? ComboItem.findAll({ where: { combo_id: { [Op.in]: comboIds } }, transaction }) : [],
-                paymentMethodIds.length ? PaymentModel.findAll({ where: { id: { [Op.in]: paymentMethodIds } }, transaction }) : []
+                paymentMethodIds.length ? PaymentModel.findAll({ where: { id: { [Op.in]: paymentMethodIds } }, transaction }) : [],
+                presentationIds.length ? ProductPresentationsModel.findAll({
+                    where: { id: { [Op.in]: presentationIds } },
+                    transaction
+                }) : []
             ]);
             console.timeEnd('createSale_pre-load');
 
             const stockItemsMap = new Map(stockItems.map(s => [s.id, s]));
+            const presentationItemsMap = new Map(presentationItems.map(p => [p.id, p]));
             const comboItemsMap = new Map();
             comboItems.forEach(item => {
                 if (!comboItemsMap.has(item.combo_id)) comboItemsMap.set(item.combo_id, []);
@@ -1847,15 +1888,98 @@ export const createSale = async (req, res) => {
             console.timeEnd('createSale_payment-processing');
 
             const validationErrors = [];
+            const normalizedItems = new Map();
+
             for (const item of tempValues) {
-                if (item.is_manual_entry || item.type === 'combo') continue;
+                if (item.is_manual_entry) {
+                    const lineTotal = toPositiveNumber(item.final_price);
+                    if (lineTotal === null || lineTotal < 0) {
+                        validationErrors.push(`Importe inválido para ${item.name || 'producto manual'}`);
+                        continue;
+                    }
+                    normalizedItems.set(item, {
+                        baseQuantity: Number(item.quantity) || 1,
+                        lineTotal,
+                        presentation: null,
+                        presentationCount: null,
+                        unitName: item.unit_name || null
+                    });
+                    continue;
+                }
+
+                if (item.type === 'combo') {
+                    const lineTotal = toPositiveNumber(item.final_price);
+                    if (lineTotal === null || lineTotal < 0) {
+                        validationErrors.push(`Importe inválido para combo ID ${item.id}`);
+                    }
+                    continue;
+                }
+
                 const stockItem = stockItemsMap.get(item.stock_id);
                 if (!stockItem) {
                     validationErrors.push(`Producto ID ${item.stock_id} no encontrado`);
                     continue;
                 }
-                if (!item.force_sale && stockItem.stock < item.quantity) validationErrors.push(`Stock insuficiente: ${stockItem.name}`);
-                if (stockItem.tipo_venta === 'unitario' && !Number.isInteger(item.quantity)) validationErrors.push(`${stockItem.name} requiere cantidad entera`);
+
+                const rawQuantity = toPositiveNumber(item.quantity);
+                if (rawQuantity === null || rawQuantity <= 0) {
+                    validationErrors.push(`${stockItem.name} requiere una cantidad mayor a cero`);
+                    continue;
+                }
+
+                let presentation = null;
+                let presentationCount = null;
+                let baseQuantity = rawQuantity;
+                let lineTotal = toPositiveNumber(item.final_price);
+
+                if (item.presentation_id) {
+                    presentation = presentationItemsMap.get(Number(item.presentation_id));
+                    if (!presentation) {
+                        validationErrors.push(`Presentación ID ${item.presentation_id} no encontrada`);
+                        continue;
+                    }
+                    if (Number(presentation.stock_id) !== Number(stockItem.id)) {
+                        validationErrors.push(`La presentación ${presentation.name} no pertenece a ${stockItem.name}`);
+                        continue;
+                    }
+
+                    const factor = toPositiveNumber(presentation.quantity_in_base_units);
+                    if (factor === null || factor <= 0) {
+                        validationErrors.push(`Factor inválido para la presentación ${presentation.name}`);
+                        continue;
+                    }
+
+                    presentationCount = toPositiveNumber(item.presentation_quantity);
+                    if (presentationCount === null) {
+                        presentationCount = Number((rawQuantity / factor).toFixed(6));
+                    }
+                    if (!Number.isInteger(presentationCount) || presentationCount <= 0) {
+                        validationErrors.push(`La cantidad de ${presentation.name} debe ser un número entero`);
+                        continue;
+                    }
+
+                    baseQuantity = Number((presentationCount * factor).toFixed(3));
+                    lineTotal = Number((presentationCount * Number(presentation.price)).toFixed(2));
+                }
+
+                if (lineTotal === null || lineTotal < 0) {
+                    validationErrors.push(`Importe inválido para ${stockItem.name}`);
+                    continue;
+                }
+                if (!item.force_sale && Number(stockItem.stock) < baseQuantity) {
+                    validationErrors.push(`Stock insuficiente: ${stockItem.name}`);
+                }
+                if (!presentation && !stockAllowsDecimalQuantity(stockItem) && !Number.isInteger(baseQuantity)) {
+                    validationErrors.push(`${stockItem.name} requiere cantidad entera`);
+                }
+
+                normalizedItems.set(item, {
+                    baseQuantity,
+                    lineTotal,
+                    presentation,
+                    presentationCount,
+                    unitName: stockItem.unit?.name || null
+                });
             }
             if (validationErrors.length) throw new ValidationError(validationErrors.join('; '));
 
@@ -1866,7 +1990,14 @@ export const createSale = async (req, res) => {
 
             for (const item of tempValues) {
                 if (item.type === 'combo') {
-                    saleDetailsToCreate.push({ sales_Id: newSale.id, combo_id: item.id, quantity: item.quantity, price: item.final_price / item.quantity, cost: 0 });
+                    saleDetailsToCreate.push({
+                        sales_Id: newSale.id,
+                        combo_id: item.id,
+                        quantity: item.quantity,
+                        price: item.final_price / item.quantity,
+                        cost: 0,
+                        line_total: toPositiveNumber(item.final_price) ?? 0
+                    });
                     const components = comboItemsMap.get(item.id) || [];
                     components.forEach(comp => {
                         const qty = comp.quantity * item.quantity;
@@ -1874,20 +2005,41 @@ export const createSale = async (req, res) => {
                         stocksToCheck.add(comp.stock_id);
                     });
                 } else {
-                    const { stock_id, promotion_id, quantity, final_price } = item;
+                    const { stock_id, promotion_id } = item;
                     const stockItem = stockItemsMap.get(stock_id);
-                    saleDetailsToCreate.push({ sales_Id: newSale.id, stock_id: item.is_manual_entry ? null : stock_id, promotion_id: promotion_id || null, quantity, price: final_price / quantity, cost: stockItem?.cost || 0 });
+                    const normalized = normalizedItems.get(item) || {
+                        baseQuantity: Number(item.quantity),
+                        lineTotal: toPositiveNumber(item.final_price) ?? 0,
+                        presentation: null,
+                        presentationCount: null,
+                        unitName: null
+                    };
+                    const { baseQuantity, lineTotal, presentation, presentationCount, unitName } = normalized;
+
+                    saleDetailsToCreate.push({
+                        sales_Id: newSale.id,
+                        stock_id: item.is_manual_entry ? null : stock_id,
+                        promotion_id: promotion_id || null,
+                        quantity: baseQuantity,
+                        price: lineTotal / baseQuantity,
+                        cost: stockItem?.cost || 0,
+                        presentation_id: presentation?.id || null,
+                        presentation_name: presentation?.name || null,
+                        presentation_quantity: presentationCount,
+                        unit_name: unitName,
+                        line_total: lineTotal
+                    });
 
                     if (item.is_manual_entry) {
                         auditLogsToCreate.push({ user_id, action: 'VENTA_PRODUCTO_MANUAL', entity_type: 'sale_item', entity_id: newSale.id, session_id: activeSession.id, new_values: { product_name: item.name, price: item.price, quantity: item.quantity }, details: `Venta de producto manual: ${item.quantity} x ${item.name}` });
                     } else if (stock_id) {
-                        stockUpdates.set(stock_id, (stockUpdates.get(stock_id) || 0) + quantity);
+                        stockUpdates.set(stock_id, (stockUpdates.get(stock_id) || 0) + baseQuantity);
                         stocksToCheck.add(stock_id);
-                        if (stockItem?.price !== item.price) {
+                        if (!presentation && Number(stockItem?.price) !== Number(item.price)) {
                             auditLogsToCreate.push({ user_id, action: 'CAMBIO_PRECIO_MANUAL', entity_type: 'sale_item', entity_id: stock_id, session_id: activeSession.id, new_values: { sale_id: newSale.id, product_name: stockItem.name, original_price: stockItem.price, new_price: item.price }, details: `Precio modificado: ${stockItem.name}` });
                         }
-                        if (item.force_sale && stockItem.stock - quantity < 0) {
-                            auditLogsToCreate.push({ user_id, action: 'VENTA_FORZADA_STOCK_NEGATIVO', entity_type: 'stock', entity_id: stock_id, new_values: { product_name: stockItem.name, quantity, stock_before: stockItem.stock, stock_after: stockItem.stock - quantity }, details: `Venta forzada: ${quantity} x ${stockItem.name}` });
+                        if (item.force_sale && Number(stockItem.stock) - baseQuantity < 0) {
+                            auditLogsToCreate.push({ user_id, action: 'VENTA_FORZADA_STOCK_NEGATIVO', entity_type: 'stock', entity_id: stock_id, session_id: activeSession.id, new_values: { product_name: stockItem.name, quantity: baseQuantity, stock_before: stockItem.stock, stock_after: Number(stockItem.stock) - baseQuantity }, details: `Venta forzada: ${baseQuantity} x ${stockItem.name}` });
                         }
                     }
                 }
