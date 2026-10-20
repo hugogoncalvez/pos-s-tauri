@@ -26,7 +26,8 @@ import {
     DeleteForever as DeleteForeverIcon,
     SaveAs as SaveAsIcon,
     KeyboardArrowDown,
-    Close as CloseIcon
+    Close as CloseIcon,
+    Print as PrintIcon
 } from '@mui/icons-material';
 
 import { StyledAutocomplete } from '../styledComponents/ui/StyledAutocomplete';
@@ -39,6 +40,7 @@ import { NewSupplierModal } from '../styledComponents/NewSupplierModal';
 import { StyledTableRow, StyledTableCell } from '../styles/styles';
 
 import { ProductModalContent } from '../styledComponents/ProductModalContent';
+import PriceListModal from './PriceListModal';
 
 import { useForm } from '../hooks/useForm';
 import { UseFetchQuery, UseQueryWithCache } from '../hooks/useQuery';
@@ -128,6 +130,7 @@ const StockManager = () => {
     // --- Estados para la visibilidad de secciones y modales ---
     const [openFilterSection, setOpenFilterSection] = useState(false);
     const [productModalOpen, setProductModalOpen] = useState(false);
+    const [priceListOpen, setPriceListOpen] = useState(false);
     const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
     const [newSupplierName, setNewSupplierName] = useState('');
 
@@ -390,9 +393,14 @@ const StockManager = () => {
                         <Typography variant="body1" sx={{ opacity: 0.9 }}>Administra el inventario de tu negocio</Typography>
                     </Grid>
                     <Grid>
-                        <StyledButton variant="outlined" onClick={() => handleOpenProductModal()} startIcon={<SaveAsIcon />}>
-                            Nuevo Producto
-                        </StyledButton>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 1 }}>
+                            <StyledButton variant="outlined" onClick={() => setPriceListOpen(true)} startIcon={<PrintIcon />}>
+                                Lista de Precios
+                            </StyledButton>
+                            <StyledButton variant="outlined" onClick={() => handleOpenProductModal()} startIcon={<SaveAsIcon />}>
+                                Nuevo Producto
+                            </StyledButton>
+                        </Box>
                     </Grid>
                 </Grid>
             </Paper>
@@ -595,6 +603,11 @@ const StockManager = () => {
                     </Box>
                 </DialogContent>
             </StyledDialog>
+
+            <PriceListModal
+                open={priceListOpen}
+                onClose={() => setPriceListOpen(false)}
+            />
 
             <NewSupplierModal
                 open={supplierDialogOpen}
