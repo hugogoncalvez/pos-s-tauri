@@ -1959,7 +1959,9 @@ export const createSale = async (req, res) => {
                     }
 
                     baseQuantity = Number((presentationCount * factor).toFixed(3));
-                    lineTotal = Number((presentationCount * Number(presentation.price)).toFixed(2));
+                    if (lineTotal === null) {
+                        lineTotal = Number((presentationCount * Number(presentation.price)).toFixed(2));
+                    }
                 }
 
                 if (lineTotal === null || lineTotal < 0) {
@@ -2035,7 +2037,12 @@ export const createSale = async (req, res) => {
                     } else if (stock_id) {
                         stockUpdates.set(stock_id, (stockUpdates.get(stock_id) || 0) + baseQuantity);
                         stocksToCheck.add(stock_id);
-                        if (!presentation && Number(stockItem?.price) !== Number(item.price)) {
+                        if (presentation) {
+                            const soldPresentationPrice = lineTotal / presentationCount;
+                            if (Math.abs(Number(presentation.price) - soldPresentationPrice) > 0.0001) {
+                                auditLogsToCreate.push({ user_id, action: 'CAMBIO_PRECIO_MANUAL', entity_type: 'sale_item', entity_id: stock_id, session_id: activeSession.id, new_values: { sale_id: newSale.id, product_name: stockItem.name, presentation_name: presentation.name, original_price: presentation.price, new_price: soldPresentationPrice }, details: `Precio modificado: ${stockItem.name} (${presentation.name})` });
+                            }
+                        } else if (Number(stockItem?.price) !== Number(item.price)) {
                             auditLogsToCreate.push({ user_id, action: 'CAMBIO_PRECIO_MANUAL', entity_type: 'sale_item', entity_id: stock_id, session_id: activeSession.id, new_values: { sale_id: newSale.id, product_name: stockItem.name, original_price: stockItem.price, new_price: item.price }, details: `Precio modificado: ${stockItem.name}` });
                         }
                         if (item.force_sale && Number(stockItem.stock) - baseQuantity < 0) {

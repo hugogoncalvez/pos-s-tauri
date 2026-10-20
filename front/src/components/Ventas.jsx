@@ -1167,19 +1167,23 @@ const Ventas = () => {
       return;
     }
 
+    const isCombo = editingItem?.type === 'combo';
+
     let itemToAdd = {
       temp_id: editingItem?.temp_id || Date.now() + Math.random(),
+      id: editingItem?.id,
       stock_id: stock_id || null,
       presentation_id: editingItem?.presentation_id || null,
       presentation_name: editingItem?.presentation_name || null,
       unitName: editingItem?.unitName || editingItem?.unit_name || null,
+      combo_items: editingItem?.combo_items,
       type: editingItem?.type || (editingItem?.presentation_id ? 'presentation' : (stock_id ? 'product' : undefined)),
       quantity: parseFloat(quantityPerUnits) || 1, // This is the display quantity (number of presentations or base units)
       name: name.trim(),
       description: description?.trim() || (editingItem ? editingItem.description : 'Producto manual'),
       category_id: category_id || null,
       units_id: units_id || null,
-      is_manual_entry: !stock_id,
+      is_manual_entry: isCombo ? false : !stock_id,
     };
 
     const isPresentation = itemToAdd.presentation_id !== undefined && itemToAdd.presentation_id !== null;
