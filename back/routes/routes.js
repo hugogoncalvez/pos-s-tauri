@@ -57,6 +57,7 @@ import {
     updateBusinessConfig
 } from "../controllers/Controller.js";
 import authRoutes from './auth.js';
+import * as quoteController from '../controllers/quoteController.js';
 import * as comandaController from '../controllers/comandaController.js';
 //import fiscalRoutes from './fiscal.js';
 import db from '../database/db.js'; // Import the database instance
@@ -151,6 +152,12 @@ authenticatedRouter.get('/sales', checkPermission('listar_ventas_historial'), ge
 authenticatedRouter.get('/salesdetails', checkPermission('listar_ventas_historial'), getSalesDetails);
 authenticatedRouter.get('/sales/:id/details', checkPermission('listar_ventas_historial'), getSaleDetails);
 authenticatedRouter.delete('/sales/:id', checkPermission('accion_cancelar_venta'), deleteSale);
+
+authenticatedRouter.get('/quotes', checkPermission('ver_vista_presupuestos'), quoteController.getQuotes);
+authenticatedRouter.get('/quotes/:id', checkPermission('ver_vista_presupuestos'), quoteController.getQuote);
+authenticatedRouter.post('/quotes', checkPermission('accion_crear_presupuesto'), quoteController.createQuote);
+authenticatedRouter.put('/quotes/:id', checkPermission('accion_editar_presupuesto'), quoteController.updateQuote);
+authenticatedRouter.put('/quotes/:id/status', checkPermission(['accion_editar_presupuesto', 'accion_anular_presupuesto']), quoteController.updateQuoteStatus);
 
 // --- RUTAS DE CAJA ---
 authenticatedRouter.post('/cash-sessions/open', checkPermission('accion_abrir_caja'), openCashSession);

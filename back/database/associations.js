@@ -27,6 +27,8 @@ import { ComboItem } from '../Models/ComboItemModel.js';
 import UserPermissionModel from '../Models/UserPermissionModel.js';
 import PermissionModel from '../Models/PermissionModel.js';
 import BusinessConfigModel from '../Models/BusinessConfigModel.js';
+import QuoteModel from '../Models/QuoteModel.js';
+import QuoteDetailModel from '../Models/QuoteDetailModel.js';
 
 
 StockCategoryModel.hasMany(StockModel, { foreignKey: 'category_id' });
@@ -75,6 +77,26 @@ ComboModel.hasMany(SaleDetailModel, { foreignKey: 'combo_id' });
 // SalesDetails <-> Promotions (Many-to-One)
 PromotionModel.hasMany(SaleDetailModel, { foreignKey: 'promotion_id' }); // FK en SalesDetailsModel
 SaleDetailModel.belongsTo(PromotionModel, { foreignKey: 'promotion_id' });
+
+// --- Asociaciones de Presupuestos ---
+
+QuoteModel.hasMany(QuoteDetailModel, { foreignKey: 'quote_id', as: 'details', onDelete: 'CASCADE' });
+QuoteDetailModel.belongsTo(QuoteModel, { foreignKey: 'quote_id', as: 'quote' });
+
+CustomerModel.hasMany(QuoteModel, { foreignKey: 'customer_id', as: 'quotes' });
+QuoteModel.belongsTo(CustomerModel, { foreignKey: 'customer_id', as: 'customer' });
+
+UsuarioModel.hasMany(QuoteModel, { foreignKey: 'user_id', as: 'quotes' });
+QuoteModel.belongsTo(UsuarioModel, { foreignKey: 'user_id', as: 'user' });
+
+StockModel.hasMany(QuoteDetailModel, { foreignKey: 'stock_id', as: 'quote_details' });
+QuoteDetailModel.belongsTo(StockModel, { foreignKey: 'stock_id', as: 'stock' });
+
+ProductPresentationsModel.hasMany(QuoteDetailModel, { foreignKey: 'presentation_id', as: 'quote_details' });
+QuoteDetailModel.belongsTo(ProductPresentationsModel, { foreignKey: 'presentation_id', as: 'presentation' });
+
+SaleModel.hasMany(QuoteModel, { foreignKey: 'converted_sale_id', as: 'converted_quotes' });
+QuoteModel.belongsTo(SaleModel, { foreignKey: 'converted_sale_id', as: 'converted_sale' });
 
 // --- Asociaciones de Sesiones de Caja ---
 
@@ -204,5 +226,6 @@ export {
   SaleModel, SaleDetailModel, CustomerModel, PaymentModel, PromotionModel, UsuarioModel,
   CashSessionsModel, AuditLogModel, CustomerPaymentsModel, SupplierModel, RoleModel, SalePaymentModel,
   CashSessionMovementModel, ThemeSettingModel, PendingTicketModel, ComandaModel, ProductPresentationsModel, ProductPromotionsModel,
-  ComboModel, ComboItem, UserPermissionModel, PermissionModel, BusinessConfigModel
+  ComboModel, ComboItem, UserPermissionModel, PermissionModel, BusinessConfigModel,
+  QuoteModel, QuoteDetailModel
 };

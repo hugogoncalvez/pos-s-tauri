@@ -137,6 +137,7 @@ import { useCreateSale } from '../hooks/useCreateSale';
 const Ventas = () => {
 
   const theme = useTheme(); // Inicializar el hook useTheme
+  const quoteConversionLoadedRef = useRef(false);
   const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
   const formatCurrency = (amount) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount || 0);
 
@@ -207,6 +208,7 @@ const Ventas = () => {
   const [amountReceived, setAmountReceived] = useState('');
   const [summaryError, setSummaryError] = useState(''); // <-- Nuevo estado para el error del modal
   const [saleCompletedId, setSaleCompletedId] = useState(null); // <--- Nuevo estado para el ID de la venta completada
+  const [quoteConversion, setQuoteConversion] = useState(null);
 
 
   const [paymentOption, setPaymentOption] = useState('single'); // 'single' or 'mixed'
@@ -258,7 +260,10 @@ const Ventas = () => {
   const [formValues, handleInputChange, reset, resetArray, setFormValues] = useForm()
   const { mutateAsync: deleteItem, isLoading: isDeletingTicket } = useDelete();
 
-  const processedTempTable = useMemo(() => applyPromotions(tempTable, promotions), [tempTable, promotions]);
+  const processedTempTable = useMemo(
+    () => (quoteConversion ? tempTable : applyPromotions(tempTable, promotions)),
+    [tempTable, promotions, quoteConversion]
+  );
 
   // Función helper para enfocar el campo de código de barras (NO es useCallback)
   const focusBarcodeInput = () => {
@@ -302,10 +307,95 @@ const Ventas = () => {
     setSelectedCustomer({ id: 1, name: "Consumidor Final" });
     setDescuento(0);
     setIvaActivo(false);
+    setQuoteConversion(null);
+    sessionStorage.removeItem('pendingQuoteConversion');
     localStorage.removeItem('tempTable');
     setAmountReceived('');
     focusBarcodeInput();
   }, [paymentMethods, setValues, focusBarcodeInput]);
+
+  useEffect(() => {
+    if (quoteConversionLoadedRef.current) return;
+    quoteConversionLoadedRef.current = true;
+
+    const rawQuote = sessionStorage.getItem('pendingQuoteConversion');
+    if (!rawQuote) return;
+
+    try {
+      const quote = JSON.parse(rawQuote);
+      const details = Array.isArray(quote.details) ? quote.details : [];
+      if (details.length === 0) {
+        throw new Error('El presupuesto no tiene ítems para convertir.');
+      }
+
+      const items = details.map((detail) => {
+        const quantity = Number(detail.quantity);
+        const baseQuantity = Number(detail.base_quantity);
+        const unitPrice = Number(detail.unit_price);
+        const lineTotal = Number(detail.line_total);
+        const safeQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+        const safeBaseQuantity = Number.isFinite(baseQuantity) && baseQuantity > 0 ? baseQuantity : safeQuantity;
+        const safeUnitPrice = Number.isFinite(unitPrice) && unitPrice >= 0 ? unitPrice : 0;
+        const safeLineTotal = Number.isFinite(lineTotal) ? lineTotal : safeQuantity * safeUnitPrice;
+        const hasStock = Boolean(detail.stock_id);
+        const hasPresentation = Boolean(detail.presentation_id);
+        const productName = detail.product_name || detail.presentation_name || 'Ítem de presupuesto';
+
+        return {
+          temp_id: Date.now() + Math.random(),
+          stock_id: hasStock ? Number(detail.stock_id) : null,
+          presentation_id: hasPresentation ? Number(detail.presentation_id) : null,
+          presentation_name: hasPresentation ? detail.presentation_name || null : null,
+          quantity: safeQuantity,
+          price: safeUnitPrice,
+          name: hasPresentation && detail.presentation_name
+            ? `${productName} (${detail.presentation_name})`
+            : productName,
+          description: detail.notes || '',
+          unitName: detail.unit_name || null,
+          cost: safeLineTotal,
+          force_sale: false,
+          is_manual_entry: !hasStock,
+          purchase_cost: !hasStock ? (Number(detail.cost) || safeUnitPrice) : null,
+          quantity_for_stock_deduction: safeBaseQuantity,
+          type: hasPresentation ? 'presentation' : (hasStock ? 'product' : undefined),
+        };
+      });
+
+      setTempTable(items);
+      setSelectedCustomer({
+        id: quote.customer_id || 1,
+        name: quote.customer_name || 'Consumidor Final'
+      });
+      setDescuento(Number(quote.discount) || 0);
+      setIvaActivo(false);
+      setCurrentTicketId(null);
+      setSelectedSinglePaymentType(null);
+      setPaymentOption('single');
+      setMixedPayments([
+        { payment_method_id: null, amount: '' },
+        { payment_method_id: null, amount: '' }
+      ]);
+      setAmountReceived('');
+      setQuoteConversion(quote);
+      focusBarcodeInput();
+    } catch (error) {
+      sessionStorage.removeItem('pendingQuoteConversion');
+      mostrarError(error.message || 'No se pudo preparar la conversión del presupuesto.', theme);
+    }
+  }, [theme]);
+
+  const handleCancelQuoteConversion = () => {
+    mostrarConfirmacion(
+      {
+        title: 'Cancelar conversión',
+        text: 'Se quitarán los ítems del presupuesto y se limpiará la venta actual.',
+        confirmButtonText: 'Sí, cancelar'
+      },
+      theme,
+      () => clearSaleState()
+    );
+  };
 
   // Nueva función para cancelar la edición de un ticket pendiente
   const handleCancelEdit = () => {
@@ -446,6 +536,7 @@ const Ventas = () => {
       surcharge_amount: surchargeAmount,
       total_neto: totalFinal,
       customer_id: selectedCustomer.id,
+      quote_id: quoteConversion?.id || null,
       user_id: userId,
       payments: paymentsToSend,
       tempValues: processedTempTable.map(item => ({
@@ -472,6 +563,7 @@ const Ventas = () => {
     createSale(saleData, {
       onSuccess: async (data) => {
         Swal.close(); // Cerrar la alerta de carga
+        const convertedQuoteId = quoteConversion?.id || null;
 
         if (ticketIdToDelete) {
           const ticketToDeleteObject = pendingTickets.find(t => t.local_id === ticketIdToDelete);
@@ -488,6 +580,9 @@ const Ventas = () => {
 
         clearSaleState();
         setIsSummaryModalOpen(false);
+        if (convertedQuoteId) {
+          queryClient.invalidateQueries({ queryKey: ['quotes'] });
+        }
 
         if (data.source === 'api') {
           setSaleCompletedId(data.id);
@@ -506,7 +601,7 @@ const Ventas = () => {
     currentTicketId, tempTable, paymentOption, selectedSinglePaymentType, selectedCustomer,
     totalFinal, mixedPayments, usuario, theme, subtotal,
     descuentoAplicado, surchargeAmount, processedTempTable, isOnline, queryClient,
-    clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
+    quoteConversion, clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
     mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets
   ]);
 
@@ -1302,6 +1397,8 @@ const Ventas = () => {
     setIvaActivo(data.ivaActivo);
     setDescuento(data.descuento);
     setCurrentTicketId(ticket.local_id); // Usar el ID local para la gestión interna
+    setQuoteConversion(null);
+    sessionStorage.removeItem('pendingQuoteConversion');
     setShowPendingTickets(false);
 
     // Guardar en localStorage para persistencia local mientras se edita
@@ -2057,6 +2154,39 @@ const Ventas = () => {
                 <Tooltip title="Cancelar Edición">
                   <IconButton onClick={handleCancelEdit} size="small" sx={{ ml: 1 }}>
                     <ClearIcon sx={{ fontSize: 18, color: '#63b3ed' }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
+            {quoteConversion && (
+              <Box sx={{
+                bgcolor: quoteConversion.effective_status === 'vencido' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid',
+                borderColor: quoteConversion.effective_status === 'vencido' ? 'warning.main' : 'success.main',
+                borderRadius: 2,
+                px: 2,
+                py: 1,
+                mb: 2,
+                mt: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1,
+                flexWrap: 'wrap',
+                maxWidth: '720px',
+                mx: 'auto'
+              }}>
+                <Chip
+                  size="small"
+                  color={quoteConversion.effective_status === 'vencido' ? 'warning' : 'success'}
+                  label={`Presupuesto ${quoteConversion.quote_number || ''}`}
+                />
+                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                  {quoteConversion.customer_name || 'Consumidor Final'} — se convertirá en venta al confirmar
+                </Typography>
+                <Tooltip title="Cancelar conversión">
+                  <IconButton onClick={handleCancelQuoteConversion} size="small">
+                    <ClearIcon sx={{ fontSize: 18 }} />
                   </IconButton>
                 </Tooltip>
               </Box>

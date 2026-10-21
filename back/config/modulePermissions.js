@@ -14,6 +14,16 @@ const modulePermissions = {
       'accion_aplicar_descuento'
     ]
   },
+  Presupuestos: {
+    vista: 'ver_vista_presupuestos',
+    acciones: [
+      'accion_crear_presupuesto',
+      'accion_editar_presupuesto',
+      'accion_anular_presupuesto',
+      'accion_convertir_presupuesto',
+      'accion_imprimir_presupuesto'
+    ]
+  },
   Caja: {
     vista: 'ver_vista_caja_admin', // Vista para Admin/Gerente
     acciones: [

@@ -5,7 +5,8 @@ import {
     SaleModel, SaleDetailModel, CustomerModel, PaymentModel, PromotionModel, UsuarioModel,
     CashSessionsModel, AuditLogModel, RoleModel, SalePaymentModel, CashSessionMovementModel,
     ThemeSettingModel, PendingTicketModel, ProductPresentationsModel, ProductPromotionsModel,
-    ComboModel, ComboItem, PermissionModel, UserPermissionModel, BusinessConfigModel
+    ComboModel, ComboItem, PermissionModel, UserPermissionModel, BusinessConfigModel,
+    QuoteModel
 } from '../database/associations.js';
 import CustomerPaymentsModel from '../Models/CustomerPaymentsModel.js';
 import db from '../database/db.js';
@@ -1812,7 +1813,7 @@ export const createSale = async (req, res) => {
         try {
             console.time('createSale_total');
 
-            const { total_amount, promotion_discount, customer_id, user_id, payments, tempValues, surcharge_amount } = req.body;
+            const { total_amount, promotion_discount, customer_id, user_id, payments, tempValues, surcharge_amount, quote_id } = req.body;
     
             let { total_neto } = req.body;
 
@@ -1827,6 +1828,30 @@ export const createSale = async (req, res) => {
             const totalPaymentsAmount = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
             if (totalPaymentsAmount < total_amount - 0.01) {
                 throw new ValidationError(`Monto insuficiente: ${totalPaymentsAmount.toFixed(2)} < ${total_amount.toFixed(2)}`);
+            }
+
+            let quoteToConvert = null;
+            if (quote_id) {
+                const userPermissions = req.usuario?.permisos || [];
+                if (!userPermissions.includes('accion_convertir_presupuesto')) {
+                    throw new ValidationError('No tienes permiso para convertir presupuestos en ventas.', 403);
+                }
+
+                quoteToConvert = await QuoteModel.findByPk(quote_id, {
+                    transaction,
+                    lock: transaction.LOCK.UPDATE
+                });
+
+                if (!quoteToConvert) {
+                    throw new ValidationError('El presupuesto indicado no existe.', 404);
+                }
+                if (!['Administrador', 'Gerente'].includes(req.usuario?.rol_nombre)
+                    && Number(quoteToConvert.user_id) !== Number(req.usuario?.id)) {
+                    throw new ValidationError('No tienes acceso a este presupuesto.', 403);
+                }
+                if (quoteToConvert.status !== 'emitido') {
+                    throw new ValidationError('Solo los presupuestos emitidos pueden convertirse en ventas.', 409);
+                }
             }
 
             const newSale = await SaleModel.create({
@@ -2095,6 +2120,26 @@ export const createSale = async (req, res) => {
                     await AuditLogModel.bulkCreate(lowStockItems.map(item => ({ ...commonAuditData, entity_id: item.id, new_values: { current_stock: item.stock, min_stock: item.min_stock }, details: `Stock bajo: ${item.name} (${item.stock}/${item.min_stock})` })), { transaction });
                 }
                 console.timeEnd('createSale_low-stock-check');
+            }
+
+            if (quoteToConvert) {
+                await quoteToConvert.update({
+                    status: 'convertido',
+                    converted_sale_id: newSale.id
+                }, { transaction });
+
+                await logAudit({
+                    user_id: req.usuario?.id || user_id,
+                    action: 'CONVERTIR_PRESUPUESTO',
+                    entity_type: 'quote',
+                    entity_id: quoteToConvert.id,
+                    new_values: {
+                        quote_number: quoteToConvert.quote_number,
+                        sale_id: newSale.id,
+                        total_amount
+                    },
+                    details: `Se convirtió el presupuesto ${quoteToConvert.quote_number} en la venta ${newSale.id}.`,
+                }, req, transaction);
             }
 
             await transaction.commit();
