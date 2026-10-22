@@ -11,21 +11,13 @@ const escapeHtml = (value) => {
 const formatPrice = (value) => {
     const number = Number(value);
     if (!Number.isFinite(number)) return '$ 0,00';
-    return number.toLocaleString('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
+    return `$${number.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const formatQuantity = (value) => {
     const number = Number(value);
     if (!Number.isFinite(number)) return '';
-    return number.toLocaleString('es-AR', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 3
-    });
+    return number.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
 };
 
 const formatDate = (value) => {
@@ -57,103 +49,134 @@ const statusLabel = (status) => {
     }
 };
 
+const ORIGIN_DEFAULT = 'OFICINA CENTRAL';
+
+/**
+ * Imprime el presupuesto replicando el formato de "COTIZACION DE MATERIALES" que usa el cliente:
+ * logo y datos de la empresa, cabecera (Nº, fecha, origen, cliente), tabla CANTIDAD / UND. /
+ * DETALLE / PRECIOS / TOTAL con fila FINAL y los tres campos de firma
+ * (CONFECCIONADO / AUTORIZADO / RECIBIDO).
+ */
 export const printQuote = ({ quote, businessConfig = null }) => {
     if (!quote) return false;
 
     const business = Array.isArray(businessConfig) ? businessConfig[0] : businessConfig;
     const details = Array.isArray(quote.details) ? quote.details : [];
     const status = quote.effective_status || quote.status;
+    const origin = quote.origin || ORIGIN_DEFAULT;
 
-    const rowsHtml = details.map((item) => `
-        <tr>
-            <td>
-                <div class="product-name">${escapeHtml(item.product_name)}</div>
-                ${item.presentation_name ? `<div class="product-detail">${escapeHtml(item.presentation_name)}</div>` : ''}
-                ${item.notes ? `<div class="product-detail">${escapeHtml(item.notes)}</div>` : ''}
-            </td>
-            <td class="center">${escapeHtml(item.unit_name || '')}</td>
-            <td class="right">${formatQuantity(item.quantity)}</td>
-            <td class="right">${formatPrice(item.unit_price)}</td>
-            <td class="right strong">${formatPrice(item.line_total)}</td>
-        </tr>
-    `).join('');
+    const rowsHtml = details.map((item) => {
+        const extra = [item.presentation_name, item.notes].filter(Boolean).map((text) => escapeHtml(text)).join('<br>');
+        return `
+            <tr>
+                <td class="num">${escapeHtml(formatQuantity(item.quantity))}</td>
+                <td class="und">${escapeHtml(item.unit_name || '')}</td>
+                <td class="detalle">${escapeHtml(item.product_name)}${extra ? `<div class="detalle-extra">${extra}</div>` : ''}</td>
+                <td class="num">${formatPrice(item.unit_price)}</td>
+                <td class="num">${formatPrice(item.line_total)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const emptyRows = Array.from({ length: Math.max(0, 6 - details.length) })
+        .map(() => '<tr><td class="num"></td><td class="und"></td><td class="detalle"></td><td class="num"></td><td class="num"></td></tr>')
+        .join('');
+
+    const companyBlock = `
+        <div class="company">
+            ${business?.address ? `<div>${escapeHtml(business.address)}</div>` : ''}
+            ${business?.phone ? `<div>Tel. ${escapeHtml(business.phone)}</div>` : ''}
+        </div>
+    `;
+
+    const logoBlock = business?.logo
+        ? `<img class="logo-img" src="${escapeHtml(business.logo)}" alt="${escapeHtml(business?.name || '')}" />`
+        : `<div class="logo-text">${escapeHtml(business?.name || 'EL CORRALON')}</div>`;
 
     const headerHtml = `
-        <div class="header">
-            <div class="brand">
-                ${business?.logo ? `<img src="${escapeHtml(business.logo)}" class="logo" alt="Logo" />` : ''}
-                <div>
-                    <div class="company-name">${escapeHtml(business?.name || 'Sistema POS')}</div>
-                    <div class="company-info">
-                        ${business?.address ? `<span>${escapeHtml(business.address)}</span>` : ''}
-                        ${business?.phone ? `<span>Tel: ${escapeHtml(business.phone)}</span>` : ''}
-                        ${business?.email ? `<span>${escapeHtml(business.email)}</span>` : ''}
-                        ${business?.cuit ? `<span>CUIT: ${escapeHtml(business.cuit)}</span>` : ''}
-                    </div>
-                </div>
-            </div>
-            <div class="document-title">
-                <h1>PRESUPUESTO</h1>
-                <div class="document-number">${escapeHtml(quote.quote_number || 'Sin número')}</div>
-                <span class="status status-${escapeHtml(String(status).toLowerCase())}">${statusLabel(status)}</span>
-            </div>
+        <div class="head">
+            <div class="logo-wrap">${logoBlock}</div>
+            ${companyBlock}
         </div>
-    `;
-
-    const metaHtml = `
-        <div class="meta-grid">
-            <div class="meta-card">
-                <div class="meta-label">Cliente</div>
-                <div class="meta-value">${escapeHtml(quote.customer_name)}</div>
-                ${quote.customer_document ? `<div class="meta-line">Documento: ${escapeHtml(quote.customer_document)}</div>` : ''}
-                ${quote.customer_phone ? `<div class="meta-line">Tel: ${escapeHtml(quote.customer_phone)}</div>` : ''}
-                ${quote.customer_address ? `<div class="meta-line">${escapeHtml(quote.customer_address)}</div>` : ''}
-                ${quote.customer_email ? `<div class="meta-line">${escapeHtml(quote.customer_email)}</div>` : ''}
-            </div>
-            <div class="meta-card">
-                <div class="meta-row"><span>Fecha</span><strong>${formatDate(quote.quote_date)}</strong></div>
-                <div class="meta-row"><span>Válido hasta</span><strong>${formatDate(quote.valid_until)}</strong></div>
-                <div class="meta-row"><span>Vendedor</span><strong>${escapeHtml(quote.user?.nombre || quote.user?.username || '')}</strong></div>
-                <div class="meta-row"><span>Estado</span><strong>${statusLabel(status)}</strong></div>
-            </div>
-        </div>
-    `;
-
-    const tableHtml = `
-        <table>
-            <thead>
-                <tr>
-                    <th>Descripción</th>
-                    <th class="center">Unidad</th>
-                    <th class="right">Cantidad</th>
-                    <th class="right">Precio unit.</th>
-                    <th class="right">Subtotal</th>
-                </tr>
-            </thead>
+        <table class="form head-table">
             <tbody>
-                ${rowsHtml || '<tr><td colspan="5" class="center">Sin ítems</td></tr>'}
+                <tr>
+                    <th class="label wide">COTIZACION DE MATERIALES Nº:</th>
+                    <td class="strong italic">${escapeHtml(quote.quote_number || '')}</td>
+                    <th class="label"></th>
+                    <td class="status">${escapeHtml(statusLabel(status))}</td>
+                </tr>
+                <tr>
+                    <th class="label">FECHA:</th>
+                    <td class="strong italic">${escapeHtml(formatDate(quote.quote_date))}</td>
+                    <th class="label">ORIGEN:</th>
+                    <td class="strong italic">${escapeHtml(origin)}</td>
+                </tr>
+                <tr>
+                    <th class="label">CLIENTE</th>
+                    <td class="strong italic" colspan="3">
+                        ${escapeHtml(quote.customer_name || '')}
+                        ${quote.customer_document ? `<span class="muted"> - ${escapeHtml(quote.customer_document)}</span>` : ''}
+                        ${quote.customer_phone ? `<span class="muted"> - Tel: ${escapeHtml(quote.customer_phone)}</span>` : ''}
+                    </td>
+                </tr>
             </tbody>
         </table>
     `;
 
-    const totalsHtml = `
-        <div class="totals-wrap">
-            <div class="notes">
-                ${quote.notes ? `<div class="notes-block"><div class="notes-title">Notas</div><div>${escapeHtml(quote.notes)}</div></div>` : ''}
-                ${quote.terms ? `<div class="notes-block"><div class="notes-title">Condiciones</div><div>${escapeHtml(quote.terms)}</div></div>` : ''}
-            </div>
-            <div class="totals">
-                <div class="total-row"><span>Subtotal</span><strong>${formatPrice(quote.subtotal)}</strong></div>
-                ${Number(quote.discount) > 0 ? `<div class="total-row"><span>Descuento</span><strong>- ${formatPrice(quote.discount)}</strong></div>` : ''}
-                <div class="total-row grand"><span>TOTAL</span><strong>${formatPrice(quote.total)}</strong></div>
-            </div>
-        </div>
+    const tableHtml = `
+        <table class="form items">
+            <thead>
+                <tr>
+                    <th class="num" style="width: 11%">CANTIDAD</th>
+                    <th class="und" style="width: 11%">UND.</th>
+                    <th>DETALLE</th>
+                    <th class="num" style="width: 17%">PRECIOS</th>
+                    <th class="num" style="width: 19%">TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rowsHtml || emptyRows}
+                <tr class="final-row">
+                    <td colspan="4" class="right">FINAL</td>
+                    <td class="num">${formatPrice(quote.total)}</td>
+                </tr>
+            </tbody>
+        </table>
+    `;
+
+    const notesHtml = (quote.notes || quote.terms)
+        ? `
+        <table class="form notes-table">
+            <tbody>
+                ${quote.notes ? `<tr><th class="label">OBSERVACIONES</th><td>${escapeHtml(quote.notes)}</td></tr>` : ''}
+                ${quote.terms ? `<tr><th class="label">CONDICIONES</th><td>${escapeHtml(quote.terms)}</td></tr>` : ''}
+            </tbody>
+        </table>
+        `
+        : '';
+
+    const signaturesHtml = `
+        <table class="form signatures">
+            <tbody>
+                <tr>
+                    <td>CONFECCIONADO</td>
+                    <td>AUTORIZADO</td>
+                    <td>RECIBIDO</td>
+                </tr>
+                <tr class="sign-space">
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
     `;
 
     const footerHtml = `
         <div class="footer">
-            <span>${escapeHtml(business?.footerText || 'Gracias por su consulta.')}</span>
-            <span>Presupuesto válido hasta ${formatDate(quote.valid_until)}. Precios sujetos a cambios.</span>
+            <span>${escapeHtml(business?.footerText || '¡Gracias por su preferencia!')}</span>
+            <span>Presupuesto válido hasta ${escapeHtml(formatDate(quote.valid_until))}.</span>
         </div>
     `;
 
@@ -162,107 +185,63 @@ export const printQuote = ({ quote, businessConfig = null }) => {
         <html lang="es">
         <head>
             <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>${escapeHtml(quote.quote_number || 'Presupuesto')}</title>
+            <title>${escapeHtml(quote.quote_number || 'Cotizacion')}</title>
             <style>
-                @page { size: A4 portrait; margin: 12mm 11mm; }
+                @page { size: A4 portrait; margin: 12mm 12mm; }
                 * { box-sizing: border-box; }
                 body {
                     margin: 0;
-                    color: #1f2937;
+                    color: #111;
                     background: #fff;
-                    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+                    font-family: Calibri, Arial, Helvetica, sans-serif;
                     font-size: 11px;
-                    line-height: 1.4;
+                    line-height: 1.35;
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
                 }
-                .header {
-                    display: flex;
-                    align-items: flex-start;
-                    justify-content: space-between;
-                    gap: 18px;
-                    border-bottom: 2px solid #111827;
-                    padding-bottom: 12px;
-                    margin-bottom: 14px;
-                }
-                .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-                .logo { max-width: 110px; max-height: 60px; object-fit: contain; }
-                .company-name { font-size: 19px; font-weight: 700; line-height: 1.2; }
-                .company-info { display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 4px; color: #4b5563; font-size: 9.5px; }
-                .document-title { text-align: right; flex-shrink: 0; }
-                .document-title h1 { margin: 0; font-size: 21px; letter-spacing: 1px; }
-                .document-number { margin-top: 3px; color: #374151; font-size: 13px; font-weight: 700; }
-                .status {
-                    display: inline-block;
-                    margin-top: 6px;
-                    border: 1px solid #111827;
-                    padding: 2px 7px;
-                    font-size: 8.5px;
-                    font-weight: 700;
-                    letter-spacing: 0.6px;
-                }
-                .status-borrador { border-color: #b45309; color: #b45309; }
-                .status-vencido { border-color: #b45309; color: #b45309; }
-                .status-anulado { border-color: #b91c1c; color: #b91c1c; }
-                .status-convertido { border-color: #047857; color: #047857; }
-                .meta-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 12px; margin-bottom: 14px; }
-                .meta-card { border: 1px solid #d1d5db; padding: 9px 10px; min-height: 78px; }
-                .meta-label { color: #6b7280; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
-                .meta-value { font-size: 12px; font-weight: 700; }
-                .meta-line { color: #4b5563; font-size: 9.5px; margin-top: 2px; }
-                .meta-row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; font-size: 10px; }
-                .meta-row span { color: #6b7280; }
-                .meta-row strong { text-align: right; }
-                table { width: 100%; border-collapse: collapse; }
-                thead { display: table-header-group; }
-                th {
-                    background: #f3f4f6;
-                    border-top: 1px solid #9ca3af;
-                    border-bottom: 1.5px solid #111827;
-                    padding: 7px 8px;
-                    text-align: left;
-                    font-size: 9px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.4px;
-                }
-                td { border-bottom: 1px solid #e5e7eb; padding: 6px 8px; vertical-align: top; }
-                tr { break-inside: avoid; page-break-inside: avoid; }
-                .product-name { font-weight: 600; }
-                .product-detail { color: #6b7280; font-size: 9.5px; margin-top: 1px; }
-                .center { text-align: center; }
-                .right { text-align: right; white-space: nowrap; }
-                .strong { font-weight: 700; }
-                .totals-wrap { display: flex; justify-content: space-between; gap: 20px; margin-top: 14px; break-inside: avoid; page-break-inside: avoid; }
-                .notes { flex: 1; min-width: 0; }
-                .notes-block { margin-bottom: 8px; }
-                .notes-title { color: #6b7280; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
-                .notes-block div:last-child { white-space: pre-wrap; font-size: 9.5px; }
-                .totals { width: 260px; flex-shrink: 0; }
-                .total-row { display: flex; justify-content: space-between; gap: 14px; padding: 4px 8px; border-bottom: 1px solid #e5e7eb; }
-                .total-row.grand { border-top: 1.5px solid #111827; border-bottom: none; margin-top: 2px; padding-top: 7px; font-size: 14px; }
+                .sheet { width: 100%; max-width: 190mm; margin: 0 auto; }
+                .head { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 6px; }
+                .logo-wrap { flex: 1; display: flex; justify-content: center; align-items: center; }
+                .logo-text { color: #d0021b; font-size: 28px; font-weight: 800; font-style: italic; letter-spacing: 1px; }
+                .logo-img { max-height: 52px; }
+                .company { text-align: right; font-size: 11px; line-height: 1.45; }
+                table.form { width: 100%; border-collapse: collapse; margin-top: 8px; }
+                table.form th, table.form td { border: 1px solid #000; padding: 5px 6px; font-size: 11px; }
+                table.form th.label { background: #f2f2f2; font-style: italic; text-align: left; font-weight: 700; width: 18%; }
+                table.form td.strong { font-weight: 700; }
+                table.form td.italic { font-style: italic; }
+                table.form td.muted { font-weight: 400; color: #444; }
+                table.form td.status { text-align: right; font-weight: 700; letter-spacing: 0.5px; }
+                table.form th.num, table.form td.num { text-align: right; white-space: nowrap; }
+                table.form th.und, table.form td.und { text-align: center; }
+                table.form td.detalle { font-weight: 600; }
+                table.form td.detalle-extra { font-weight: 400; font-size: 9.5px; color: #333; }
+                table.items thead th { background: #f2f2f2; font-style: italic; text-align: left; font-weight: 700; }
+                table.items tr.final-row td { background: #f2f2f2; font-weight: 700; }
+                table.items tr.final-row td.right { text-align: right; }
+                table.notes-table th.label { width: 18%; }
+                table.signatures { margin-top: 26px; }
+                table.signatures td { text-align: center; font-style: italic; font-weight: 700; height: 22px; }
+                table.signatures tr.sign-space td { height: 70px; }
                 .footer {
                     display: flex;
                     justify-content: space-between;
                     gap: 16px;
-                    margin-top: 18px;
-                    border-top: 1px solid #d1d5db;
-                    padding-top: 8px;
-                    color: #6b7280;
-                    font-size: 8.5px;
-                }
-                @media print {
-                    .header { break-after: avoid; page-break-after: avoid; }
-                    .meta-grid { break-after: avoid; page-break-after: avoid; }
+                    margin-top: 14px;
+                    border-top: 1px solid #000;
+                    padding-top: 6px;
+                    font-size: 9px;
                 }
             </style>
         </head>
         <body>
-            ${headerHtml}
-            ${metaHtml}
-            ${tableHtml}
-            ${totalsHtml}
-            ${footerHtml}
+            <div class="sheet">
+                ${headerHtml}
+                ${tableHtml}
+                ${notesHtml}
+                ${signaturesHtml}
+                ${footerHtml}
+            </div>
         </body>
         </html>
     `;
@@ -294,3 +273,4 @@ export const printQuote = ({ quote, businessConfig = null }) => {
     return true;
 };
 
+export default printQuote;
