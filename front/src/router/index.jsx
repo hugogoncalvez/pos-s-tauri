@@ -12,6 +12,7 @@ import PurchasesManager from '../components/PurchasesManager';
 import StockManager from '../components/StockManager';
 import Ventas from '../components/Ventas';
 import QuotesManager from '../components/QuotesManager';
+import { SuppliersManager } from '../components/SuppliersManager';
 import AuditLogs from '../components/AuditLogs';
 import CashAdmin from '../components/CashAdmin';
 import Corte from '../components/Corte';
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
       { path: 'stock', element: <ProtectedRoute permission="ver_vista_stock"><StockManager /></ProtectedRoute> },
       { path: 'ventas', element: <ProtectedRoute permission="ver_vista_ventas"><Ventas /></ProtectedRoute> },
       { path: 'presupuestos', element: <ProtectedRoute permission="ver_vista_presupuestos"><QuotesManager /></ProtectedRoute> },
+      { path: 'proveedores', element: <ProtectedRoute permission="ver_vista_proveedores"><SuppliersManager /></ProtectedRoute> },
       { path: 'clientes', element: <ProtectedRoute permission="ver_vista_clientes"><Customers /></ProtectedRoute> },
       { path: 'auditoria', element: <ProtectedRoute permission="ver_vista_auditoria"><AuditLogs /></ProtectedRoute> },
       { path: 'admin-cajas', element: <ProtectedRoute permission="ver_vista_caja_admin"><CashAdmin /></ProtectedRoute> },

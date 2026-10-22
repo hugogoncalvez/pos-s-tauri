@@ -15,6 +15,10 @@ import CashSessionsModel from '../Models/CashSessionsModel.js';
 import AuditLogModel from '../Models/AuditLogModel.js';
 import CustomerPaymentsModel from '../Models/CustomerPaymentsModel.js';
 import SupplierModel from '../Models/SuppliersModel.js';
+import SupplierPaymentsModel from '../Models/SupplierPaymentsModel.js';
+import PurchaseConditionChangeModel from '../Models/PurchaseConditionChangeModel.js';
+import SupplierOrderModel from '../Models/SupplierOrderModel.js';
+import SupplierOrderDetailModel from '../Models/SupplierOrderDetailModel.js';
 
 import CashSessionMovementModel from '../Models/CashSessionMovementModel.js';
 import ThemeSettingModel from '../Models/ThemeSettingModel.js';
@@ -166,6 +170,41 @@ CustomerPaymentsModel.belongsTo(CustomerModel, { foreignKey: 'customer_id', as: 
 SupplierModel.hasMany(StockModel, { foreignKey: 'supplier_id' });
 StockModel.belongsTo(SupplierModel, { foreignKey: 'supplier_id' });
 
+// --- Asociaciones de Proveedores, Compras y Pagos ---
+
+SupplierModel.hasMany(PurchaseModel, { foreignKey: 'supplier_id', as: 'purchases' });
+PurchaseModel.belongsTo(SupplierModel, { foreignKey: 'supplier_id', as: 'supplierMaster' });
+
+SupplierModel.hasMany(SupplierPaymentsModel, { foreignKey: 'supplier_id', as: 'payments' });
+SupplierPaymentsModel.belongsTo(SupplierModel, { foreignKey: 'supplier_id', as: 'supplier' });
+
+PurchaseModel.hasMany(SupplierPaymentsModel, { foreignKey: 'purchase_id', as: 'payments' });
+SupplierPaymentsModel.belongsTo(PurchaseModel, { foreignKey: 'purchase_id', as: 'purchase' });
+
+PurchaseModel.hasMany(PurchaseConditionChangeModel, { foreignKey: 'purchase_id', as: 'condition_changes' });
+PurchaseConditionChangeModel.belongsTo(PurchaseModel, { foreignKey: 'purchase_id', as: 'purchase' });
+
+CashSessionsModel.hasMany(SupplierPaymentsModel, { foreignKey: 'cash_session_id', as: 'supplier_payments' });
+SupplierPaymentsModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id', as: 'cash_session' });
+
+UsuarioModel.hasMany(SupplierPaymentsModel, { foreignKey: 'created_by_id', as: 'supplier_payments' });
+SupplierPaymentsModel.belongsTo(UsuarioModel, { foreignKey: 'created_by_id', as: 'created_by_user' });
+
+// --- Asociaciones de Pedidos a Proveedores ---
+
+SupplierModel.hasMany(SupplierOrderModel, { foreignKey: 'supplier_id', as: 'orders' });
+SupplierOrderModel.belongsTo(SupplierModel, { foreignKey: 'supplier_id', as: 'supplier' });
+
+SupplierOrderModel.hasMany(SupplierOrderDetailModel, { foreignKey: 'supplier_order_id', as: 'details' });
+SupplierOrderDetailModel.belongsTo(SupplierOrderModel, { foreignKey: 'supplier_order_id', as: 'supplier_order' });
+
+SupplierOrderDetailModel.belongsTo(StockModel, { foreignKey: 'stock_id', as: 'stock' });
+SupplierOrderDetailModel.belongsTo(UnitModel, { foreignKey: 'units_id', as: 'unit' });
+StockModel.hasMany(SupplierOrderDetailModel, { foreignKey: 'stock_id', as: 'supplier_order_details' });
+
+UsuarioModel.hasMany(SupplierOrderModel, { foreignKey: 'created_by_id', as: 'supplier_orders' });
+SupplierOrderModel.belongsTo(UsuarioModel, { foreignKey: 'created_by_id', as: 'created_by_user' });
+
 // --- NUEVAS ASOCIACIONES PARA UNIDADES DE VENTA Y PROMOCIONES ---
 
 // Stock <-> ProductPresentations (One-to-Many)
@@ -227,5 +266,6 @@ export {
   CashSessionsModel, AuditLogModel, CustomerPaymentsModel, SupplierModel, RoleModel, SalePaymentModel,
   CashSessionMovementModel, ThemeSettingModel, PendingTicketModel, ComandaModel, ProductPresentationsModel, ProductPromotionsModel,
   ComboModel, ComboItem, UserPermissionModel, PermissionModel, BusinessConfigModel,
-  QuoteModel, QuoteDetailModel
+  QuoteModel, QuoteDetailModel, SupplierPaymentsModel, PurchaseConditionChangeModel,
+  SupplierOrderModel, SupplierOrderDetailModel
 };

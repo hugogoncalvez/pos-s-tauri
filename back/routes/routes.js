@@ -13,7 +13,11 @@ import {
     openCashSession, getActiveCashSession, getCashSessionHistory, getCurrentSessionSummary, getSummaryForClose, initiateClosure, finalizeClosure, directCloseSessionByAdmin, createCashMovement,
     getAuditLogs, getAuditStats, getUserActivity, getLowStockAlerts,
     getCustomers, getPaymentMethods, createPaymentMethod, updatePaymentMethod, deletePaymentMethod, getPaymentMethodById, getPaymentSurcharges, updatePaymentSurcharge,
-    getAllSuppliers, createSupplier,
+    getAllSuppliers, createSupplier, getSupplierById, updateSupplier, deactivateSupplier,
+    getSupplierAccount, registerSupplierPayment, voidSupplierPayment, correctPurchaseCondition,
+    getSupplierReport,
+    getSupplierOrders, getSupplierOrder, getSupplierOrderProducts, getSupplierOrderUnits,
+    createSupplierOrder, updateSupplierOrder, voidSupplierOrder,
     getAllCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer, getTotalCustomersDebt,
     registerCustomerPayment, getCustomerPurchaseHistory, getCustomerPaymentHistory,
     exportCustomersCSV, getCustomersStats,
@@ -92,6 +96,7 @@ authenticatedRouter.use(verificarSesion); // NEW: Apply middleware here
 authenticatedRouter.get('/dashboard/ventas/hoy', checkPermission('listar_ventas_historial'), getSalesToday);
 authenticatedRouter.get('/customers/total', checkPermission('listar_clientes'), getTotalCustomers);
 authenticatedRouter.get('/suppliers/total', checkPermission('listar_proveedores'), getTotalSuppliers);
+authenticatedRouter.get('/suppliers/reports/summary', checkPermission('ver_informes_proveedor'), getSupplierReport);
 authenticatedRouter.get('/dashboard/top-productos', checkPermission('listar_productos'), getTopSellingProducts);
 authenticatedRouter.get('/dashboard/ventas/semana', checkPermission('listar_ventas_historial'), getSalesWeek);
 authenticatedRouter.get('/dashboard/ventas/mes', checkPermission('listar_ventas_historial'), getSalesMonth);
@@ -198,8 +203,26 @@ authenticatedRouter.get('/payments/surcharges', checkPermission('ver_vista_recar
 authenticatedRouter.put('/payments/:id/surcharge', checkPermission('accion_gestionar_recargos_pagos'), updatePaymentSurcharge);
 
 // --- RUTAS DE PROVEEDORES ---
-authenticatedRouter.get('/suppliers', checkPermission('listar_proveedores'), getAllSuppliers);
+authenticatedRouter.get('/suppliers', checkPermission(['listar_proveedores', 'ver_vista_proveedores']), getAllSuppliers);
 authenticatedRouter.post('/suppliers', checkPermission('accion_crear_proveedor'), createSupplier);
+authenticatedRouter.get('/suppliers/:id', checkPermission(['ver_vista_proveedores', 'ver_cuenta_proveedor']), getSupplierById);
+authenticatedRouter.put('/suppliers/:id', checkPermission('accion_editar_proveedor'), updateSupplier);
+authenticatedRouter.delete('/suppliers/:id', checkPermission('accion_desactivar_proveedor'), deactivateSupplier);
+authenticatedRouter.get('/suppliers/:id/account', checkPermission('ver_cuenta_proveedor'), getSupplierAccount);
+authenticatedRouter.post('/suppliers/:id/payments', checkPermission('accion_registrar_pago_proveedor'), registerSupplierPayment);
+authenticatedRouter.delete('/suppliers/:id/payments/:paymentId', checkPermission('accion_anular_pago_proveedor'), voidSupplierPayment);
+
+// Corregir la condición de una compra (solo Admin/Gerente con permiso específico)
+authenticatedRouter.put('/purchases/:id/condition', checkPermission('accion_corregir_condicion_compra'), correctPurchaseCondition);
+
+// --- PEDIDOS A PROVEEDORES (documento imprimible / PDF, sin efecto en stock ni saldo) ---
+authenticatedRouter.get('/supplier-orders', checkPermission('ver_pedidos_proveedor'), getSupplierOrders);
+authenticatedRouter.get('/supplier-orders/products', checkPermission('ver_pedidos_proveedor'), getSupplierOrderProducts);
+authenticatedRouter.get('/supplier-orders/units', checkPermission('ver_pedidos_proveedor'), getSupplierOrderUnits);
+authenticatedRouter.get('/supplier-orders/:id', checkPermission('ver_pedidos_proveedor'), getSupplierOrder);
+authenticatedRouter.post('/supplier-orders', checkPermission('accion_crear_pedido_proveedor'), createSupplierOrder);
+authenticatedRouter.put('/supplier-orders/:id', checkPermission('accion_editar_pedido_proveedor'), updateSupplierOrder);
+authenticatedRouter.delete('/supplier-orders/:id', checkPermission('accion_anular_pedido_proveedor'), voidSupplierOrder);
 
 // --- RUTAS DE AUDITORÍA ---
 authenticatedRouter.get('/audit/logs', checkPermission('ver_vista_auditoria'), getAuditLogs);

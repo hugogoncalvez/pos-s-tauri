@@ -52,6 +52,7 @@ import { StyledDatePicker } from '../styledComponents/ui/StyledDatePicker';
 import { useForm } from '../hooks/useForm';
 import { UseFetchQuery } from '../hooks/useQuery';
 import { useSubmit } from '../hooks/useSubmit';
+import { useCashRegister } from '../hooks/useCashRegister';
 import { useDelete } from '../hooks/useDelete';
 import { confirmAction } from '../functions/ConfirmDelete';
 import { mostrarError } from '../functions/MostrarError';
@@ -121,6 +122,8 @@ const PurchasesManager = () => {
     const [editingItemIndex, setEditingItemIndex] = useState(null);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [modalError, setModalError] = useState('');
+    const [initialPayment, setInitialPayment] = useState({ amount: '', payment_method: 'efectivo', affect_cash: true });
+    const { activeSession } = useCashRegister();
 
     // --- Estados para la visibilidad de secciones y modales ---
     const [openFilterSection, setOpenFilterSection] = useState(false);
@@ -143,6 +146,7 @@ const PurchasesManager = () => {
         createdAt: true,
         factura: true,
         supplier: true,
+        payment_condition: true,
         cost: true,
         actions: true,
     });
@@ -152,6 +156,20 @@ const PurchasesManager = () => {
     const totalCost = useMemo(() => {
         return tempItems.reduce((total, item) => total + parseFloat(item.cost || 0), 0);
     }, [tempItems]);
+
+    const initialPaid = useMemo(() => Number(initialPayment.amount) || 0, [initialPayment.amount]);
+    const derivedCondition = useMemo(() => {
+        if (initialPaid >= totalCost - 0.01 && totalCost > 0) {
+            return initialPayment.payment_method === 'cheque' ? 'cheque' : 'contado';
+        }
+        return 'cuenta corriente';
+    }, [initialPaid, totalCost, initialPayment.payment_method]);
+
+    useEffect(() => {
+        if (!activeSession) {
+            setInitialPayment(prev => prev.affect_cash ? { ...prev, affect_cash: false } : prev);
+        }
+    }, [activeSession]);
 
     const debouncedSetProductSearchTerm = useCallback(
         debounce((newValue) => {
@@ -342,6 +360,7 @@ const PurchasesManager = () => {
                 ...purchase,
                 createdAt: moment.utc(purchase.createdAt).format('YYYY-MM-DD')
             });
+            setInitialPayment({ amount: '', payment_method: 'efectivo', affect_cash: true });
             setTempItems(purchase.details.map(detail => {
                 const product = detail.stock; // The backend now sends the necessary stock info
 
@@ -359,7 +378,8 @@ const PurchasesManager = () => {
             }) || []);
         } else {
             setIsEditingPurchase(false);
-            setPurchaseValues({ createdAt: moment().format('YYYY-MM-DD') });
+            setPurchaseValues({ createdAt: moment().format('YYYY-MM-DD'), supplier_id: null, payment_condition: 'cuenta corriente' });
+            setInitialPayment({ amount: '', payment_method: 'efectivo', affect_cash: true });
             resetItemForm();
             setTempItems([]);
             setEditingItemIndex(null);
@@ -528,7 +548,7 @@ const PurchasesManager = () => {
             return;
         }
 
-        const { createdAt, factura, supplier } = purchaseValues;
+        const { createdAt, factura, supplier, supplier_id } = purchaseValues;
         if (!createdAt) {
             setModalError('Por favor, selecciona la fecha de la compra.');
             return;
@@ -548,13 +568,38 @@ const PurchasesManager = () => {
             return;
         }
 
+        const paymentAmount = Number(initialPayment.amount) || 0;
+        if (!isEditingPurchase && paymentAmount < 0) {
+            setModalError('El pago inicial no puede ser negativo.');
+            return;
+        }
+        if (!isEditingPurchase && paymentAmount > totalCost + 0.01) {
+            setModalError('El pago inicial no puede superar el total de la compra.');
+            return;
+        }
+        if (!isEditingPurchase && paymentAmount > 0 && !supplier_id) {
+            setModalError('Para registrar un pago inicial debe seleccionar un proveedor registrado.');
+            return;
+        }
         mostrarCarga('Guardando Compra...', theme);
 
         const purchaseData = {
             ...purchaseValues,
             factura: finalFactura,
             supplier: finalSupplier,
+            supplier_id: supplier_id || null,
             cost: totalCost,
+            ...(isEditingPurchase ? {} : {
+                payment_condition: derivedCondition,
+                initial_payments: paymentAmount > 0 ? [{
+                    amount: paymentAmount,
+                    payment_method: initialPayment.payment_method,
+                    notes: ''
+                }] : [],
+                cash_session_id: initialPayment.payment_method === 'efectivo' && initialPayment.affect_cash && activeSession?.id
+                    ? activeSession.id
+                    : null
+            }),
             tempValues: tempItems.map(item => ({
                 stock_id: item.stock_id,
                 totalPerUnits: item.totalPerUnits,
@@ -595,6 +640,7 @@ const PurchasesManager = () => {
         { id: 'createdAt', label: 'Fecha', align: 'center', valueGetter: ({ row }) => moment.utc(row.createdAt).format('DD/MM/YYYY') },
         { id: 'factura', label: 'Nota / Factura', align: 'center' },
         { id: 'supplier', label: 'Proveedor', align: 'center' },
+        { id: 'payment_condition', label: 'Condición', align: 'center' },
         { id: 'cost', label: 'Total', align: 'center', valueGetter: ({ row }) => formatCurrency(row.cost) },
         {
             id: 'actions', label: 'Acciones', align: 'center', valueGetter: ({ row }) => (
@@ -831,7 +877,7 @@ const PurchasesManager = () => {
                                         }
                                         return option.nombre || '';
                                     }}
-                                    value={suppliersData?.find(s => s.nombre === purchaseValues.supplier) || null}
+                                    value={suppliersData?.find(s => (purchaseValues.supplier_id && Number(s.id) === Number(purchaseValues.supplier_id)) || s.nombre === purchaseValues.supplier) || null}
                                     onChange={(event, newValue) => {
                                         if (typeof newValue === 'string') {
                                             setNewSupplierName(newValue);
@@ -840,7 +886,11 @@ const PurchasesManager = () => {
                                             setNewSupplierName(newValue.inputValue);
                                             setOpenNewSupplierModal(true);
                                         } else {
-                                            handlePurchaseInputChange({ target: { name: 'supplier', value: newValue?.nombre || '' } });
+                                            setPurchaseValues(prev => ({
+                                                ...prev,
+                                                supplier: newValue?.nombre || '',
+                                                supplier_id: newValue?.id || null
+                                            }));
                                         }
                                     }}
                                     filterOptions={(options, params) => {
@@ -859,7 +909,7 @@ const PurchasesManager = () => {
 
                                         return filtered;
                                     }}
-                                    renderInput={(params) => <TextFieldWithClear {...params} label="Proveedor (Opcional)" onClear={() => handlePurchaseInputChange({ target: { name: 'supplier', value: '' } })} />}
+                                    renderInput={(params) => <TextFieldWithClear {...params} label="Proveedor (Opcional)" onClear={() => setPurchaseValues(prev => ({ ...prev, supplier: '', supplier_id: null }))} />}
                                     renderOption={(props, option) => {
                                         const { key, ...rest } = props;
                                         return <li key={key} {...rest}>{option.nombre}</li>;
@@ -957,6 +1007,86 @@ const PurchasesManager = () => {
                                 <Typography variant="h6" align="right" sx={{ mt: 2 }}>Total Compra: {formatCurrency(totalCost)}</Typography>
                             </Box>
                         )}
+                        {!isEditingPurchase && (
+                            <Box sx={{ mt: 3 }}>
+                                <Divider sx={{ mb: 2 }}>Pago inicial (opcional)</Divider>
+                                <Grid container spacing={2} alignItems="center">
+                                    <Grid xs={12} sm={6} md={3}>
+                                        <TextFieldWithClear
+                                            fullWidth
+                                            label="Importe pagado"
+                                            type="number"
+                                            name="initial_payment_amount"
+                                            value={initialPayment.amount}
+                                            onChange={(event) => setInitialPayment(prev => ({ ...prev, amount: event.target.value }))}
+                                            onClear={() => setInitialPayment(prev => ({ ...prev, amount: '' }))}
+                                            inputProps={{ min: 0, step: '0.01' }}
+                                        />
+                                    </Grid>
+                                    <Grid xs={12} sm={6} md={3}>
+                                        <TextFieldWithClear
+                                            select
+                                            fullWidth
+                                            label="Medio de pago"
+                                            name="initial_payment_method"
+                                            value={initialPayment.payment_method}
+                                            onChange={(event) => setInitialPayment(prev => ({ ...prev, payment_method: event.target.value }))}
+                                        >
+                                            <MenuItem value="efectivo">Efectivo</MenuItem>
+                                            <MenuItem value="transferencia">Transferencia</MenuItem>
+                                            <MenuItem value="cheque">Cheque</MenuItem>
+                                            <MenuItem value="otro">Otro</MenuItem>
+                                        </TextFieldWithClear>
+                                    </Grid>
+                                    <Grid xs={12} sm={6} md={2}>
+                                        <StyledTextField
+                                            fullWidth
+                                            label="Condición resultante"
+                                            value={derivedCondition}
+                                            InputProps={{ readOnly: true }}
+                                        />
+                                    </Grid>
+                                    <Grid xs={12} sm={6} md={2}>
+                                        <StyledButton
+                                            variant="outlined"
+                                            fullWidth
+                                            onClick={() => setInitialPayment(prev => ({ ...prev, amount: totalCost.toFixed(2) }))}
+                                            disabled={totalCost <= 0}
+                                        >
+                                            Pagar total
+                                        </StyledButton>
+                                    </Grid>
+                                    {initialPayment.payment_method === 'efectivo' && activeSession && (
+                                        <Grid xs={12} md={2}>
+                                            <FormControlLabel
+                                                control={(
+                                                    <Checkbox
+                                                        checked={Boolean(initialPayment.affect_cash)}
+                                                        onChange={(event) => setInitialPayment(prev => ({ ...prev, affect_cash: event.target.checked }))}
+                                                    />
+                                                )}
+                                                label="Afectar caja"
+                                            />
+                                        </Grid>
+                                    )}
+                                </Grid>
+                                {Number(initialPayment.amount) > 0 && !purchaseValues.supplier_id && (
+                                    <Alert severity="info" sx={{ mt: 2 }}>
+                                        Seleccione un proveedor registrado para poder registrar el pago inicial.
+                                    </Alert>
+                                )}
+                                {initialPayment.payment_method === 'efectivo' && initialPayment.affect_cash && !activeSession && Number(initialPayment.amount) > 0 && (
+                                    <Alert severity="warning" sx={{ mt: 2 }}>
+                                        No hay una caja abierta. El pago se guardará sin movimiento de caja.
+                                    </Alert>
+                                )}
+                                {initialPayment.payment_method === 'cheque' && Number(initialPayment.amount) > 0 && (
+                                    <Alert severity="info" sx={{ mt: 2 }}>
+                                        El cheque se registra como pago. Si rebota, anule el pago desde la cuenta corriente del proveedor.
+                                    </Alert>
+                                )}
+                            </Box>
+                        )}
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog' }}>
@@ -977,8 +1107,9 @@ const PurchasesManager = () => {
                         <Box sx={{ pt: 2 }}>
                             <Grid container spacing={2} sx={{ mb: 2 }}>
                                 <Grid xs={12} sm={6}>
-                                    <Typography><strong>Proveedor:</strong> {selectedPurchase.supplier}</Typography>
+                                    <Typography><strong>Proveedor:</strong> {selectedPurchase.supplier_name_snapshot || selectedPurchase.supplier}</Typography>
                                     <Typography><strong>Nota / Factura Nº:</strong> {selectedPurchase.factura}</Typography>
+                                    <Typography><strong>Condición:</strong> {selectedPurchase.payment_condition || 'cuenta corriente'}</Typography>
                                 </Grid>
                                 <Grid xs={12} sm={6} sx={{ textAlign: { sm: 'right' } }}>
                                     <Typography><strong>Fecha:</strong> {moment.utc(selectedPurchase.createdAt).format('DD/MM/YYYY')}</Typography>
@@ -1003,7 +1134,7 @@ const PurchasesManager = () => {
                     <StyledButton variant="contained" startIcon={<PrintIcon />} onClick={handlePrintPurchase}>Imprimir</StyledButton>
                 </DialogActions>
             </StyledDialog>
-            <NewSupplierModal open={openNewSupplierModal} handleClose={() => setOpenNewSupplierModal(false)} initialName={newSupplierName} onSupplierAdded={(newSupplier) => { refetchSuppliers(); setPurchaseValues(prev => ({ ...prev, supplier: newSupplier.nombre })); }} />
+            <NewSupplierModal open={openNewSupplierModal} handleClose={() => setOpenNewSupplierModal(false)} initialName={newSupplierName} onSupplierAdded={(newSupplier) => { refetchSuppliers(); setPurchaseValues(prev => ({ ...prev, supplier: newSupplier.nombre, supplier_id: newSupplier.id })); }} />
             {/* <NewProductModal open={openNewProductModal} handleClose={() => setOpenNewProductModal(false)} initialName={newProductName} onProductAdded={(newProduct) => { refetchStock(); setSelectedProduct(newProduct); setItemValues(prev => ({ ...prev, stock_id: newProduct.id })); }} /> */}
         </Box>
     );

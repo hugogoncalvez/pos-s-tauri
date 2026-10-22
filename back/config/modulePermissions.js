@@ -73,9 +73,25 @@ const modulePermissions = {
   Compras: {
     vista: 'ver_vista_compras',
     acciones: [
+      'accion_crear_compra'
+    ]
+  },
+  Proveedores: {
+    vista: 'ver_vista_proveedores',
+    acciones: [
       'listar_proveedores',
       'accion_crear_proveedor',
-      'accion_crear_compra'
+      'accion_editar_proveedor',
+      'accion_desactivar_proveedor',
+      'ver_cuenta_proveedor',
+      'accion_registrar_pago_proveedor',
+      'accion_anular_pago_proveedor',
+      'accion_corregir_condicion_compra',
+      'ver_informes_proveedor',
+      'ver_pedidos_proveedor',
+      'accion_crear_pedido_proveedor',
+      'accion_editar_pedido_proveedor',
+      'accion_anular_pedido_proveedor'
     ]
   },
   DashBoard: {

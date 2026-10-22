@@ -355,7 +355,9 @@ const Informes = () => {
                 date: moment(isSale ? item.sale?.createdAt : item.purchase?.createdAt).format('DD/MM/YYYY'),
                 product: stockItem?.name || item.product_name || 'N/A',
                 description: stockItem?.description || 'N/A',
-                supplier: stockItem?.supplier?.nombre || 'N/A',
+                supplier: isSale
+                    ? (stockItem?.supplier?.nombre || 'N/A')
+                    : (item.purchase?.supplier_name_snapshot || item.purchase?.supplierMaster?.nombre || 'N/A'),
                 type: isSale ? 'Venta/Egreso' : 'Ingreso',
                 quantity: quantity,
                 unit_cost: `$ ${unitCost.toFixed(2)}`,
