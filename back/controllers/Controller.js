@@ -5475,20 +5475,38 @@ export const getSupplierOrder = async (req, res) => {
 export const getSupplierOrderProducts = async (req, res) => {
     try {
         const { supplier_id } = req.query;
-        const where = { visible: 1 };
-        if (supplier_id) where.supplier_id = supplier_id;
+        const preferredSupplierId = supplier_id ? Number(supplier_id) : null;
 
+        // Se listan todos los productos visibles: los del proveedor primero y el resto despues.
         const products = await StockModel.findAll({
-            where,
+            where: { visible: 1 },
             attributes: ['id', 'name', 'cost', 'units_id', 'category_id', 'supplier_id'],
             include: [
                 { model: UnitModel, as: 'unit', attributes: ['id', 'name', 'abreviatura'], required: false },
-                { model: StockCategoryModel, as: 'stockCategory', attributes: ['id', 'name'], required: false }
+                { model: StockCategoryModel, as: 'stockCategory', attributes: ['id', 'name'], required: false },
+                { model: SupplierModel, as: 'supplier', attributes: ['id', 'nombre'], required: false }
             ],
             order: [['name', 'ASC']]
         });
 
-        res.json(products);
+        const rows = products.map((product) => {
+            const data = product.toJSON();
+            return {
+                ...data,
+                supplierName: data.supplier ? data.supplier.nombre : null
+            };
+        });
+
+        if (Number.isFinite(preferredSupplierId)) {
+            rows.sort((a, b) => {
+                const aPreferred = Number(a.supplier_id) === preferredSupplierId ? 0 : 1;
+                const bPreferred = Number(b.supplier_id) === preferredSupplierId ? 0 : 1;
+                if (aPreferred !== bPreferred) return aPreferred - bPreferred;
+                return String(a.name).localeCompare(String(b.name), 'es');
+            });
+        }
+
+        res.json(rows);
     } catch (error) {
         console.error('Error al obtener los productos para el pedido:', error);
         res.status(500).json({ message: 'Error al obtener los productos para el pedido: ' + error.message });

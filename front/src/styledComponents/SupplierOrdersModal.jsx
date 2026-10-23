@@ -7,7 +7,6 @@ import {
     DialogActions,
     CircularProgress,
     IconButton,
-    Grid,
     Typography,
     Table,
     TableBody,
@@ -72,6 +71,26 @@ const unitOptionLabel = (unit) => {
     return name ? `${abreviatura} (${name})` : abreviatura;
 };
 
+const DECIMAL_UNIT_KEYS = new Set([
+    'kg', 'kilogramo',
+    'm3', 'metro cubico', 'metro cúbico',
+    'ml', 'metro lineal'
+]);
+
+const unitAllowsDecimal = (unit) => {
+    if (!unit) return false;
+    const abreviatura = String(unit.abreviatura || '').trim().toLowerCase();
+    const name = String(unit.name || '').trim().toLowerCase();
+    if (abreviatura === 'un' || abreviatura === 'unidad' || name === 'un' || name === 'unidad') return false;
+    return DECIMAL_UNIT_KEYS.has(abreviatura) || DECIMAL_UNIT_KEYS.has(name);
+};
+
+const todayLocal = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+};
+
 const emptyLine = () => ({
     key: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     stock_id: null,
@@ -127,20 +146,27 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
     const productList = useMemo(() => products || [], [products]);
     const unitList = useMemo(() => units || [], [units]);
 
+    const lineAllowsDecimal = (line) => {
+        const unit = unitList.find((item) => Number(item.id) === Number(line.units_id));
+        return unitAllowsDecimal(unit);
+    };
+
     const rubroOptions = useMemo(() => {
         const names = new Set();
-        productList.forEach((product) => {
+        const preferred = productList.filter((product) => Number(product.supplier_id) === Number(supplier?.id));
+        const source = preferred.length > 0 ? preferred : productList;
+        source.forEach((product) => {
             if (product?.stockCategory?.name) names.add(product.stockCategory.name);
         });
-        return Array.from(names);
-    }, [productList]);
+        return Array.from(names).sort((a, b) => a.localeCompare(b, 'es'));
+    }, [productList, supplier?.id]);
 
     useEffect(() => {
         if (!open) return;
         setView('list');
         setEditing(null);
         setError('');
-        setHeader({ fecha: new Date().toISOString().slice(0, 10), rubro: '', tipo: 'MATERIALES', notas: '' });
+        setHeader({ fecha: todayLocal(), rubro: '', tipo: 'MATERIALES', notas: '' });
         setLines([emptyLine()]);
     }, [open, supplier?.id]);
 
@@ -181,7 +207,7 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
     const startNewOrder = () => {
         setEditing(null);
         setError('');
-        setHeader({ fecha: new Date().toISOString().slice(0, 10), rubro: '', tipo: 'MATERIALES', notas: '' });
+        setHeader({ fecha: todayLocal(), rubro: '', tipo: 'MATERIALES', notas: '' });
         setLines([emptyLine()]);
         setView('form');
     };
@@ -202,7 +228,7 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
         }
         setEditing(fullOrder);
         setHeader({
-            fecha: fullOrder.fecha ? String(fullOrder.fecha).slice(0, 10) : new Date().toISOString().slice(0, 10),
+            fecha: fullOrder.fecha ? String(fullOrder.fecha).slice(0, 10) : todayLocal(),
             rubro: fullOrder.rubro || '',
             tipo: fullOrder.tipo || 'MATERIALES',
             notas: fullOrder.notas || ''
@@ -249,6 +275,11 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
         const invalid = validLines.find((line) => !(Number(line.cantidad) > 0) || !(Number(line.precio_unitario) >= 0));
         if (invalid) {
             setError('Revisá cantidad y precio unitario de los ítems.');
+            return;
+        }
+        const invalidDecimal = validLines.find((line) => !lineAllowsDecimal(line) && !Number.isInteger(Number(line.cantidad)));
+        if (invalidDecimal) {
+            setError(`La cantidad de "${invalidDecimal.detalle}" debe ser un número entero para la unidad ${invalidDecimal.unidad || 'Un.'}.`);
             return;
         }
 
@@ -390,70 +421,63 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                 </StyledButton>
             </Box>
 
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} sm={4}>
-                    <TextFieldWithClear
-                        name="fecha"
-                        label="Fecha *"
-                        type="date"
-                        fullWidth
-                        size="small"
-                        value={header.fecha}
-                        onChange={(event) => setHeader((prev) => ({ ...prev, fecha: event.target.value }))}
-                        InputLabelProps={{ shrink: true }}
-                    />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                    <TextFieldWithClear
-                        name="tipo"
-                        label="Tipo de pedido"
-                        fullWidth
-                        size="small"
-                        value={header.tipo}
-                        onChange={(event) => setHeader((prev) => ({ ...prev, tipo: event.target.value }))}
-                    />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                    <Autocomplete
-                        freeSolo
-                        options={rubroOptions}
-                        value={header.rubro}
-                        onChange={(_event, value) => setHeader((prev) => ({ ...prev, rubro: value || '' }))}
-                        renderInput={(params) => <TextField {...params} label="Rubro" size="small" />}
-                    />
-                </Grid>
-            </Grid>
+            <Box
+                sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' },
+                    maxWidth: { sm: '75%' },
+                    gap: 2,
+                    mb: 2,
+                }}
+            >
+                <TextFieldWithClear
+                    name="fecha"
+                    label="Fecha *"
+                    type="date"
+                    fullWidth
+                    size="small"
+                    value={header.fecha}
+                    onChange={(event) => setHeader((prev) => ({ ...prev, fecha: event.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                />
+                <TextFieldWithClear
+                    name="tipo"
+                    label="Tipo de pedido"
+                    fullWidth
+                    size="small"
+                    value={header.tipo}
+                    onChange={(event) => setHeader((prev) => ({ ...prev, tipo: event.target.value }))}
+                />
+                <Autocomplete
+                    freeSolo
+                    fullWidth
+                    options={rubroOptions}
+                    value={header.rubro}
+                    onChange={(_event, value) => setHeader((prev) => ({ ...prev, rubro: value || '' }))}
+                    renderInput={(params) => <TextField {...params} fullWidth label="Rubro" size="small" />}
+                />
+            </Box>
 
             <TableContainer component={Paper} sx={{ mb: 1 }}>
-                <Table size="small">
+                <Table size="small" sx={{ tableLayout: 'fixed' }}>
                     <TableHead>
                         <TableRow>
-                            <TableCell align="center" sx={{ width: 110 }}>Cantidad</TableCell>
-                            <TableCell align="center" sx={{ width: 100 }}>UND.</TableCell>
+                            <TableCell align="center" sx={{ width: 130 }}>UND.</TableCell>
+                            <TableCell align="center" sx={{ width: 150 }}>Cantidad</TableCell>
                             <TableCell>Detalle</TableCell>
-                            <TableCell align="right" sx={{ width: 140 }}>Precio unit.</TableCell>
-                            <TableCell align="right" sx={{ width: 140 }}>Importe</TableCell>
-                            <TableCell align="center" sx={{ width: 60 }} />
+                            <TableCell align="right" sx={{ width: 220 }}>Precio unit.</TableCell>
+                            <TableCell align="right" sx={{ width: 160 }}>Importe</TableCell>
+                            <TableCell align="center" sx={{ width: 56 }} />
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {lines.map((line) => (
                             <TableRow key={line.key}>
                                 <TableCell>
-                                    <TextFieldWithClear
-                                        name={`cantidad_${line.key}`}
-                                        type="number"
-                                        size="small"
-                                        value={line.cantidad}
-                                        onChange={(event) => updateLine(line.key, { cantidad: event.target.value })}
-                                        onClear={() => updateLine(line.key, { cantidad: '' })}
-                                        inputProps={{ min: 0, step: '0.001' }}
-                                    />
-                                </TableCell>
-                                <TableCell>
                                     {line.stock_id ? (
                                         <TextField
                                             size="small"
+                                            fullWidth
                                             value={line.unidad || ''}
                                             disabled
                                             InputProps={{ readOnly: true }}
@@ -462,13 +486,19 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                                         <TextField
                                             select
                                             size="small"
+                                            fullWidth
                                             value={line.units_id || ''}
                                             onChange={(event) => {
                                                 const unitId = event.target.value ? Number(event.target.value) : null;
                                                 const unit = unitList.find((item) => Number(item.id) === unitId);
+                                                const nextAllowsDecimal = unitAllowsDecimal(unit);
+                                                const cantidad = !nextAllowsDecimal && line.cantidad !== '' && Number(line.cantidad) % 1 !== 0
+                                                    ? String(Math.round(Number(line.cantidad)))
+                                                    : line.cantidad;
                                                 updateLine(line.key, {
                                                     units_id: unitId,
-                                                    unidad: unit ? unitOptionLabel(unit).split(' (')[0] : ''
+                                                    unidad: unit ? unitOptionLabel(unit).split(' (')[0] : '',
+                                                    cantidad
                                                 });
                                             }}
                                         >
@@ -482,25 +512,46 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                                     )}
                                 </TableCell>
                                 <TableCell>
+                                    <TextField
+                                        name={`cantidad_${line.key}`}
+                                        type="number"
+                                        size="small"
+                                        fullWidth
+                                        value={line.cantidad}
+                                        onChange={(event) => updateLine(line.key, { cantidad: event.target.value })}
+                                        inputProps={{
+                                            min: 0,
+                                            step: lineAllowsDecimal(line) ? '0.01' : '1',
+                                            inputMode: lineAllowsDecimal(line) ? 'decimal' : 'numeric'
+                                        }}
+                                    />
+                                </TableCell>
+                                <TableCell>
                                     <Autocomplete
                                         freeSolo
+                                        fullWidth
                                         options={productList}
+                                        groupBy={(option) => (
+                                            Number(option?.supplier_id) === Number(supplier?.id)
+                                                ? 'De este proveedor'
+                                                : 'Otros productos'
+                                        )}
                                         getOptionLabel={(option) => (typeof option === 'string' ? option : option?.name || '')}
                                         isOptionEqualToValue={(option, value) => option?.id === value?.id}
                                         onChange={(_event, value) => {
                                             if (typeof value === 'string') {
-                                                updateLine(line.key, { detalle: value, stock_id: null });
+                                                updateLine(line.key, { detalle: value, stock_id: null, units_id: null, unidad: '' });
                                             } else {
                                                 handleSelectProduct(line.key, value);
                                             }
                                         }}
                                         onInputChange={(_event, value, reason) => {
                                             if (reason === 'input') {
-                                                updateLine(line.key, { detalle: value });
+                                                updateLine(line.key, { detalle: value, stock_id: null, units_id: null, unidad: '' });
                                             }
                                         }}
                                         inputValue={line.detalle}
-                                        renderInput={(params) => <TextField {...params} size="small" placeholder="Buscar producto o escribir el detalle" />}
+                                        renderInput={(params) => <TextField {...params} fullWidth size="small" placeholder="Buscar producto o escribir el detalle" />}
                                     />
                                 </TableCell>
                                 <TableCell>
@@ -508,6 +559,7 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                                         name={`precio_${line.key}`}
                                         type="number"
                                         size="small"
+                                        fullWidth
                                         value={line.precio_unitario}
                                         onChange={(event) => updateLine(line.key, { precio_unitario: event.target.value })}
                                         onClear={() => updateLine(line.key, { precio_unitario: '' })}
@@ -529,9 +581,11 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
             </TableContainer>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-                <StyledButton variant="outlined" startIcon={<AddIcon />} onClick={addLine}>
-                    Agregar ítem
-                </StyledButton>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <StyledButton variant="outlined" startIcon={<AddIcon />} onClick={addLine}>
+                        Agregar ítem
+                    </StyledButton>
+                </Box>
                 <Typography variant="h6">
                     TOTAL: <strong>{formatCurrency(total)}</strong>
                 </Typography>
@@ -555,7 +609,7 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
     );
 
     return (
-        <StyledDialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+        <StyledDialog open={open} onClose={onClose} maxWidth="xl" fullWidth>
             <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
                 <Box>
                     <Typography variant="h6">Pedidos</Typography>
@@ -563,7 +617,7 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                 </Box>
                 <IconButton onClick={onClose}><CloseIcon color="error" /></IconButton>
             </DialogTitle>
-            <DialogContent sx={{ backgroundColor: 'background.paper', pt: 3 }}>
+            <DialogContent sx={{ backgroundColor: 'background.paper', pt: 3, minHeight: { xs: '50vh', md: '64vh' } }}>
                 {isLoading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
                         <CircularProgress />
