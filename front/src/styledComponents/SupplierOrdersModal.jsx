@@ -42,8 +42,6 @@ import { mostrarError } from '../functions/MostrarError';
 import { mostrarExito } from '../functions/mostrarExito';
 import { printSupplierOrder } from '../functions/printSupplierOrder';
 
-const formatCurrency = (value) => `$${Number(value || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
 const formatDate = (value) => {
     if (!value) return '-';
     const raw = String(value);
@@ -97,16 +95,8 @@ const emptyLine = () => ({
     units_id: null,
     cantidad: '',
     unidad: '',
-    detalle: '',
-    precio_unitario: '',
-    importe: 0
+    detalle: ''
 });
-
-const calculateImporte = (line) => {
-    const cantidad = Number(line.cantidad) || 0;
-    const precio = Number(line.precio_unitario) || 0;
-    return Math.round(cantidad * precio * 100) / 100;
-};
 
 export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
     const theme = useTheme();
@@ -170,17 +160,10 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
         setLines([emptyLine()]);
     }, [open, supplier?.id]);
 
-    const total = useMemo(
-        () => Math.round(lines.reduce((sum, line) => sum + calculateImporte(line), 0) * 100) / 100,
-        [lines]
-    );
-
     const updateLine = (key, patch) => {
         setLines((prev) => prev.map((line) => {
             if (line.key !== key) return line;
-            const next = { ...line, ...patch };
-            next.importe = calculateImporte(next);
-            return next;
+            return { ...line, ...patch };
         }));
     };
 
@@ -199,7 +182,6 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
             stock_id: product.id,
             units_id: product.units_id || null,
             detalle: product.name,
-            precio_unitario: product.cost ? Number(product.cost) : '',
             unidad: unitLabel(product)
         });
     };
@@ -239,9 +221,7 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
             units_id: detail.units_id || null,
             cantidad: Number(detail.cantidad),
             unidad: detail.unidad || '',
-            detalle: detail.detalle || '',
-            precio_unitario: Number(detail.precio_unitario),
-            importe: Number(detail.importe)
+            detalle: detail.detalle || ''
         })));
         setView('form');
     };
@@ -257,8 +237,7 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
             units_id: line.units_id,
             cantidad: Number(line.cantidad) || 0,
             unidad: line.unidad,
-            detalle: line.detalle,
-            precio_unitario: Number(line.precio_unitario) || 0
+            detalle: line.detalle
         }))
     });
 
@@ -272,9 +251,9 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
             setError('Agregá al menos un ítem al pedido.');
             return;
         }
-        const invalid = validLines.find((line) => !(Number(line.cantidad) > 0) || !(Number(line.precio_unitario) >= 0));
+        const invalid = validLines.find((line) => !(Number(line.cantidad) > 0));
         if (invalid) {
-            setError('Revisá cantidad y precio unitario de los ítems.');
+            setError('Revisá la cantidad de los ítems.');
             return;
         }
         const invalidDecimal = validLines.find((line) => !lineAllowsDecimal(line) && !Number.isInteger(Number(line.cantidad)));
@@ -354,14 +333,13 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                             <TableCell align="center">Fecha</TableCell>
                             <TableCell align="left">Rubro</TableCell>
                             <TableCell align="center">Estado</TableCell>
-                            <TableCell align="right">Total</TableCell>
                             <TableCell align="center">Acciones</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {orders.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} align="center">Este proveedor todavía no tiene pedidos.</TableCell>
+                                <TableCell colSpan={5} align="center">Este proveedor todavía no tiene pedidos.</TableCell>
                             </TableRow>
                         ) : orders.map((order) => (
                             <TableRow key={order.id} hover>
@@ -375,7 +353,6 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                                         color={order.estado === 'anulado' ? 'error' : 'success'}
                                     />
                                 </TableCell>
-                                <TableCell align="right">{formatCurrency(order.total)}</TableCell>
                                 <TableCell align="center">
                                     <Tooltip title="Imprimir / PDF">
                                         <IconButton size="small" color="primary" onClick={() => handlePrint(order)}>
@@ -465,8 +442,6 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                             <TableCell align="center" sx={{ width: 130 }}>UND.</TableCell>
                             <TableCell align="center" sx={{ width: 150 }}>Cantidad</TableCell>
                             <TableCell>Detalle</TableCell>
-                            <TableCell align="right" sx={{ width: 220 }}>Precio unit.</TableCell>
-                            <TableCell align="right" sx={{ width: 160 }}>Importe</TableCell>
                             <TableCell align="center" sx={{ width: 56 }} />
                         </TableRow>
                     </TableHead>
@@ -554,19 +529,6 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                                         renderInput={(params) => <TextField {...params} fullWidth size="small" placeholder="Buscar producto o escribir el detalle" />}
                                     />
                                 </TableCell>
-                                <TableCell>
-                                    <TextFieldWithClear
-                                        name={`precio_${line.key}`}
-                                        type="number"
-                                        size="small"
-                                        fullWidth
-                                        value={line.precio_unitario}
-                                        onChange={(event) => updateLine(line.key, { precio_unitario: event.target.value })}
-                                        onClear={() => updateLine(line.key, { precio_unitario: '' })}
-                                        inputProps={{ min: 0, step: '0.01' }}
-                                    />
-                                </TableCell>
-                                <TableCell align="right">{formatCurrency(calculateImporte(line))}</TableCell>
                                 <TableCell align="center">
                                     <Tooltip title="Quitar ítem">
                                         <IconButton size="small" color="error" onClick={() => removeLine(line.key)}>
@@ -580,15 +542,10 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                 </Table>
             </TableContainer>
 
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <StyledButton variant="outlined" startIcon={<AddIcon />} onClick={addLine}>
-                        Agregar ítem
-                    </StyledButton>
-                </Box>
-                <Typography variant="h6">
-                    TOTAL: <strong>{formatCurrency(total)}</strong>
-                </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <StyledButton variant="outlined" startIcon={<AddIcon />} onClick={addLine}>
+                    Agregar ítem
+                </StyledButton>
             </Box>
 
             <TextFieldWithClear

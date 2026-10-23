@@ -1,5 +1,3 @@
-const formatARS = (value) => `$ ${Number(value || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
 const formatQuantity = (value) => {
     const number = Number(value);
     if (!Number.isFinite(number)) return '';
@@ -42,11 +40,9 @@ export const printSupplierOrder = (order, businessConfig = {}) => {
 
     const rows = (order.details || []).map(detail => `
                     <tr>
-                        <td class="center">${escapeHtml(formatQuantity(detail.cantidad))}</td>
                         <td class="center">${escapeHtml(detail.unidad || '')}</td>
+                        <td class="center">${escapeHtml(formatQuantity(detail.cantidad))}</td>
                         <td class="detalle">${escapeHtml(detail.detalle || '')}</td>
-                        <td class="money">${formatARS(detail.precio_unitario)}</td>
-                        <td class="money strong">${formatARS(detail.importe)}</td>
                     </tr>`).join('');
 
     const htmlContent = `
@@ -103,22 +99,7 @@ export const printSupplierOrder = (order, businessConfig = {}) => {
             table.items tbody td { padding: 10px; font-size: 11px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
             table.items tbody tr:nth-child(even) { background: #fafafa; }
             table.items td.center { text-align: center; }
-            table.items td.detalle { text-align: left; font-weight: 500; }
-            table.items td.money { text-align: right; white-space: nowrap; }
-            table.items td.strong { font-weight: 700; }
-
-            .total {
-                width: 52%;
-                margin-left: auto;
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                align-items: center;
-                background: #c2410c;
-                color: #fff;
-                padding: 12px 22px;
-            }
-            .total .label { text-align: center; font-size: 13px; font-weight: 800; letter-spacing: .06em; }
-            .total .value { text-align: right; font-size: 16px; font-weight: 800; white-space: nowrap; }
+            table.items td.detalle { text-align: center; font-weight: 500; }
 
             .notes { margin-top: 12px; font-size: 9px; color: #6b7280; }
 
@@ -163,22 +144,15 @@ export const printSupplierOrder = (order, businessConfig = {}) => {
             <table class="items">
                 <thead>
                     <tr>
-                        <th style="width: 11%">CANTIDAD</th>
-                        <th style="width: 9%">UNIDAD</th>
+                        <th style="width: 14%">UNIDAD</th>
+                        <th style="width: 16%">CANTIDAD</th>
                         <th>DETALLE</th>
-                        <th style="width: 18%">P. UNITARIO</th>
-                        <th style="width: 18%">SUBTOTAL</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${rows}
                 </tbody>
             </table>
-
-            <div class="total">
-                <span class="label">TOTAL</span>
-                <span class="value">${formatARS(order.total)}</span>
-            </div>
 
             ${order.notas ? `<div class="notes">${escapeHtml(order.notas)}</div>` : ''}
         </div>
