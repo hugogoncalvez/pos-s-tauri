@@ -1,5 +1,11 @@
 const formatARS = (value) => `$ ${Number(value || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const formatQuantity = (value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '';
+    return number.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+};
+
 const formatDate = (value) => {
     if (!value) return '';
     const raw = String(value);
@@ -36,7 +42,7 @@ export const printSupplierOrder = (order, businessConfig = {}) => {
 
     const rows = (order.details || []).map(detail => `
                     <tr>
-                        <td class="center">${escapeHtml(detail.cantidad)}</td>
+                        <td class="center">${escapeHtml(formatQuantity(detail.cantidad))}</td>
                         <td class="center">${escapeHtml(detail.unidad || '')}</td>
                         <td class="detalle">${escapeHtml(detail.detalle || '')}</td>
                         <td class="money">${formatARS(detail.precio_unitario)}</td>
