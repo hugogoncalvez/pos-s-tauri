@@ -8,7 +8,7 @@ import {
     getPurchases, getPurchaseDetails, getPurchase, deletePurchase, updatePurchase, createFullPurchase,
     getRoles, getRoleById, createRole, updateRole, deleteRole,
     getUsers, getUserById, createUser, updateUser, deleteUser,
-    createStocks, getStocks, getStock, deleteStock, updateStock, getAllElements, updateElement, getCategories, getUnits, importarStock,
+    createStocks, getStocks, getStock, deleteStock, updateStock, getAllElements, updateElement, getCategories, createCategory, getUnits, importarStock,
     createSale, getSales, getSaleDetails, deleteSale, getSalesDetails,
     openCashSession, getActiveCashSession, getCashSessionHistory, getCurrentSessionSummary, getSummaryForClose, initiateClosure, finalizeClosure, directCloseSessionByAdmin, createCashMovement,
     getAuditLogs, getAuditStats, getUserActivity, getLowStockAlerts,
@@ -149,6 +149,7 @@ authenticatedRouter.delete('/delstock/:id', checkPermission('accion_eliminar_pro
 authenticatedRouter.put('/upstock/:id', checkPermission('accion_editar_producto'), updateStock);
 authenticatedRouter.post('/stock/importar', checkPermission('accion_importar_stock'), upload.single('file'), importarStock);
 authenticatedRouter.get('/category', checkPermission('listar_productos'), getCategories);
+authenticatedRouter.post('/category', checkPermission('accion_crear_producto'), createCategory);
 authenticatedRouter.get('/units', checkPermission('listar_productos'), getUnits);
 
 // --- RUTAS DE VENTAS ---

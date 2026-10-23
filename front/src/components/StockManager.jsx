@@ -37,6 +37,7 @@ import { StyledTextField } from '../styledComponents/ui/StyledTextField';
 import { StyledDialog } from '../styledComponents/ui/StyledDialog';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
 import { NewSupplierModal } from '../styledComponents/NewSupplierModal';
+import { NewCategoryModal } from '../styledComponents/NewCategoryModal';
 import { StyledTableRow, StyledTableCell } from '../styles/styles';
 
 import { ProductModalContent } from '../styledComponents/ProductModalContent';
@@ -133,6 +134,8 @@ const StockManager = () => {
     const [priceListOpen, setPriceListOpen] = useState(false);
     const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
     const [newSupplierName, setNewSupplierName] = useState('');
+    const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
 
     // --- Estados para la visibilidad de columnas ---
     const [columnVisibility, setColumnVisibility] = useState({
@@ -190,7 +193,7 @@ const StockManager = () => {
     }, []);
 
     // --- Queries de datos ---
-    const { data: categoriesData, isLoading: isLoadingCategories } = UseQueryWithCache('categories', '/category', true, 0, { keepPreviousData: true });
+    const { data: categoriesData, isLoading: isLoadingCategories, refetch: refetchCategories } = UseQueryWithCache('categories', '/category', true, 0, { keepPreviousData: true });
     const { data: units, isLoading: unitsLoading } = UseFetchQuery('units', '/units');
     const { data: suppliersData, isLoading: isLoadingSuppliers, refetch: refetchSuppliers } = UseQueryWithCache('suppliers', '/suppliers', true, 0, { keepPreviousData: true });
 
@@ -596,6 +599,8 @@ const StockManager = () => {
                             refetchSuppliers={refetchSuppliers}
                             setNewSupplierName={setNewSupplierName}
                             setSupplierDialogOpen={setSupplierDialogOpen}
+                            setNewCategoryName={setNewCategoryName}
+                            setCategoryDialogOpen={setCategoryDialogOpen}
                             formatCurrency={formatCurrency}
                             updating={updating}
                             guardando={guardando}
@@ -616,6 +621,16 @@ const StockManager = () => {
                 onSupplierAdded={(newSupplier) => {
                     refetchSuppliers();
                     setSupplierDialogOpen(false);
+                }}
+            />
+
+            <NewCategoryModal
+                open={categoryDialogOpen}
+                handleClose={() => setCategoryDialogOpen(false)}
+                initialName={newCategoryName}
+                onCategoryAdded={(newCategory) => {
+                    refetchCategories();
+                    setCategoryDialogOpen(false);
                 }}
             />
         </Box>

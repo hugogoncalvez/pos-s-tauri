@@ -74,6 +74,8 @@ export const ProductModalContent = React.memo(({
     barcodeInputRef,
     setNewSupplierName,
     setSupplierDialogOpen,
+    setNewCategoryName,
+    setCategoryDialogOpen,
     formatCurrency,
     updating,
     guardando
@@ -618,12 +620,50 @@ export const ProductModalContent = React.memo(({
                             onClear={() => handleLocalInputChange({ target: { name: 'description', value: '' } })}
                         />
                     </Box>
-                    <Autocomplete
-                        options={categoriesData || []}
-                        getOptionLabel={(option) => option.name || ''}
-                        value={categoriesData?.find(option => option.id === values?.category_id) || null}
-                        onChange={(event, newValue) => handleLocalInputChange({ target: { name: 'category_id', value: newValue ? newValue.id : '' } })}
+                    <StyledAutocomplete
+                        options={Array.isArray(categoriesData) ? categoriesData : []}
+                        getOptionLabel={(option) => {
+                            if (typeof option === 'string') return option;
+                            if (option.inputValue) return option.inputValue;
+                            return option.name || '';
+                        }}
                         isOptionEqualToValue={(option, value) => option.id === value.id}
+                        onChange={(event, newValue) => {
+                            if (productModalError) setProductModalError('');
+                            if (typeof newValue === 'string') {
+                                setNewCategoryName(newValue);
+                                setCategoryDialogOpen(true);
+                            } else if (newValue && newValue.inputValue) {
+                                setNewCategoryName(newValue.inputValue);
+                                setCategoryDialogOpen(true);
+                            } else {
+                                handleLocalInputChange({ target: { name: 'category_id', value: newValue ? newValue.id : '' } });
+                            }
+                        }}
+                        value={categoriesData?.find(option => option.id === values?.category_id) || null}
+                        filterOptions={(options, params) => {
+                            const filter = createFilterOptions({
+                                stringify: option => option.name,
+                            });
+                            const filtered = filter(options, params);
+                            const { inputValue } = params;
+                            const isExisting = options.some((option) => inputValue === option.name);
+                            if (inputValue !== '' && !isExisting) {
+                                filtered.push({
+                                    inputValue: inputValue,
+                                    name: `Agregar "${inputValue}"`,
+                                });
+                            }
+                            return filtered;
+                        }}
+                        selectOnFocus
+                        clearOnBlur
+                        handleHomeEndKeys
+                        freeSolo
+                        renderOption={(props, option) => {
+                            const { key, ...rest } = props;
+                            return <li key={key} {...rest}>{option.name}</li>;
+                        }}
                         renderInput={(params) => (
                             <TextFieldWithClear
                                 {...params}

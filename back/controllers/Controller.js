@@ -1705,6 +1705,34 @@ export const getCategories = async (req, res) => {
     }
 }
 
+export const createCategory = async (req, res) => {
+    try {
+        const { name, description } = req.body;
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ message: 'El nombre de la categoría es obligatorio.' });
+        }
+        const existing = await StockCategoryModel.findOne({ where: { name: name.trim() } });
+        if (existing) {
+            return res.status(409).json({ message: 'Ya existe una categoría con ese nombre.' });
+        }
+        const newCategory = await StockCategoryModel.create({
+            name: name.trim(),
+            description: description ? description.trim() : null,
+        });
+        await logAudit({
+            user_id: req.usuario?.id,
+            action: 'CREAR_CATEGORIA',
+            entity_type: 'stock_category',
+            entity_id: newCategory.id,
+            new_values: { name: newCategory.name },
+            details: `Se creó la categoría "${newCategory.name}".`
+        }, req);
+        res.status(201).json(newCategory);
+    } catch (error) {
+        console.error('Error al crear categoría:', error);
+        res.status(500).json({ message: 'Error al crear la categoría: ' + error.message });
+    }
+};
 
 
 //no borrar
@@ -5337,10 +5365,6 @@ const buildOrderDetails = async (details, transaction = null) => {
         if (!Number.isFinite(cantidad) || cantidad <= 0) {
             throw new ValidationError(`La cantidad de la línea ${index + 1} debe ser mayor a cero.`);
         }
-        const precioUnitario = roundMoney(detail.precio_unitario);
-        if (!Number.isFinite(precioUnitario) || precioUnitario < 0) {
-            throw new ValidationError(`El precio unitario de la línea ${index + 1} no es válido.`);
-        }
         const detalle = String(detail.detalle || '').trim();
         if (!detalle) {
             throw new ValidationError(`Ingresá el detalle de la línea ${index + 1}.`);
@@ -5377,8 +5401,6 @@ const buildOrderDetails = async (details, transaction = null) => {
             cantidad: roundMoney(cantidad),
             unidad,
             detalle,
-            precio_unitario: precioUnitario,
-            importe: roundMoney(cantidad * precioUnitario),
             orden: index + 1
         });
     }
@@ -5549,7 +5571,6 @@ export const createSupplierOrder = async (req, res) => {
         }
 
         const details = await buildOrderDetails(body.details, transaction);
-        const total = roundMoney(details.reduce((sum, detail) => sum + detail.importe, 0));
 
         // Correlativo de pedido: contador transaccional (navegable y ajustable desde la base).
         const counter = await SupplierOrderCounterModel.findByPk(1, {
@@ -5568,7 +5589,6 @@ export const createSupplierOrder = async (req, res) => {
             rubro: String(body.rubro || '').trim() || null,
             tipo: String(body.tipo || 'MATERIALES').trim().toUpperCase(),
             estado: 'emitido',
-            total,
             notas: String(body.notas || '').trim() || null,
             created_by: req.usuario?.nombre || req.usuario?.username || 'Sistema',
             created_by_id: req.usuario?.id || null
@@ -5588,10 +5608,9 @@ export const createSupplierOrder = async (req, res) => {
             entity_id: order.id,
             new_values: {
                 supplier_id: supplier.id,
-                total,
                 items: details.length
             },
-            details: `Se creó el pedido Nº ${String(order.numero).padStart(5, '0')} para el proveedor ${supplier.nombre} por un total de ${total}.`
+            details: `Se creó el pedido Nº ${String(order.numero).padStart(5, '0')} para el proveedor ${supplier.nombre} con ${details.length} ítems.`
         }, req, transaction);
 
         await transaction.commit();
@@ -5629,15 +5648,13 @@ export const updateSupplierOrder = async (req, res) => {
         }
 
         const details = await buildOrderDetails(body.details, transaction);
-        const total = roundMoney(details.reduce((sum, detail) => sum + detail.importe, 0));
 
         await order.update({
             fecha: body.fecha || order.fecha,
             supplier_id: supplier.id,
             rubro: body.rubro !== undefined ? (String(body.rubro || '').trim() || null) : order.rubro,
             tipo: body.tipo ? String(body.tipo).trim().toUpperCase() : order.tipo,
-            notas: body.notas !== undefined ? (String(body.notas || '').trim() || null) : order.notas,
-            total
+            notas: body.notas !== undefined ? (String(body.notas || '').trim() || null) : order.notas
         }, { transaction });
 
         await SupplierOrderDetailModel.destroy({
@@ -5655,8 +5672,7 @@ export const updateSupplierOrder = async (req, res) => {
             action: 'EDITAR_PEDIDO_PROVEEDOR',
             entity_type: 'supplier_order',
             entity_id: order.id,
-            old_values: { total: order.total },
-            new_values: { total },
+            new_values: { items: details.length },
             details: `Se editó el pedido Nº ${String(order.numero).padStart(5, '0')} del proveedor ${supplier.nombre}.`
         }, req, transaction);
 
