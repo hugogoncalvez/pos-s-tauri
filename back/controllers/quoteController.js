@@ -419,7 +419,7 @@ export const createQuote = async (req, res) => {
             user_id: req.usuario.id,
         }, { transaction });
 
-        const quoteNumber = `PRES-${String(quote.id).padStart(6, '0')}`;
+        const quoteNumber = `0001-${String(quote.id).padStart(8, '0')}`;
         await quote.update({ quote_number: quoteNumber }, { transaction });
 
         await QuoteDetailModel.bulkCreate(
