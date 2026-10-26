@@ -183,7 +183,7 @@ JOIN `permisos` p ON p.`nombre` IN (
 WHERE r.`id` IN (1, 2);
 
 INSERT INTO `landing_elementos` (`nombre`, `orden`, `descripcion`, `imagen`, `navegar`, `createdAt`, `updatedAt`)
-SELECT 'Proveedores', 7, 'Gestionar proveedores, cuenta corriente y pagos', 'proveedores.svg', '/proveedores', NOW(), NOW()
+SELECT 'Proveedores', 7, 'Gestionar proveedores, cuenta corriente y pagos', 'proveedores.png', '/proveedores', NOW(), NOW()
 FROM DUAL
 WHERE NOT EXISTS (
   SELECT 1 FROM `landing_elementos` WHERE `navegar` = '/proveedores'

@@ -70,7 +70,7 @@ ON DUPLICATE KEY UPDATE
   `updatedAt` = CURRENT_TIMESTAMP;
 
 INSERT INTO `landing_elementos` (`nombre`, `orden`, `descripcion`, `imagen`, `navegar`, `createdAt`, `updatedAt`)
-SELECT 'Presupuestos', 6, 'Crear, imprimir y convertir presupuestos en ventas', 'presupuestos.svg', '/presupuestos', NOW(), NOW()
+SELECT 'Presupuestos', 6, 'Crear, imprimir y convertir presupuestos en ventas', 'presupuesto.png', '/presupuestos', NOW(), NOW()
 FROM DUAL
 WHERE NOT EXISTS (
   SELECT 1 FROM `landing_elementos` WHERE `navegar` = '/presupuestos'
