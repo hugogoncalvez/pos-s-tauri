@@ -51,16 +51,12 @@ export const NewCategoryModal = ({ open, handleClose, initialName = '', onCatego
         }
 
         createCategory(
-            { url: '/category', values: values },
+            { url: '/category', values: values, showSuccessAlert: false },
             {
                 onSuccess: (data) => {
                     mostrarExito('Categoría creada correctamente.', theme);
                     onCategoryAdded(data);
                     handleClose();
-                },
-                onError: (error) => {
-                    const msg = error?.response?.data?.message || 'No se pudo crear la categoría.';
-                    mostrarError(msg, theme);
                 },
             }
         );
