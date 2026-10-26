@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import { StyledDialog } from '../styledComponents/ui/StyledDialog';
 import { StyledTextField } from '../styledComponents/ui/StyledTextField';
+import { TextFieldWithClear } from '../styledComponents/ui/TextFieldWithClear';
 import { StyledButton } from '../styledComponents/ui/StyledButton'; // Added
 import { StyledCard } from '../styledComponents/ui/StyledCard';
 import { StyledDatePicker } from '../styledComponents/ui/StyledDatePicker'; // <-- AÑADIDO
@@ -61,9 +62,9 @@ import { useCashRegister } from '../hooks/useCashRegister'; // <-- AÑADIR
 import { usePermissions } from '../hooks/usePermissions'; // Importar usePermissions
 import { mostrarError } from '../functions/MostrarError';
 import { mostrarInfo } from '../functions/mostrarInfo'; // Added
+import { manualPaymentMethods, formatPaymentMethodLabel } from '../functions/manualPaymentMethods';
 import { CajaManager } from '../styledComponents/CajaManager'; // Added
 import CustomersSkeleton from '../styledComponents/skeletons/CustomersSkeleton';
-import Swal from 'sweetalert2'; // Added
 import { UseFetchQuery } from '../hooks/useQuery.js';
 import { CircularProgress } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'; // <-- AÑADIDO
@@ -229,63 +230,16 @@ const Customers = () => {
 
     // New function to handle payment attempt
     const handleAttemptRegisterPayment = (customer) => {
-        if (!activeSession) {
-            Swal.fire({
-                title: 'No hay una sesión de caja abierta',
-                text: 'Para registrar un pago, necesita abrir una sesión de caja. ¿Desea abrir una ahora?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, abrir caja',
-                cancelButtonText: 'Cancelar',
-                background: theme.palette.background.paper,
-                color: theme.palette.text.primary,
-                confirmButtonColor: theme.palette.primary.main,
-                cancelButtonColor: theme.palette.error.main,
-                didOpen: () => {
-                    const swalContainer = document.querySelector('.swal2-container');
-                    if (swalContainer) {
-                        swalContainer.style.zIndex = '1400';
-                    }
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    sessionStorage.setItem('pendingPaymentCustomerId', customer.id);
-                    setOpenCajaManager(true);
-                }
-            });
-        } else {
-            setSelectedCustomer(customer);
-            setOpenPaymentDialog(true);
-        }
+        setSelectedCustomer(customer);
+        setOpenPaymentDialog(true);
     };
-
-    const { data: paymentMethodsData, isLoading: isLoadingPaymentMethods } = UseFetchQuery(
-        ['paymentMethods'],
-        '/payment',
-        true,
-        0,
-        {
-            select: (data) => data.filter(method => method.active && method.method.toLowerCase() !== 'credito' && method.method.toLowerCase() !== 'mixto')
-        }
-    );
-
-    const paymentMethodOptions = paymentMethodsData || [];
 
     // Estados de pago (mantener aquí si no se mueven al hook)
     const [paymentData, setPaymentData] = useState({
         amount: '',
-        payment_method: '',
+        payment_method: 'efectivo',
         notes: ''
     });
-
-    React.useEffect(() => {
-        if (paymentMethodOptions.length > 0 && !paymentData.payment_method) {
-            const defaultMethod = paymentMethodOptions.find(method => method.method.toLowerCase() === 'efectivo');
-            if (defaultMethod) {
-                setPaymentData(prev => ({ ...prev, payment_method: defaultMethod.method.toLowerCase() }));
-            }
-        }
-    }, [paymentMethodOptions, paymentData.payment_method]);
 
     // Configuración de columnas para la tabla
     const columns = React.useMemo(() => [
@@ -689,7 +643,7 @@ const Customers = () => {
                             notes: ''
                         });
                     }}
-                    maxWidth="lg"
+                    maxWidth="sm"
                     fullWidth
                     disableRestoreFocus
                     aria-labelledby="payment-dialog-title"
@@ -714,62 +668,45 @@ const Customers = () => {
                                 Deuda actual: ${selectedCustomer?.debt}
                             </Alert>
                             <Grid container spacing={2}>
-                                <Grid item xs={12} sm={6}>
-                                    <StyledTextField
-                                        fullWidth
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <TextFieldWithClear
+                                        autoFocus
+                                        name="amount"
                                         label="Monto a Pagar *"
                                         type="number"
                                         value={paymentData.amount}
                                         onChange={(e) => setPaymentData(prev => ({ ...prev, amount: e.target.value }))}
+                                        onClear={() => setPaymentData(prev => ({ ...prev, amount: '' }))}
                                         inputProps={{
                                             min: 0.01,
                                             max: selectedCustomer?.debt || 0,
                                             step: 0.01
                                         }}
                                         required
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <IconButton size='small' onClick={() => setPaymentData(prev => ({ ...prev, amount: '' }))}>
-                                                        <ClearIcon fontSize='small' color='error' />
-                                                    </IconButton>
-                                                </InputAdornment>
-                                            )
-                                        }}
                                     />
                                 </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <Autocomplete
-                                        fullWidth
-                                        size="small"
-                                        options={paymentMethodOptions}
-                                        getOptionLabel={(option) => option.method}
-                                        isOptionEqualToValue={(option, value) => option.method === value.method}
-                                        value={paymentMethodOptions.find(option => option.method === paymentData.payment_method) || null}
-                                        onChange={(event, newValue) => setPaymentData(prev => ({ ...prev, payment_method: newValue ? newValue.method.toLowerCase() : '' }))}
-                                        renderInput={(params) => <StyledTextField {...params} label="Método de Pago" />}
-                                        disableClearable
-                                        loading={isLoadingPaymentMethods}
-                                        loadingText="Cargando métodos de pago..."
-                                    />
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <TextFieldWithClear
+                                        select
+                                        name="payment_method"
+                                        label="Método de Pago"
+                                        value={paymentData.payment_method}
+                                        onChange={(e) => setPaymentData(prev => ({ ...prev, payment_method: e.target.value }))}
+                                    >
+                                        {manualPaymentMethods.map((method) => (
+                                            <MenuItem key={method.value} value={method.value}>{method.label}</MenuItem>
+                                        ))}
+                                    </TextFieldWithClear>
                                 </Grid>
-                                <Grid item xs={12}>
-                                    <StyledTextField
-                                        fullWidth
+                                <Grid size={{ xs: 12 }}>
+                                    <TextFieldWithClear
+                                        name="notes"
                                         label="Notas (opcional)"
                                         value={paymentData.notes}
                                         onChange={(e) => setPaymentData(prev => ({ ...prev, notes: e.target.value }))}
+                                        onClear={() => setPaymentData(prev => ({ ...prev, notes: '' }))}
                                         multiline
                                         rows={3}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <IconButton size='small' onClick={() => setPaymentData(prev => ({ ...prev, notes: '' }))}>
-                                                        <ClearIcon fontSize='small' color='error' />
-                                                    </IconButton>
-                                                </InputAdornment>
-                                            )
-                                        }}
                                     />
                                 </Grid>
                             </Grid>
@@ -784,7 +721,7 @@ const Customers = () => {
                         <StyledButton
                             onClick={handlePaymentSubmit}
                             variant="contained"
-                            disabled={isLoadingSingleCustomer || !paymentData.amount || paymentData.amount <= 0 || !activeSession}
+                            disabled={isLoadingSingleCustomer || !paymentData.amount || paymentData.amount <= 0}
                         >
                             Registrar Pago
                         </StyledButton>
@@ -1092,7 +1029,7 @@ const Customers = () => {
                                                                     sx={{ pr: 10 }}
                                                                 >
                                                                     <ListItemText
-                                                                        primary={`${payment.amount} - ${payment.payment_method}`}
+                                                                        primary={`${payment.amount} - ${formatPaymentMethodLabel(payment.payment_method)}`}
                                                                         secondary={`${new Date(payment.payment_date).toLocaleDateString()} ${payment.notes ? `- ${payment.notes}` : ''}`}
                                                                         primaryTypographyProps={{
                                                                             variant: 'body2',
@@ -1314,7 +1251,7 @@ const Customers = () => {
                                                 </Typography>
                                                 <Typography><strong>Cliente:</strong> {selectedCustomer?.name}</Typography>
                                                 <Typography><strong>Monto:</strong> ${selectedPayment.amount}</Typography>
-                                                <Typography><strong>Método de Pago:</strong> {selectedPayment.payment_method}</Typography>
+                                                <Typography><strong>Método de Pago:</strong> {formatPaymentMethodLabel(selectedPayment.payment_method)}</Typography>
                                                 <Typography><strong>Fecha:</strong> {new Date(selectedPayment.payment_date).toLocaleDateString()}</Typography>
                                                 <Typography><strong>Creado por:</strong> {selectedPayment.created_by || 'Sistema'}</Typography>
                                                 {selectedPayment.notes && (

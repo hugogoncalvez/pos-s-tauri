@@ -229,17 +229,19 @@ export const SuppliersManager = () => {
             )}
 
             <Paper sx={{ p: 2, mb: 2 }}>
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: { xs: 'wrap', sm: 'nowrap' }, alignItems: 'center' }}>
                     <TextFieldWithClear
+                        fullWidth={false}
                         name="search"
                         label="Buscar por nombre, CUIT o teléfono"
                         size="small"
                         value={searchInput}
                         onChange={(event) => setSearchInput(event.target.value)}
                         onClear={() => setSearchInput('')}
-                        sx={{ minWidth: { xs: '100%', sm: 320 } }}
+                        sx={{ width: { xs: '100%', sm: 360 }, flex: '0 0 auto' }}
                     />
                     <TextFieldWithClear
+                        fullWidth={false}
                         select
                         name="activo"
                         label="Estado"
@@ -249,7 +251,7 @@ export const SuppliersManager = () => {
                             setActivoFilter(event.target.value);
                             setPage(0);
                         }}
-                        sx={{ minWidth: 160 }}
+                        sx={{ width: { xs: '100%', sm: 180 }, flex: '0 0 auto' }}
                     >
                         <MenuItem value="">Todos</MenuItem>
                         <MenuItem value="true">Activos</MenuItem>

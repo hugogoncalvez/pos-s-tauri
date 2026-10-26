@@ -58,6 +58,7 @@ import { confirmAction } from '../functions/ConfirmDelete';
 import { mostrarError } from '../functions/MostrarError';
 import { mostrarExito } from '../functions/mostrarExito';
 import { mostrarCarga } from '../functions/mostrarCarga';
+import { manualPaymentMethods } from '../functions/manualPaymentMethods';
 import Swal from 'sweetalert2';
 import { debounce } from '../functions/Debounce';
 import PurchasesManagerSkeleton from '../styledComponents/skeletons/PurchasesManagerSkeleton';
@@ -553,9 +554,13 @@ const PurchasesManager = () => {
             setModalError('Por favor, selecciona la fecha de la compra.');
             return;
         }
+        if (!supplier_id) {
+            setModalError('Por favor, selecciona un proveedor.');
+            return;
+        }
 
         const finalFactura = factura?.trim() || 'S/N';
-        const finalSupplier = supplier?.trim() || 'Varios / Informal';
+        const finalSupplier = supplier?.trim() || '';
 
         // Validación de la fecha
         const purchaseDate = moment(createdAt, 'YYYY-MM-DD', true); // Volver a YYYY-MM-DD
@@ -587,7 +592,7 @@ const PurchasesManager = () => {
             ...purchaseValues,
             factura: finalFactura,
             supplier: finalSupplier,
-            supplier_id: supplier_id || null,
+            supplier_id,
             cost: totalCost,
             ...(isEditingPurchase ? {} : {
                 payment_condition: derivedCondition,
@@ -829,7 +834,7 @@ const PurchasesManager = () => {
                     <Box sx={{ backgroundColor: 'background.dialog', p: 3 }}>
                         {modalError && <Alert severity="error" sx={{ mb: 2 }}>{modalError}</Alert>}
                         <Grid container spacing={2} sx={{ mt: 0 }} justifyContent="center">
-                            <Grid xs={12} md={4}>
+                            <Grid size={{ xs: 12, md: 3 }}>
                                 <LocalizationProvider dateAdapter={AdapterMoment}>
                                     <StyledDatePicker
                                         label="Fecha"
@@ -854,7 +859,7 @@ const PurchasesManager = () => {
                                     />
                                 </LocalizationProvider>
                             </Grid>
-                            <Grid xs={12} md={4}>
+                            <Grid size={{ xs: 12, md: 3 }}>
                                 <TextFieldWithClear
                                     fullWidth
                                     label="Nº de Nota / Factura (Opcional)"
@@ -864,7 +869,7 @@ const PurchasesManager = () => {
                                     onClear={() => handlePurchaseInputChange({ target: { name: 'factura', value: '' } })}
                                 />
                             </Grid>
-                            <Grid xs={12} md={4}>
+                            <Grid size={{ xs: 12, md: 6 }}>
                                 <StyledAutocomplete
                                     freeSolo
                                     options={suppliersData || []}
@@ -909,7 +914,7 @@ const PurchasesManager = () => {
 
                                         return filtered;
                                     }}
-                                    renderInput={(params) => <TextFieldWithClear {...params} label="Proveedor (Opcional)" onClear={() => setPurchaseValues(prev => ({ ...prev, supplier: '', supplier_id: null }))} />}
+                                    renderInput={(params) => <TextFieldWithClear {...params} label="Proveedor" required onClear={() => setPurchaseValues(prev => ({ ...prev, supplier: '', supplier_id: null }))} />}
                                     renderOption={(props, option) => {
                                         const { key, ...rest } = props;
                                         return <li key={key} {...rest}>{option.nombre}</li>;
@@ -1032,10 +1037,9 @@ const PurchasesManager = () => {
                                             value={initialPayment.payment_method}
                                             onChange={(event) => setInitialPayment(prev => ({ ...prev, payment_method: event.target.value }))}
                                         >
-                                            <MenuItem value="efectivo">Efectivo</MenuItem>
-                                            <MenuItem value="transferencia">Transferencia</MenuItem>
-                                            <MenuItem value="cheque">Cheque</MenuItem>
-                                            <MenuItem value="otro">Otro</MenuItem>
+                                            {manualPaymentMethods.map((method) => (
+                                                <MenuItem key={method.value} value={method.value}>{method.label}</MenuItem>
+                                            ))}
                                         </TextFieldWithClear>
                                     </Grid>
                                     <Grid xs={12} sm={6} md={2}>

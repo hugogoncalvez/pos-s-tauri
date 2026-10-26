@@ -25,17 +25,15 @@ import { useCashRegister } from '../hooks/useCashRegister';
 import { useTheme } from '@mui/material/styles';
 import { mostrarError } from '../functions/MostrarError';
 import { mostrarExito } from '../functions/mostrarExito';
+import { manualPaymentMethods } from '../functions/manualPaymentMethods';
 
-const paymentMethods = [
-    { value: 'efectivo', label: 'Efectivo' },
-    { value: 'transferencia', label: 'Transferencia' },
-    { value: 'cheque', label: 'Cheque' },
-    { value: 'otro', label: 'Otro' }
-];
-
-export const SupplierPaymentModal = ({ open, onClose, supplier, onSaved }) => {
+export const SupplierPaymentModal = ({ open, onClose, supplier, purchase, onSaved }) => {
     const theme = useTheme();
     const { activeSession } = useCashRegister();
+    const isPurchasePayment = Boolean(purchase?.id);
+    const targetBalance = Number(
+        (isPurchasePayment ? purchase?.balance : supplier?.balance) || 0
+    );
     const [formData, handleInputChange, , , setFormData] = useForm({
         amount: '',
         payment_method: 'efectivo',
@@ -52,14 +50,16 @@ export const SupplierPaymentModal = ({ open, onClose, supplier, onSaved }) => {
 
     useEffect(() => {
         if (!open) return;
-        const suggested = Number(supplier?.balance || 0);
+        const suggested = Number(
+            (purchase?.id ? purchase?.balance : supplier?.balance) || 0
+        );
         setFormData({
             amount: suggested > 0 ? suggested.toFixed(2) : '',
             payment_method: 'efectivo',
             notes: '',
             affect_cash: true
         });
-    }, [open, supplier, setFormData]);
+    }, [open, supplier?.id, supplier?.balance, purchase?.id, purchase?.balance, setFormData]);
 
     const handleSubmit = async () => {
         const amount = Number(formData.amount);
@@ -68,9 +68,13 @@ export const SupplierPaymentModal = ({ open, onClose, supplier, onSaved }) => {
             return;
         }
 
-        const balance = Number(supplier?.balance || 0);
-        if (amount - balance > 0.01) {
-            mostrarError('El importe no puede superar el saldo del proveedor.', theme);
+        if (amount - targetBalance > 0.01) {
+            mostrarError(
+                isPurchasePayment
+                    ? 'El importe no puede superar el saldo de la factura.'
+                    : 'El importe no puede superar el saldo del proveedor.',
+                theme
+            );
             return;
         }
 
@@ -81,6 +85,7 @@ export const SupplierPaymentModal = ({ open, onClose, supplier, onSaved }) => {
                     amount,
                     payment_method: formData.payment_method,
                     notes: formData.notes,
+                    purchase_id: isPurchasePayment ? purchase.id : null,
                     cash_session_id: formData.payment_method === 'efectivo' && formData.affect_cash
                         ? activeSession?.id || null
                         : null
@@ -98,15 +103,26 @@ export const SupplierPaymentModal = ({ open, onClose, supplier, onSaved }) => {
     return (
         <StyledDialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
-                Registrar Pago
+                {isPurchasePayment ? 'Pagar factura' : 'Registrar pago'}
                 <IconButton onClick={onClose}><CloseIcon color="error" /></IconButton>
             </DialogTitle>
             <DialogContent sx={{ backgroundColor: 'background.paper', pt: 3 }}>
                 <Box sx={{ mb: 2 }}>
                     <Typography variant="subtitle1" fontWeight={600}>{supplier?.nombre}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Saldo actual: ${Number(supplier?.balance || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Typography>
+                    {isPurchasePayment ? (
+                        <>
+                            <Typography variant="body2" color="text.secondary">
+                                Factura: {purchase.factura || `#${purchase.id}`}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Saldo factura: ${targetBalance.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Typography>
+                        </>
+                    ) : (
+                        <Typography variant="body2" color="text.secondary">
+                            Saldo actual: ${targetBalance.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Typography>
+                    )}
                 </Box>
                 <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
@@ -131,7 +147,7 @@ export const SupplierPaymentModal = ({ open, onClose, supplier, onSaved }) => {
                             value={formData.payment_method}
                             onChange={handleInputChange}
                         >
-                            {paymentMethods.map((method) => (
+                            {manualPaymentMethods.map((method) => (
                                 <MenuItem key={method.value} value={method.value}>{method.label}</MenuItem>
                             ))}
                         </TextFieldWithClear>
@@ -175,11 +191,11 @@ export const SupplierPaymentModal = ({ open, onClose, supplier, onSaved }) => {
                 </StyledButton>
                 <StyledButton
                     onClick={handleSubmit}
-                    disabled={isPending || !formData.amount || Number(formData.amount) <= 0}
+                    disabled={isPending || !formData.amount || Number(formData.amount) <= 0 || targetBalance <= 0.01}
                     variant="contained"
                     startIcon={isPending ? <CircularProgress size={20} /> : <PaymentsIcon />}
                 >
-                    {isPending ? 'Registrando...' : 'Registrar pago'}
+                    {isPending ? 'Registrando...' : (isPurchasePayment ? 'Pagar factura' : 'Registrar pago')}
                 </StyledButton>
             </DialogActions>
         </StyledDialog>
@@ -190,5 +206,6 @@ SupplierPaymentModal.propTypes = {
     open: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
     supplier: PropTypes.object,
+    purchase: PropTypes.object,
     onSaved: PropTypes.func
 };

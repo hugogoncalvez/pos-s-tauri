@@ -16,6 +16,7 @@ import AuditLogModel from '../Models/AuditLogModel.js';
 import CustomerPaymentsModel from '../Models/CustomerPaymentsModel.js';
 import SupplierModel from '../Models/SuppliersModel.js';
 import SupplierPaymentsModel from '../Models/SupplierPaymentsModel.js';
+import SupplierPaymentAllocationModel from '../Models/SupplierPaymentAllocationsModel.js';
 import PurchaseConditionChangeModel from '../Models/PurchaseConditionChangeModel.js';
 import SupplierOrderModel from '../Models/SupplierOrderModel.js';
 import SupplierOrderDetailModel from '../Models/SupplierOrderDetailModel.js';
@@ -181,6 +182,12 @@ SupplierPaymentsModel.belongsTo(SupplierModel, { foreignKey: 'supplier_id', as: 
 PurchaseModel.hasMany(SupplierPaymentsModel, { foreignKey: 'purchase_id', as: 'payments' });
 SupplierPaymentsModel.belongsTo(PurchaseModel, { foreignKey: 'purchase_id', as: 'purchase' });
 
+SupplierPaymentsModel.hasMany(SupplierPaymentAllocationModel, { foreignKey: 'supplier_payment_id', as: 'allocations' });
+SupplierPaymentAllocationModel.belongsTo(SupplierPaymentsModel, { foreignKey: 'supplier_payment_id', as: 'payment' });
+
+PurchaseModel.hasMany(SupplierPaymentAllocationModel, { foreignKey: 'purchase_id', as: 'payment_allocations' });
+SupplierPaymentAllocationModel.belongsTo(PurchaseModel, { foreignKey: 'purchase_id', as: 'purchase' });
+
 PurchaseModel.hasMany(PurchaseConditionChangeModel, { foreignKey: 'purchase_id', as: 'condition_changes' });
 PurchaseConditionChangeModel.belongsTo(PurchaseModel, { foreignKey: 'purchase_id', as: 'purchase' });
 
@@ -266,6 +273,6 @@ export {
   CashSessionsModel, AuditLogModel, CustomerPaymentsModel, SupplierModel, RoleModel, SalePaymentModel,
   CashSessionMovementModel, ThemeSettingModel, PendingTicketModel, ComandaModel, ProductPresentationsModel, ProductPromotionsModel,
   ComboModel, ComboItem, UserPermissionModel, PermissionModel, BusinessConfigModel,
-  QuoteModel, QuoteDetailModel, SupplierPaymentsModel, PurchaseConditionChangeModel,
+  QuoteModel, QuoteDetailModel, SupplierPaymentsModel, SupplierPaymentAllocationModel, PurchaseConditionChangeModel,
   SupplierOrderModel, SupplierOrderDetailModel
 };

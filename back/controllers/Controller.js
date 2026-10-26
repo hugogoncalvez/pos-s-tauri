@@ -6,7 +6,7 @@ import {
     CashSessionsModel, AuditLogModel, RoleModel, SalePaymentModel, CashSessionMovementModel,
     ThemeSettingModel, PendingTicketModel, ProductPresentationsModel, ProductPromotionsModel,
     ComboModel, ComboItem, PermissionModel, UserPermissionModel, BusinessConfigModel,
-    QuoteModel, SupplierPaymentsModel, PurchaseConditionChangeModel,
+    QuoteModel, SupplierPaymentsModel, SupplierPaymentAllocationModel, PurchaseConditionChangeModel,
     SupplierOrderModel, SupplierOrderDetailModel
 } from '../database/associations.js';
 import SupplierOrderCounterModel from '../Models/SupplierOrderCounterModel.js';
@@ -56,9 +56,18 @@ const toPositiveNumber = (value) => {
 const roundMoney = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
 const normalizePaymentMethod = (value = 'efectivo') => {
-    const normalized = String(value).trim().toLowerCase();
+    const normalized = String(value)
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
     if (normalized.includes('cheque')) return 'cheque';
     if (normalized.includes('transfer')) return 'transferencia';
+    if (normalized.includes('tarjeta')) {
+        if (normalized.includes('credito')) return 'tarjeta_credito';
+        if (normalized.includes('debito')) return 'tarjeta_debito';
+        return 'tarjeta';
+    }
     if (normalized.includes('efect')) return 'efectivo';
     return 'otro';
 };
@@ -92,6 +101,229 @@ const getSupplierBalance = async (supplierId, transaction = null) => {
         payments_total: roundMoney(paymentsTotal),
         balance: roundMoney(initialDebt + purchasesTotal - paymentsTotal)
     };
+};
+
+const getSupplierAllocationState = async (supplierId, transaction = null) => {
+    const supplier = await SupplierModel.findByPk(supplierId, { transaction });
+    if (!supplier) throw new ValidationError('Proveedor no encontrado', 404);
+
+    const purchases = await PurchaseModel.findAll({
+        where: { supplier_id: supplierId },
+        order: [['createdAt', 'ASC'], ['id', 'ASC']],
+        transaction
+    });
+
+    const allocations = await SupplierPaymentAllocationModel.findAll({
+        attributes: ['purchase_id', 'target_type', 'amount'],
+        include: [{
+            model: SupplierPaymentsModel,
+            as: 'payment',
+            attributes: [],
+            where: { supplier_id: supplierId, voided_at: null },
+            required: true
+        }],
+        raw: true,
+        transaction
+    });
+
+    const paidByPurchase = new Map();
+    let initialPaid = 0;
+
+    for (const allocation of allocations) {
+        const allocationAmount = Number(allocation.amount || 0);
+        if (allocation.target_type === 'initial_debt') {
+            initialPaid = roundMoney(initialPaid + allocationAmount);
+            continue;
+        }
+        if (!allocation.purchase_id) continue;
+        const purchaseId = Number(allocation.purchase_id);
+        paidByPurchase.set(
+            purchaseId,
+            roundMoney((paidByPurchase.get(purchaseId) || 0) + allocationAmount)
+        );
+    }
+
+    const purchasesWithBalance = purchases.map((purchase) => {
+        const paid = roundMoney(paidByPurchase.get(Number(purchase.id)) || 0);
+        const cost = roundMoney(purchase.cost || 0);
+        return {
+            purchase,
+            paid,
+            balance: roundMoney(cost - paid)
+        };
+    });
+
+    const initialOutstanding = roundMoney(
+        Math.max(0, Number(supplier.initial_debt || 0) - initialPaid)
+    );
+    const outstandingPurchases = purchasesWithBalance.filter(row => row.balance > 0.01);
+
+    return {
+        supplier,
+        purchases: purchasesWithBalance,
+        paidByPurchase,
+        initialPaid,
+        initialOutstanding,
+        outstandingPurchases,
+        totalOutstanding: roundMoney(
+            initialOutstanding + outstandingPurchases.reduce((sum, row) => sum + row.balance, 0)
+        )
+    };
+};
+
+const buildFifoAllocations = ({ state, amount }) => {
+    const normalizedAmount = roundMoney(amount);
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        throw new ValidationError('El monto del pago debe ser un número positivo.');
+    }
+    if (normalizedAmount > state.totalOutstanding + 0.01) {
+        throw new ValidationError('El pago no puede superar el saldo pendiente del proveedor.');
+    }
+
+    const allocations = [];
+    let remaining = normalizedAmount;
+
+    const allocate = (purchaseId, targetType, available) => {
+        if (remaining <= 0.001) return;
+        const availableAmount = roundMoney(available);
+        if (availableAmount <= 0.001) return;
+
+        const allocationAmount = roundMoney(Math.min(remaining, availableAmount));
+        if (allocationAmount <= 0.001) return;
+
+        allocations.push({
+            purchase_id: targetType === 'purchase' ? purchaseId : null,
+            target_type: targetType,
+            amount: allocationAmount
+        });
+        remaining = roundMoney(remaining - allocationAmount);
+    };
+
+    allocate(null, 'initial_debt', state.initialOutstanding);
+    for (const row of state.outstandingPurchases) {
+        allocate(row.purchase.id, 'purchase', row.balance);
+    }
+
+    if (remaining > 0.001) {
+        if (allocations.length === 0) {
+            throw new ValidationError('El pago no tiene deuda para imputar.');
+        }
+        const lastAllocation = allocations[allocations.length - 1];
+        lastAllocation.amount = roundMoney(lastAllocation.amount + remaining);
+    }
+
+    return allocations;
+};
+
+const getPurchaseActivePaymentSummary = async (purchaseId, transaction) => {
+    const allocations = await SupplierPaymentAllocationModel.findAll({
+        attributes: ['supplier_payment_id', 'amount'],
+        where: { purchase_id: purchaseId },
+        include: [{
+            model: SupplierPaymentsModel,
+            as: 'payment',
+            attributes: [],
+            where: { voided_at: null },
+            required: true
+        }],
+        raw: true,
+        transaction
+    });
+
+    const directPayments = await SupplierPaymentsModel.findAll({
+        attributes: ['id', 'amount'],
+        where: { purchase_id: purchaseId, voided_at: null },
+        raw: true,
+        transaction
+    });
+
+    const allocationByPayment = new Map();
+    for (const allocation of allocations) {
+        const paymentId = Number(allocation.supplier_payment_id);
+        allocationByPayment.set(
+            paymentId,
+            roundMoney((allocationByPayment.get(paymentId) || 0) + Number(allocation.amount || 0))
+        );
+    }
+
+    const processedPayments = new Set();
+    let paidTotal = 0;
+
+    for (const payment of directPayments) {
+        const paymentId = Number(payment.id);
+        paidTotal = roundMoney(
+            paidTotal + (allocationByPayment.get(paymentId) ?? Number(payment.amount || 0))
+        );
+        processedPayments.add(paymentId);
+    }
+
+    for (const [paymentId, amount] of allocationByPayment.entries()) {
+        if (processedPayments.has(paymentId)) continue;
+        paidTotal = roundMoney(paidTotal + amount);
+    }
+
+    return {
+        paidTotal,
+        activePaymentCount: allocationByPayment.size + directPayments.filter(
+            payment => !allocationByPayment.has(Number(payment.id))
+        ).length
+    };
+};
+
+const markChequeVoidedPurchasesAsCurrentAccount = async (payment, req, transaction) => {
+    if (normalizePaymentMethod(payment.payment_method) !== 'cheque') return [];
+
+    const allocations = await SupplierPaymentAllocationModel.findAll({
+        attributes: ['purchase_id'],
+        where: {
+            supplier_payment_id: payment.id,
+            target_type: 'purchase',
+            purchase_id: { [Op.ne]: null }
+        },
+        transaction
+    });
+
+    const purchaseIds = new Set(allocations.map(allocation => Number(allocation.purchase_id)));
+    if (payment.purchase_id) purchaseIds.add(Number(payment.purchase_id));
+    if (purchaseIds.size === 0) return [];
+
+    const state = await getSupplierAllocationState(payment.supplier_id, transaction);
+    const changes = [];
+
+    for (const purchaseId of purchaseIds) {
+        const purchaseRow = state.purchases.find(row => Number(row.purchase.id) === purchaseId);
+        if (!purchaseRow || purchaseRow.balance <= 0.01) continue;
+
+        const purchase = await PurchaseModel.findByPk(purchaseId, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        if (!purchase || purchase.payment_condition === 'cuenta corriente') continue;
+
+        const previousCondition = purchase.payment_condition;
+        await PurchaseConditionChangeModel.create({
+            purchase_id: purchaseId,
+            from_condition: previousCondition,
+            to_condition: 'cuenta corriente',
+            reason: 'Cheque rebotado/anulado: la deuda vuelve a cuenta corriente',
+            changed_by: req.usuario?.nombre || req.usuario?.username || 'Sistema',
+            changed_by_id: req.usuario?.id || null
+        }, { transaction });
+
+        await purchase.update({
+            payment_condition: 'cuenta corriente',
+            updated_by: req.usuario?.id || null
+        }, { transaction });
+
+        changes.push({
+            purchase_id: purchaseId,
+            from_condition: previousCondition,
+            to_condition: 'cuenta corriente',
+            balance: purchaseRow.balance
+        });
+    }
+
+    return changes;
 };
 
 const createSupplierPaymentWithCash = async ({
@@ -140,7 +372,7 @@ const createSupplierPaymentWithCash = async ({
         }, req, transaction);
     }
 
-    return SupplierPaymentsModel.create({
+    const payment = await SupplierPaymentsModel.create({
         supplier_id: supplier.id,
         purchase_id: purchase ? purchase.id : null,
         amount,
@@ -152,39 +384,17 @@ const createSupplierPaymentWithCash = async ({
         cash_session_id: usedCashSessionId,
         cash_movement_id: cashMovementId
     }, { transaction });
-};
 
-const recalculatePurchaseCondition = async (purchaseId, req, transaction, reason = 'Recálculo automático por anulación de pago') => {
-    const purchase = await PurchaseModel.findByPk(purchaseId, { transaction });
-    if (!purchase) return null;
-
-    const payments = await SupplierPaymentsModel.findAll({
-        where: { purchase_id: purchaseId, voided_at: null },
-        transaction
-    });
-    const total = roundMoney(purchase.cost || 0);
-    const paid = roundMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
-    const hasCheque = payments.some(payment => normalizePaymentMethod(payment.payment_method) === 'cheque');
-
-    let nextCondition = 'cuenta corriente';
-    if (total <= 0 || paid >= total - 0.01) {
-        nextCondition = hasCheque ? 'cheque' : 'contado';
-    }
-
-    if (nextCondition !== purchase.payment_condition) {
-        await PurchaseConditionChangeModel.create({
-            purchase_id: purchaseId,
-            from_condition: purchase.payment_condition,
-            to_condition: nextCondition,
-            reason,
-            changed_by: req.usuario?.nombre || req.usuario?.username || 'Sistema',
-            changed_by_id: req.usuario?.id || null
+    if (purchase) {
+        await SupplierPaymentAllocationModel.create({
+            supplier_payment_id: payment.id,
+            purchase_id: purchase.id,
+            target_type: 'purchase',
+            amount: roundMoney(amount)
         }, { transaction });
-
-        await purchase.update({ payment_condition: nextCondition }, { transaction });
     }
 
-    return nextCondition;
+    return payment;
 };
 
 const enrichSupplier = async (supplier) => {
@@ -639,7 +849,7 @@ export const getPurchases = async (req, res) => {
             where: whereClause,
             include: includeClause,
             distinct: true,
-            order: [['createdAt', 'DESC']],
+            order: [['id', 'DESC']],
             limit: parseInt(limit),
             offset: offset,
             subQuery: false
@@ -668,7 +878,6 @@ export const createFullPurchase = async (req, res) => {
         const {
             createdAt,
             factura,
-            supplier,
             supplier_id,
             cost,
             tempValues,
@@ -686,17 +895,19 @@ export const createFullPurchase = async (req, res) => {
             throw new ValidationError('El total de la compra debe ser mayor a cero.');
         }
 
-        const supplierRecord = supplier_id
-            ? await SupplierModel.findByPk(supplier_id, { transaction })
-            : null;
-        if (supplier_id && !supplierRecord) {
+        if (!supplier_id) {
+            throw new ValidationError('Debes seleccionar un proveedor.');
+        }
+
+        const supplierRecord = await SupplierModel.findByPk(supplier_id, { transaction });
+        if (!supplierRecord) {
             throw new ValidationError('Proveedor no encontrado', 404);
         }
-        if (supplierRecord && !supplierRecord.activo) {
+        if (!supplierRecord.activo) {
             throw new ValidationError('El proveedor está inactivo.');
         }
 
-        const supplierName = supplierRecord?.nombre || supplier || 'Proveedor no identificado';
+        const supplierName = supplierRecord.nombre;
         const initialPayments = Array.isArray(initial_payments)
             ? initial_payments
                 .map(payment => ({
@@ -706,10 +917,6 @@ export const createFullPurchase = async (req, res) => {
                 }))
                 .filter(payment => payment.amount > 0)
             : [];
-
-        if (initialPayments.length > 0 && !supplierRecord) {
-            throw new ValidationError('Para registrar pagos iniciales debe seleccionar un proveedor registrado.');
-        }
 
         const initialPaid = roundMoney(initialPayments.reduce((sum, payment) => sum + payment.amount, 0));
         if (initialPaid > total + 0.01) {
@@ -732,7 +939,7 @@ export const createFullPurchase = async (req, res) => {
             createdAt,
             factura,
             supplier: supplierName,
-            supplier_id: supplierRecord?.id || null,
+            supplier_id: supplierRecord.id,
             supplier_name_snapshot: supplierName,
             cost: total,
             payment_condition: derivedCondition,
@@ -931,11 +1138,8 @@ export const deletePurchase = async (req, res) => {
     try {
         const purchaseId = req.params.id;
 
-        const activePayments = await SupplierPaymentsModel.count({
-            where: { purchase_id: purchaseId, voided_at: null },
-            transaction
-        });
-        if (activePayments > 0) {
+        const activePaymentSummary = await getPurchaseActivePaymentSummary(purchaseId, transaction);
+        if (activePaymentSummary.activePaymentCount > 0) {
             await transaction.rollback();
             return res.status(400).json({
                 message: 'No se puede eliminar la compra porque tiene pagos activos. Anule los pagos primero.'
@@ -982,7 +1186,7 @@ export const updatePurchase = async (req, res) => {
     const transaction = await db.transaction();
     try {
         const purchaseId = req.params.id;
-        const { createdAt, factura, supplier, supplier_id, cost, tempValues } = req.body;
+        const { createdAt, factura, supplier_id, cost, tempValues } = req.body;
         const total = roundMoney(cost);
 
         const currentPurchase = await PurchaseModel.findByPk(purchaseId, { transaction });
@@ -993,32 +1197,31 @@ export const updatePurchase = async (req, res) => {
             throw new ValidationError('El total de la compra debe ser mayor a cero.');
         }
 
-        const activePayments = await SupplierPaymentsModel.findAll({
-            where: { purchase_id: purchaseId, voided_at: null },
-            transaction
-        });
-        const paidTotal = roundMoney(activePayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
+        const activePaymentSummary = await getPurchaseActivePaymentSummary(purchaseId, transaction);
+        const paidTotal = activePaymentSummary.paidTotal;
+        const hasActivePayments = activePaymentSummary.activePaymentCount > 0;
 
         const hasSupplierField = Object.prototype.hasOwnProperty.call(req.body || {}, 'supplier_id');
         const requestedSupplierId = hasSupplierField ? supplier_id : currentPurchase.supplier_id;
         const supplierChanged = Number(requestedSupplierId || 0) !== Number(currentPurchase.supplier_id || 0);
 
-        if (activePayments.length > 0 && supplierChanged) {
+        if (hasActivePayments && supplierChanged) {
             throw new ValidationError('No se puede cambiar el proveedor de una compra con pagos registrados.');
         }
-        if (activePayments.length > 0 && total < paidTotal - 0.01) {
+        if (hasActivePayments && total < paidTotal - 0.01) {
             throw new ValidationError('El total de la compra no puede ser menor a los pagos ya registrados.');
         }
 
-        let supplierRecord = null;
-        if (requestedSupplierId) {
-            supplierRecord = await SupplierModel.findByPk(requestedSupplierId, { transaction });
-            if (!supplierRecord) {
-                throw new ValidationError('Proveedor no encontrado', 404);
-            }
-            if (!supplierRecord.activo) {
-                throw new ValidationError('El proveedor está inactivo.');
-            }
+        if (!requestedSupplierId) {
+            throw new ValidationError('Debes seleccionar un proveedor.');
+        }
+
+        const supplierRecord = await SupplierModel.findByPk(requestedSupplierId, { transaction });
+        if (!supplierRecord) {
+            throw new ValidationError('Proveedor no encontrado', 404);
+        }
+        if (!supplierRecord.activo) {
+            throw new ValidationError('El proveedor está inactivo.');
         }
 
         // 1. Obtener detalles antiguos y crear un mapa para fácil acceso
@@ -1053,11 +1256,8 @@ export const updatePurchase = async (req, res) => {
         }
 
         // 4. Actualizar la cabecera de la compra
-        const nextSupplierId = supplierRecord?.id ?? (hasSupplierField ? null : currentPurchase.supplier_id);
-        const nextSupplierName = supplierRecord?.nombre
-            || (hasSupplierField
-                ? (String(supplier || '').trim() || 'Proveedor no identificado')
-                : (supplier || currentPurchase.supplier_name_snapshot || currentPurchase.supplier || 'Proveedor no identificado'));
+        const nextSupplierId = supplierRecord.id;
+        const nextSupplierName = supplierRecord.nombre;
         await PurchaseModel.update({
             createdAt,
             factura,
@@ -5010,12 +5210,7 @@ export const deactivateSupplier = async (req, res) => {
 export const getSupplierAccount = async (req, res) => {
     try {
         const financials = await getSupplierBalance(req.params.id);
-
-        const purchases = await PurchaseModel.findAll({
-            where: { supplier_id: financials.supplier.id },
-            include: [{ model: SupplierPaymentsModel, as: 'payments' }],
-            order: [['createdAt', 'DESC']]
-        });
+        const allocationState = await getSupplierAllocationState(financials.supplier.id);
 
         const payments = await SupplierPaymentsModel.findAll({
             where: { supplier_id: financials.supplier.id },
@@ -5023,24 +5218,34 @@ export const getSupplierAccount = async (req, res) => {
                 model: PurchaseModel,
                 as: 'purchase',
                 attributes: ['id', 'factura', 'payment_condition']
+            }, {
+                model: SupplierPaymentAllocationModel,
+                as: 'allocations',
+                include: [{
+                    model: PurchaseModel,
+                    as: 'purchase',
+                    attributes: ['id', 'factura']
+                }]
             }],
-            order: [['payment_date', 'DESC']]
+            order: [['payment_date', 'DESC'], ['id', 'DESC']]
         });
 
-        const plainPurchases = purchases.map(purchase => {
-            const plain = purchase.toJSON();
-            const paid = roundMoney((plain.payments || [])
-                .filter(payment => !payment.voided_at)
-                .reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
-            return {
-                ...plain,
+        const plainPurchases = allocationState.purchases
+            .map(({ purchase, paid, balance }) => ({
+                ...purchase.toJSON(),
                 paid,
-                balance: roundMoney(Number(plain.cost || 0) - paid)
-            };
-        });
+                balance
+            }))
+            .sort((left, right) => Number(right.id) - Number(left.id));
 
         res.json({
-            supplier: financials.supplier.toJSON(),
+            supplier: {
+                ...financials.supplier.toJSON(),
+                initial_debt: financials.initial_debt,
+                purchases_total: financials.purchases_total,
+                payments_total: financials.payments_total,
+                balance: financials.balance
+            },
             summary: {
                 initial_debt: financials.initial_debt,
                 purchases_total: financials.purchases_total,
@@ -5079,16 +5284,45 @@ export const registerSupplierPayment = async (req, res) => {
         }
 
         const financials = await getSupplierBalance(supplierId, transaction);
-        if (parsedAmount > financials.balance + 0.01) {
-            throw new ValidationError('El pago no puede superar el saldo pendiente del proveedor.');
-        }
+        const allocationState = await getSupplierAllocationState(supplierId, transaction);
 
         let purchase = null;
+        let purchaseRow = null;
+        let allocations = [];
+
         if (purchase_id) {
-            purchase = await PurchaseModel.findByPk(purchase_id, { transaction });
+            purchase = await PurchaseModel.findByPk(purchase_id, {
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
             if (!purchase || Number(purchase.supplier_id) !== Number(supplier.id)) {
                 throw new ValidationError('La compra indicada no pertenece al proveedor.');
             }
+
+            purchaseRow = allocationState.purchases.find(
+                row => Number(row.purchase.id) === Number(purchase.id)
+            );
+            if (!purchaseRow) {
+                throw new ValidationError('La compra indicada no pertenece al proveedor.');
+            }
+            if (purchaseRow.balance <= 0.01) {
+                throw new ValidationError('La compra no tiene saldo pendiente.');
+            }
+            if (parsedAmount > purchaseRow.balance + 0.01) {
+                throw new ValidationError('El pago no puede superar el saldo pendiente de la compra.');
+            }
+
+            allocations = [{
+                purchase_id: purchase.id,
+                target_type: 'purchase',
+                amount: parsedAmount
+            }];
+        } else {
+            allocations = buildFifoAllocations({ state: allocationState, amount: parsedAmount });
+        }
+
+        if (parsedAmount > financials.balance + 0.01) {
+            throw new ValidationError('El pago no puede superar el saldo pendiente del proveedor.');
         }
 
         const payment = await createSupplierPaymentWithCash({
@@ -5103,6 +5337,22 @@ export const registerSupplierPayment = async (req, res) => {
             payment_date
         });
 
+        if (!purchase) {
+            await SupplierPaymentAllocationModel.bulkCreate(
+                allocations.map(allocation => ({
+                    ...allocation,
+                    supplier_payment_id: payment.id
+                })),
+                { transaction }
+            );
+        }
+
+        const paymentAllocations = await SupplierPaymentAllocationModel.findAll({
+            where: { supplier_payment_id: payment.id },
+            order: [['id', 'ASC']],
+            transaction
+        });
+
         await logAudit({
             user_id: req.usuario.id,
             action: 'REGISTRAR_PAGO_PROVEEDOR',
@@ -5113,7 +5363,12 @@ export const registerSupplierPayment = async (req, res) => {
                 supplier_id: supplier.id,
                 purchase_id: purchase?.id || null,
                 amount: parsedAmount,
-                payment_method: normalizePaymentMethod(payment_method)
+                payment_method: normalizePaymentMethod(payment_method),
+                allocations: allocations.map(allocation => ({
+                    purchase_id: allocation.purchase_id,
+                    target_type: allocation.target_type,
+                    amount: allocation.amount
+                }))
             },
             details: `Se registró un pago de ${parsedAmount} al proveedor ${supplier.nombre}.`
         }, req, transaction);
@@ -5123,8 +5378,14 @@ export const registerSupplierPayment = async (req, res) => {
         res.status(201).json({
             success: true,
             message: 'Pago registrado exitosamente',
-            data: payment,
-            balance: roundMoney(financials.balance - parsedAmount)
+            data: {
+                ...payment.toJSON(),
+                allocations: paymentAllocations.map(allocation => allocation.toJSON())
+            },
+            balance: roundMoney(financials.balance - parsedAmount),
+            purchase_balance: purchaseRow
+                ? roundMoney(purchaseRow.balance - parsedAmount)
+                : null
         });
     } catch (error) {
         if (!transaction.finished) {
@@ -5200,15 +5461,11 @@ export const voidSupplierPayment = async (req, res) => {
             void_cash_movement_id: voidCashMovementId
         }, { transaction });
 
-        let condition = null;
-        if (payment.purchase_id) {
-            condition = await recalculatePurchaseCondition(
-                payment.purchase_id,
-                req,
-                transaction,
-                'Anulación de pago inicial de compra'
-            );
-        }
+        const affectedPurchases = await markChequeVoidedPurchasesAsCurrentAccount(
+            payment,
+            req,
+            transaction
+        );
 
         await logAudit({
             user_id: req.usuario.id,
@@ -5217,7 +5474,11 @@ export const voidSupplierPayment = async (req, res) => {
             entity_id: payment.id,
             session_id: payment.cash_session_id || null,
             old_values: { amount: payment.amount, payment_method: payment.payment_method },
-            new_values: { voided_at: payment.voided_at, reason: payment.void_reason },
+            new_values: {
+                voided_at: payment.voided_at,
+                reason: payment.void_reason,
+                affected_purchases: affectedPurchases
+            },
             details: `Se anuló el pago #${payment.id} del proveedor ${supplier.nombre}.`
         }, req, transaction);
 
@@ -5228,7 +5489,8 @@ export const voidSupplierPayment = async (req, res) => {
             success: true,
             message: 'Pago anulado correctamente',
             data: payment,
-            payment_condition: condition,
+            payment_condition: affectedPurchases.length > 0 ? 'cuenta corriente' : null,
+            affected_purchases: affectedPurchases,
             balance: financials.balance
         });
     } catch (error) {

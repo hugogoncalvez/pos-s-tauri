@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AddCardIcon from '@mui/icons-material/AddCard';
+import PaymentsIcon from '@mui/icons-material/Payments';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import BlockIcon from '@mui/icons-material/Block';
 import { StyledDialog } from './ui/StyledDialog';
@@ -36,6 +37,7 @@ import { useTheme } from '@mui/material/styles';
 import { confirmAction } from '../functions/ConfirmDelete';
 import { mostrarError } from '../functions/MostrarError';
 import { mostrarExito } from '../functions/mostrarExito';
+import { formatPaymentMethodLabel } from '../functions/manualPaymentMethods';
 
 const formatCurrency = (value) => `$${Number(value || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -46,16 +48,36 @@ const formatDate = (value) => {
     return date.toLocaleDateString('es-AR');
 };
 
+const formatPurchaseDate = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('es-AR', { timeZone: 'UTC' });
+};
+
 const conditionColor = (condition) => {
     if (condition === 'contado') return 'success';
     if (condition === 'cheque') return 'warning';
     return 'info';
 };
 
+const getPaymentAllocationLabels = (payment) => {
+    const allocations = Array.isArray(payment.allocations) ? payment.allocations : [];
+    if (allocations.length > 0) {
+        return allocations.map((allocation) => (
+            allocation.target_type === 'initial_debt'
+                ? 'Deuda inicial'
+                : (allocation.purchase?.factura || `Compra #${allocation.purchase_id}`)
+        ));
+    }
+    return payment.purchase?.factura ? [payment.purchase.factura] : [];
+};
+
 export const SupplierAccountModal = ({ open, onClose, supplier, onChanged }) => {
     const theme = useTheme();
     const { tienePermiso } = usePermissions();
     const [openPayment, setOpenPayment] = useState(false);
+    const [paymentPurchase, setPaymentPurchase] = useState(null);
     const [conditionPurchase, setConditionPurchase] = useState(null);
     const [conditionForm, setConditionForm] = useState({ condition: 'cuenta corriente', reason: '' });
     const { mutateAsync, isPending } = useSubmit('supplierAccountAction');
@@ -79,8 +101,19 @@ export const SupplierAccountModal = ({ open, onClose, supplier, onChanged }) => 
 
     const handleClose = () => {
         setOpenPayment(false);
+        setPaymentPurchase(null);
         setConditionPurchase(null);
         onClose();
+    };
+
+    const handleOpenGeneralPayment = () => {
+        setPaymentPurchase(null);
+        setOpenPayment(true);
+    };
+
+    const handleOpenPurchasePayment = (purchase) => {
+        setPaymentPurchase(purchase);
+        setOpenPayment(true);
     };
 
     const handleOpenCondition = (purchase) => {
@@ -112,6 +145,7 @@ export const SupplierAccountModal = ({ open, onClose, supplier, onChanged }) => 
     };
 
     const handleVoidPayment = (payment) => {
+        const isCheque = String(payment.payment_method || '').toLowerCase().includes('cheque');
         confirmAction(async () => {
             try {
                 await mutateAsync({
@@ -125,7 +159,9 @@ export const SupplierAccountModal = ({ open, onClose, supplier, onChanged }) => 
             } catch {
                 return;
             }
-        }, () => {}, '¿Anular este pago?', theme);
+        }, () => {}, isCheque
+            ? '¿Anular este pago? La deuda volverá a cuenta corriente.'
+            : '¿Anular este pago?', theme);
     };
 
     return (
@@ -175,7 +211,7 @@ export const SupplierAccountModal = ({ open, onClose, supplier, onChanged }) => 
                                         variant="contained"
                                         size="small"
                                         startIcon={<AddCardIcon />}
-                                        onClick={() => setOpenPayment(true)}
+                                        onClick={handleOpenGeneralPayment}
                                         disabled={Number(summary.balance) <= 0}
                                     >
                                         Registrar pago
@@ -202,7 +238,7 @@ export const SupplierAccountModal = ({ open, onClose, supplier, onChanged }) => 
                                             </TableRow>
                                         ) : purchases.map((purchase) => (
                                             <TableRow key={purchase.id} hover>
-                                                <TableCell align="center">{formatDate(purchase.createdAt)}</TableCell>
+                                                <TableCell align="center">{formatPurchaseDate(purchase.createdAt)}</TableCell>
                                                 <TableCell align="center">{purchase.factura || '-'}</TableCell>
                                                 <TableCell align="center">
                                                     <Chip size="small" label={purchase.payment_condition || 'cuenta corriente'} color={conditionColor(purchase.payment_condition)} />
@@ -213,13 +249,29 @@ export const SupplierAccountModal = ({ open, onClose, supplier, onChanged }) => 
                                                     {formatCurrency(purchase.balance)}
                                                 </TableCell>
                                                 <TableCell align="center">
-                                                    {tienePermiso('accion_corregir_condicion_compra') && (
-                                                        <Tooltip title="Corregir condición">
-                                                            <IconButton size="small" onClick={() => handleOpenCondition(purchase)}>
-                                                                <EditNoteIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    )}
+                                                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                                                        {tienePermiso('accion_registrar_pago_proveedor') && (
+                                                            <Tooltip title={Number(purchase.balance) > 0.01 ? 'Pagar factura' : 'Factura sin saldo'}>
+                                                                <span>
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        color="success"
+                                                                        disabled={Number(purchase.balance) <= 0.01}
+                                                                        onClick={() => handleOpenPurchasePayment(purchase)}
+                                                                    >
+                                                                        <PaymentsIcon fontSize="small" />
+                                                                    </IconButton>
+                                                                </span>
+                                                            </Tooltip>
+                                                        )}
+                                                        {tienePermiso('accion_corregir_condicion_compra') && (
+                                                            <Tooltip title="Corregir condición">
+                                                                <IconButton size="small" onClick={() => handleOpenCondition(purchase)}>
+                                                                    <EditNoteIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
+                                                    </Box>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -235,7 +287,7 @@ export const SupplierAccountModal = ({ open, onClose, supplier, onChanged }) => 
                                         <TableRow>
                                             <TableCell align="center">Fecha</TableCell>
                                             <TableCell align="center">Medio</TableCell>
-                                            <TableCell align="center">Compra</TableCell>
+                                            <TableCell align="center">Imputación</TableCell>
                                             <TableCell align="right">Importe</TableCell>
                                             <TableCell align="center">Estado</TableCell>
                                             <TableCell align="center">Notas</TableCell>
@@ -247,31 +299,43 @@ export const SupplierAccountModal = ({ open, onClose, supplier, onChanged }) => 
                                             <TableRow>
                                                 <TableCell colSpan={7} align="center">Sin pagos registrados.</TableCell>
                                             </TableRow>
-                                        ) : payments.map((payment) => (
-                                            <TableRow key={payment.id} hover>
-                                                <TableCell align="center">{formatDate(payment.payment_date || payment.createdAt)}</TableCell>
-                                                <TableCell align="center">{payment.payment_method}</TableCell>
-                                                <TableCell align="center">{payment.purchase?.factura || '-'}</TableCell>
-                                                <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
-                                                <TableCell align="center">
-                                                    {payment.voided_at ? (
-                                                        <Chip size="small" label="Anulado" color="error" />
-                                                    ) : (
-                                                        <Chip size="small" label="Activo" color="success" />
-                                                    )}
-                                                </TableCell>
-                                                <TableCell align="center">{payment.notes || payment.void_reason || '-'}</TableCell>
-                                                <TableCell align="center">
-                                                    {!payment.voided_at && tienePermiso('accion_anular_pago_proveedor') && (
-                                                        <Tooltip title="Anular pago">
-                                                            <IconButton size="small" color="error" onClick={() => handleVoidPayment(payment)}>
-                                                                <BlockIcon fontSize="small" />
-                                                            </IconButton>
+                                        ) : payments.map((payment) => {
+                                            const allocationLabels = getPaymentAllocationLabels(payment);
+                                            const allocationLabel = allocationLabels.length === 0
+                                                ? '-'
+                                                : (allocationLabels.length === 1
+                                                    ? allocationLabels[0]
+                                                    : `${allocationLabels.length} imputaciones`);
+                                            return (
+                                                <TableRow key={payment.id} hover>
+                                                    <TableCell align="center">{formatDate(payment.payment_date || payment.createdAt)}</TableCell>
+                                                    <TableCell align="center">{formatPaymentMethodLabel(payment.payment_method)}</TableCell>
+                                                    <TableCell align="center">
+                                                        <Tooltip title={allocationLabels.length > 1 ? allocationLabels.join(' · ') : ''}>
+                                                            <span>{allocationLabel}</span>
                                                         </Tooltip>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                                    </TableCell>
+                                                    <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
+                                                    <TableCell align="center">
+                                                        {payment.voided_at ? (
+                                                            <Chip size="small" label="Anulado" color="error" />
+                                                        ) : (
+                                                            <Chip size="small" label="Activo" color="success" />
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell align="center">{payment.notes || payment.void_reason || '-'}</TableCell>
+                                                    <TableCell align="center">
+                                                        {!payment.voided_at && tienePermiso('accion_anular_pago_proveedor') && (
+                                                            <Tooltip title="Anular pago">
+                                                                <IconButton size="small" color="error" onClick={() => handleVoidPayment(payment)}>
+                                                                    <BlockIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
@@ -287,8 +351,12 @@ export const SupplierAccountModal = ({ open, onClose, supplier, onChanged }) => 
 
             <SupplierPaymentModal
                 open={openPayment}
-                onClose={() => setOpenPayment(false)}
+                onClose={() => {
+                    setOpenPayment(false);
+                    setPaymentPurchase(null);
+                }}
                 supplier={currentSupplier}
+                purchase={paymentPurchase}
                 onSaved={refresh}
             />
 
