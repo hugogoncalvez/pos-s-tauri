@@ -261,6 +261,15 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
             </tr>
         `;
 
+        if (parseMoney(sale.promotion_discount) > 0) {
+            receiptContent += `
+                <tr>
+                    <td colspan="3" class="text-right" style="border:none;"><strong>Descuento:</strong></td>
+                    <td class="text-right" style="border:none;">- $ ${parseMoney(sale.promotion_discount).toFixed(2)}</td>
+                </tr>
+            `;
+        }
+
         if (parseMoney(sale.surcharge_amount) > 0) {
             receiptContent += `
                 <tr>
