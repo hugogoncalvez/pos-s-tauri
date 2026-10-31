@@ -16,6 +16,7 @@ import { Op } from "sequelize";
 import bcrypt from 'bcryptjs';
 import { logAudit } from '../middleware/auditMiddleware.js';
 import modulePermissions from '../config/modulePermissions.js';
+import { getPaymentAmountError } from '../utils/paymentValidation.js';
 
 
 import SupplierModel from "../Models/SuppliersModel.js";
@@ -2415,9 +2416,14 @@ export const createSale = async (req, res) => {
             if (!activeSession) throw new ValidationError('No tienes una sesión de caja activa.', 403);
             if (!payments?.length) throw new ValidationError('Se requiere al menos un método de pago.');
 
-            const totalPaymentsAmount = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-            if (totalPaymentsAmount < total_amount - 0.01) {
-                throw new ValidationError(`Monto insuficiente: ${totalPaymentsAmount.toFixed(2)} < ${total_amount.toFixed(2)}`);
+            const paymentAmountError = getPaymentAmountError({
+                total_amount,
+                promotion_discount,
+                surcharge_amount,
+                payments
+            });
+            if (paymentAmountError) {
+                throw new ValidationError(paymentAmountError);
             }
 
             let quoteToConvert = null;
