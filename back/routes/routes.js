@@ -2,6 +2,7 @@ import express from "express";
 import multer from 'multer';
 import { verificarSesion } from "../middleware/auth.js";
 import checkPermission from '../middleware/checkPermission.js';
+import { getSupplierQuotes, getSupplierQuote, createSupplierQuote, updateSupplierQuote, receiveSupplierQuote, convertSupplierQuoteToOrder, voidSupplierQuote } from '../controllers/supplierQuoteController.js';
 
 import {
     // ... (all existing controllers)
@@ -229,6 +230,17 @@ authenticatedRouter.get('/supplier-orders/:id', checkPermission('ver_pedidos_pro
 authenticatedRouter.post('/supplier-orders', checkPermission('accion_crear_pedido_proveedor'), createSupplierOrder);
 authenticatedRouter.put('/supplier-orders/:id', checkPermission('accion_editar_pedido_proveedor'), updateSupplierOrder);
 authenticatedRouter.delete('/supplier-orders/:id', checkPermission('accion_anular_pedido_proveedor'), voidSupplierOrder);
+
+// --- COTIZACIONES A PROVEEDORES (documento, sin efecto en stock ni saldo) ---
+authenticatedRouter.get('/supplier-quotes/products', checkPermission(['ver_cotizaciones_proveedor', 'ver_pedidos_proveedor']), getSupplierOrderProducts);
+authenticatedRouter.get('/supplier-quotes/units', checkPermission(['ver_cotizaciones_proveedor', 'ver_pedidos_proveedor']), getSupplierOrderUnits);
+authenticatedRouter.get('/supplier-quotes', checkPermission('ver_cotizaciones_proveedor'), getSupplierQuotes);
+authenticatedRouter.get('/supplier-quotes/:id', checkPermission('ver_cotizaciones_proveedor'), getSupplierQuote);
+authenticatedRouter.post('/supplier-quotes', checkPermission('accion_crear_cotizacion_proveedor'), createSupplierQuote);
+authenticatedRouter.put('/supplier-quotes/:id', checkPermission('accion_editar_cotizacion_proveedor'), updateSupplierQuote);
+authenticatedRouter.post('/supplier-quotes/:id/receive', checkPermission('accion_recibir_cotizacion_proveedor'), receiveSupplierQuote);
+authenticatedRouter.post('/supplier-quotes/:id/convert-to-order', checkPermission('accion_convertir_cotizacion_proveedor'), convertSupplierQuoteToOrder);
+authenticatedRouter.delete('/supplier-quotes/:id', checkPermission('accion_anular_cotizacion_proveedor'), voidSupplierQuote);
 
 // --- RUTAS DE AUDITORÍA ---
 authenticatedRouter.get('/audit/logs', checkPermission('ver_vista_auditoria'), getAuditLogs);

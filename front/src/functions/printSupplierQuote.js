@@ -1,0 +1,154 @@
+const formatQuantity = (value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '';
+    return number.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+};
+
+const formatDate = (value) => {
+    if (!value) return '';
+    const raw = String(value);
+    const date = raw.length === 10 ? new Date(`${raw}T00:00:00`) : new Date(raw);
+    if (Number.isNaN(date.getTime())) return raw;
+    return date.toLocaleDateString('es-AR');
+};
+
+const formatMoney = (value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '';
+    return number.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+const quoteNumber = (quote) => `COT-${String(quote?.numero ?? quote?.id ?? 0).padStart(5, '0')}`;
+
+export const printSupplierQuote = (quote, businessConfig = {}) => {
+    if (!quote) return;
+
+    const business = Array.isArray(businessConfig) ? businessConfig[0] : businessConfig;
+    const companyName = business?.name || 'EL CORRALON';
+    const companyAddress = business?.address || '';
+    const companyPhone = business?.phone || '';
+    const logo = business?.logo
+        ? `<img class="brand-logo" src="${escapeHtml(business.logo)}" alt="${escapeHtml(companyName)}" />`
+        : `<div class="brand-name">${escapeHtml(companyName)}</div>`;
+
+    const isRequest = quote.estado === 'solicitada';
+    const hasPrices = !isRequest && (quote.details || []).some(detail => detail.precio_unitario !== null && detail.precio_unitario !== undefined);
+
+    const rows = (quote.details || []).map(detail => `
+        <tr>
+            <td class="center">${escapeHtml(detail.unidad || '')}</td>
+            <td class="center">${escapeHtml(formatQuantity(detail.cantidad))}</td>
+            <td class="detalle">${escapeHtml(detail.detalle || '')}</td>
+            ${hasPrices ? `<td class="right">${detail.precio_unitario === null || detail.precio_unitario === undefined ? '—' : `$ ${escapeHtml(formatMoney(detail.precio_unitario))}`}</td>` : ''}
+            ${hasPrices ? `<td class="right">${detail.importe === null || detail.importe === undefined ? '—' : `$ ${escapeHtml(formatMoney(detail.importe))}`}</td>` : ''}
+        </tr>`).join('');
+
+    const totalRows = hasPrices ? `
+        <div class="total">
+            <span>Total cotizado</span>
+            <strong>$ ${escapeHtml(formatMoney(quote.total))}</strong>
+        </div>` : '';
+
+    const htmlContent = `
+    <html>
+    <head>
+        <title>${isRequest ? 'Solicitud de cotización' : 'Cotización'} ${quoteNumber(quote)}</title>
+        <meta charset="UTF-8">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            @page { size: A4 portrait; margin: 0; }
+            body { font-family: Arial, Helvetica, sans-serif; color: #1f2933; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .topbar { height: 10px; background: #0f766e; }
+            .sheet { width: 100%; max-width: 190mm; margin: 0 auto; padding: 16mm 14mm 18mm; }
+            .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+            .brand-name { font-size: 30px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; line-height: 1.1; }
+            .brand-logo { max-height: 54px; }
+            .brand-meta { margin-top: 6px; font-size: 10px; line-height: 1.6; color: #4b5563; }
+            .doc { text-align: right; }
+            .doc-title { font-size: 17px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: #0f766e; }
+            .doc-number { margin-top: 4px; font-size: 22px; font-weight: 800; }
+            .rule { margin-top: 12px; border-top: 2px solid #1f2933; }
+            .meta { margin-top: 14px; display: grid; grid-template-columns: 22% 36% 42%; gap: 14px; background: #f3f4f6; border-left: 5px solid #0f766e; padding: 11px 16px; }
+            .meta .label { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6b7280; }
+            .meta .value { display: block; margin-top: 3px; font-size: 12px; font-weight: 700; }
+            table.items { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 16px; }
+            table.items thead th { background: #1f2933; color: #fff; padding: 8px 10px; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; text-align: center; }
+            table.items tbody td { padding: 10px; font-size: 11px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
+            table.items tbody tr:nth-child(even) { background: #fafafa; }
+            table.items td.center { text-align: center; }
+            table.items td.right { text-align: right; }
+            table.items td.detalle { text-align: center; font-weight: 500; }
+            .total { margin-top: 16px; display: flex; justify-content: flex-end; gap: 30px; font-size: 13px; }
+            .total strong { font-size: 16px; color: #0f766e; }
+            .notes { margin-top: 18px; font-size: 9px; color: #6b7280; white-space: pre-wrap; }
+            @media print { .sheet { max-width: none; padding: 14mm 12mm 16mm; } }
+        </style>
+    </head>
+    <body>
+        <div class="topbar"></div>
+        <div class="sheet">
+            <div class="head">
+                <div class="brand">
+                    ${logo}
+                    <div class="brand-meta">
+                        ${companyAddress ? `<div>${escapeHtml(companyAddress)}</div>` : ''}
+                        ${companyPhone ? `<div>Tel. ${escapeHtml(companyPhone)}</div>` : ''}
+                    </div>
+                </div>
+                <div class="doc">
+                    <div class="doc-title">${isRequest ? 'SOLICITUD DE COTIZACIÓN' : 'COTIZACIÓN'}</div>
+                    <div class="doc-number">${quoteNumber(quote)}</div>
+                </div>
+            </div>
+            <div class="rule"></div>
+            <div class="meta">
+                <div><span class="label">FECHA</span><span class="value">${escapeHtml(formatDate(quote.fecha))}</span></div>
+                <div><span class="label">PROVEEDOR</span><span class="value">${escapeHtml(quote.supplier?.nombre || '')}</span></div>
+                <div><span class="label">RUBRO</span><span class="value">${escapeHtml(quote.rubro || '')}</span></div>
+            </div>
+            <table class="items">
+                <thead>
+                    <tr>
+                        <th style="width: 12%">UNIDAD</th>
+                        <th style="width: 14%">CANTIDAD</th>
+                        <th>DETALLE</th>
+                        ${hasPrices ? '<th style="width: 16%">PRECIO UNIT.</th><th style="width: 16%">IMPORTE</th>' : ''}
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+            ${totalRows}
+            ${quote.notas ? `<div class="notes">${escapeHtml(quote.notas)}</div>` : ''}
+        </div>
+    </body>
+    </html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+
+    setTimeout(() => {
+        document.body.removeChild(iframe);
+    }, 1000);
+};
+
+export default printSupplierQuote;

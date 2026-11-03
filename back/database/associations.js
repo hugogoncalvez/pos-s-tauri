@@ -20,6 +20,8 @@ import SupplierPaymentAllocationModel from '../Models/SupplierPaymentAllocations
 import PurchaseConditionChangeModel from '../Models/PurchaseConditionChangeModel.js';
 import SupplierOrderModel from '../Models/SupplierOrderModel.js';
 import SupplierOrderDetailModel from '../Models/SupplierOrderDetailModel.js';
+import SupplierQuoteModel from '../Models/SupplierQuoteModel.js';
+import SupplierQuoteDetailModel from '../Models/SupplierQuoteDetailModel.js';
 
 import CashSessionMovementModel from '../Models/CashSessionMovementModel.js';
 import ThemeSettingModel from '../Models/ThemeSettingModel.js';
@@ -212,6 +214,24 @@ StockModel.hasMany(SupplierOrderDetailModel, { foreignKey: 'stock_id', as: 'supp
 UsuarioModel.hasMany(SupplierOrderModel, { foreignKey: 'created_by_id', as: 'supplier_orders' });
 SupplierOrderModel.belongsTo(UsuarioModel, { foreignKey: 'created_by_id', as: 'created_by_user' });
 
+// --- Asociaciones de Cotizaciones a Proveedores ---
+
+SupplierModel.hasMany(SupplierQuoteModel, { foreignKey: 'supplier_id', as: 'quotes' });
+SupplierQuoteModel.belongsTo(SupplierModel, { foreignKey: 'supplier_id', as: 'supplier' });
+
+SupplierQuoteModel.hasMany(SupplierQuoteDetailModel, { foreignKey: 'supplier_quote_id', as: 'details' });
+SupplierQuoteDetailModel.belongsTo(SupplierQuoteModel, { foreignKey: 'supplier_quote_id', as: 'supplier_quote' });
+
+SupplierQuoteDetailModel.belongsTo(StockModel, { foreignKey: 'stock_id', as: 'stock' });
+SupplierQuoteDetailModel.belongsTo(UnitModel, { foreignKey: 'units_id', as: 'unit' });
+StockModel.hasMany(SupplierQuoteDetailModel, { foreignKey: 'stock_id', as: 'supplier_quote_details' });
+
+UsuarioModel.hasMany(SupplierQuoteModel, { foreignKey: 'created_by_id', as: 'supplier_quotes' });
+SupplierQuoteModel.belongsTo(UsuarioModel, { foreignKey: 'created_by_id', as: 'created_by_user' });
+
+SupplierOrderModel.hasOne(SupplierQuoteModel, { foreignKey: 'supplier_order_id', as: 'quote' });
+SupplierQuoteModel.belongsTo(SupplierOrderModel, { foreignKey: 'supplier_order_id', as: 'order' });
+
 // --- NUEVAS ASOCIACIONES PARA UNIDADES DE VENTA Y PROMOCIONES ---
 
 // Stock <-> ProductPresentations (One-to-Many)
@@ -274,5 +294,5 @@ export {
   CashSessionMovementModel, ThemeSettingModel, PendingTicketModel, ComandaModel, ProductPresentationsModel, ProductPromotionsModel,
   ComboModel, ComboItem, UserPermissionModel, PermissionModel, BusinessConfigModel,
   QuoteModel, QuoteDetailModel, SupplierPaymentsModel, SupplierPaymentAllocationModel, PurchaseConditionChangeModel,
-  SupplierOrderModel, SupplierOrderDetailModel
+  SupplierOrderModel, SupplierOrderDetailModel, SupplierQuoteModel, SupplierQuoteDetailModel
 };

@@ -16,6 +16,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import BlockIcon from '@mui/icons-material/Block';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import { useTheme } from '@mui/material/styles';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
@@ -23,6 +24,7 @@ import { TextFieldWithClear } from '../styledComponents/ui/TextFieldWithClear';
 import { SupplierFormModal } from '../styledComponents/SupplierFormModal';
 import { SupplierAccountModal } from '../styledComponents/SupplierAccountModal';
 import { SupplierOrdersModal } from '../styledComponents/SupplierOrdersModal';
+import { SupplierQuotesModal } from '../styledComponents/SupplierQuotesModal';
 import { usePermissions } from '../hooks/usePermissions';
 import { UseFetchQuery } from '../hooks/useQuery';
 import { useSubmit } from '../hooks/useSubmit';
@@ -55,6 +57,7 @@ export const SuppliersManager = () => {
     const [selectedSupplier, setSelectedSupplier] = useState(null);
     const [accountSupplier, setAccountSupplier] = useState(null);
     const [ordersSupplier, setOrdersSupplier] = useState(null);
+    const [quotesSupplier, setQuotesSupplier] = useState(null);
 
     const { mutateAsync: deactivateSupplier } = useSubmit('deactivateSupplier');
     const canViewReports = tienePermiso('ver_informes_proveedor');
@@ -157,6 +160,13 @@ export const SuppliersManager = () => {
                             </IconButton>
                         </Tooltip>
                     )}
+                    {tienePermiso('ver_cotizaciones_proveedor') && (
+                        <Tooltip title="Cotizaciones de precios">
+                            <IconButton size="small" color="info" onClick={() => setQuotesSupplier(supplier)}>
+                                <RequestQuoteIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+                    )}
                     {tienePermiso('ver_cuenta_proveedor') && (
                         <Tooltip title="Cuenta corriente">
                             <IconButton size="small" color="primary" onClick={() => setAccountSupplier(supplier)}>
@@ -188,7 +198,7 @@ export const SuppliersManager = () => {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
                 <Box>
                     <Typography variant="h5" fontWeight={700}>Proveedores</Typography>
-                    <Typography variant="body2" color="text.secondary">Maestro, compras y cuenta corriente</Typography>
+                    <Typography variant="body2" color="text.secondary">Maestro, compras, cuenta corriente y cotizaciones</Typography>
                 </Box>
                 {tienePermiso('accion_crear_proveedor') && (
                     <StyledButton variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
@@ -291,6 +301,13 @@ export const SuppliersManager = () => {
                 open={Boolean(ordersSupplier)}
                 onClose={() => setOrdersSupplier(null)}
                 supplier={ordersSupplier}
+                onChanged={refreshAll}
+            />
+
+            <SupplierQuotesModal
+                open={Boolean(quotesSupplier)}
+                onClose={() => setQuotesSupplier(null)}
+                supplier={quotesSupplier}
                 onChanged={refreshAll}
             />
         </Box>

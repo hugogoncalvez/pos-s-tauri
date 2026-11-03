@@ -91,7 +91,13 @@ const modulePermissions = {
       'ver_pedidos_proveedor',
       'accion_crear_pedido_proveedor',
       'accion_editar_pedido_proveedor',
-      'accion_anular_pedido_proveedor'
+      'accion_anular_pedido_proveedor',
+      'ver_cotizaciones_proveedor',
+      'accion_crear_cotizacion_proveedor',
+      'accion_editar_cotizacion_proveedor',
+      'accion_recibir_cotizacion_proveedor',
+      'accion_convertir_cotizacion_proveedor',
+      'accion_anular_cotizacion_proveedor'
     ]
   },
   DashBoard: {
