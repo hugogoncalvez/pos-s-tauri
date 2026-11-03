@@ -5793,7 +5793,7 @@ const buildOrderDetails = async (details, transaction = null) => {
         }
         const detalle = String(detail.detalle || '').trim();
         if (!detalle) {
-            throw new ValidationError(`Ingresá el detalle de la línea ${index + 1}.`);
+            throw new ValidationError(`Ingresá el producto de la línea ${index + 1}.`);
         }
 
         const stockId = detail.stock_id ? parseInt(detail.stock_id, 10) : null;

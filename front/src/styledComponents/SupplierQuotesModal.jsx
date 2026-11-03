@@ -145,6 +145,7 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
     const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
 
     const quotes = quotesData?.rows || [];
+    const canEditPrices = editing?.estado === 'recibida';
     const productList = useMemo(() => products || [], [products]);
     const unitList = useMemo(() => units || [], [units]);
 
@@ -244,7 +245,7 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
             cantidad: Number(line.cantidad) || 0,
             unidad: line.unidad,
             detalle: line.detalle,
-            precio_unitario: line.precio_unitario === '' ? null : Number(line.precio_unitario)
+            precio_unitario: canEditPrices && line.precio_unitario !== '' ? Number(line.precio_unitario) : null
         }))
     });
 
@@ -284,14 +285,13 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
                     values: {},
                     showSuccessAlert: false
                 });
-                mostrarExito('Cotización marcada como recibida.', theme);
                 await refetch();
                 onChanged?.();
                 await startEditQuote(received);
             } catch {
                 return;
             }
-        }, () => {}, `¿Marcar ${quoteNumber(quote)} como recibida?`, theme);
+        }, () => {}, `¿Registrar respuesta del proveedor para ${quoteNumber(quote)} y cargar precios?`, theme);
     };
 
     const handleVoid = (quote) => {
@@ -422,6 +422,7 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
                 <Box>
                     <Typography variant="subtitle1" fontWeight={700}>{editing ? `Editar ${quoteNumber(editing)}` : 'Nueva cotización'}</Typography>
                     <Typography variant="body2" color="text.secondary">Proveedor: {supplier?.nombre}</Typography>
+                    {!canEditPrices && <Typography variant="caption" color="text.secondary">Los precios se cargan al marcar la cotización como recibida.</Typography>}
                 </Box>
                 <StyledButton variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => setView('list')}>Volver</StyledButton>
             </Box>
@@ -438,8 +439,7 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
                             <TableCell>Producto</TableCell>
                             <TableCell align="center">Cantidad</TableCell>
                             <TableCell align="center">Unidad</TableCell>
-                            <TableCell>Detalle</TableCell>
-                            <TableCell align="center">Precio unit.</TableCell>
+                            {canEditPrices && <TableCell align="center">Precio unit.</TableCell>}
                             <TableCell />
                         </TableRow>
                     </TableHead>
@@ -448,12 +448,24 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
                             <TableRow key={line.key}>
                                 <TableCell sx={{ minWidth: 210 }}>
                                     <Autocomplete
+                                        freeSolo
                                         size="small"
                                         options={productList.filter(product => Number(product.supplier_id) === Number(supplier?.id)).concat(productList.filter(product => Number(product.supplier_id) !== Number(supplier?.id)))}
-                                        getOptionLabel={option => option?.name || ''}
+                                        getOptionLabel={option => typeof option === 'string' ? option : (option?.name || '')}
                                         value={productList.find(product => Number(product.id) === Number(line.stock_id)) || null}
-                                        onChange={(_, value) => handleSelectProduct(line.key, value)}
-                                        renderInput={params => <TextField {...params} placeholder="Buscar producto" />}
+                                        inputValue={line.detalle}
+                                        onInputChange={(_, value, reason) => {
+                                            if (reason !== 'input') return;
+                                            updateLine(line.key, { detalle: value, stock_id: null, units_id: null, unidad: '' });
+                                        }}
+                                        onChange={(_, value) => {
+                                            if (typeof value === 'string') {
+                                                updateLine(line.key, { detalle: value, stock_id: null, units_id: null, unidad: '' });
+                                                return;
+                                            }
+                                            handleSelectProduct(line.key, value);
+                                        }}
+                                        renderInput={params => <TextField {...params} placeholder="Buscar producto o escribir el producto" />}
                                     />
                                 </TableCell>
                                 <TableCell align="center" sx={{ width: 110 }}>
@@ -462,8 +474,7 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
                                 <TableCell align="center" sx={{ width: 140 }}>
                                     <Autocomplete size="small" options={unitList} getOptionLabel={unitOptionLabel} value={unitList.find(unit => Number(unit.id) === Number(line.units_id)) || null} onChange={(_, value) => updateLine(line.key, { units_id: value?.id || null, unidad: unitLabel({ unit: value }) })} renderInput={params => <TextField {...params} />} />
                                 </TableCell>
-                                <TableCell><TextField size="small" fullWidth value={line.detalle} onChange={event => updateLine(line.key, { detalle: event.target.value })} /></TableCell>
-                                <TableCell align="center" sx={{ width: 130 }}><TextField size="small" type="number" value={line.precio_unitario} onChange={event => updateLine(line.key, { precio_unitario: event.target.value })} inputProps={{ min: 0, step: '0.01' }} placeholder="Opcional" /></TableCell>
+                                {canEditPrices && <TableCell align="center" sx={{ width: 130 }}><TextField size="small" type="number" value={line.precio_unitario} onChange={event => updateLine(line.key, { precio_unitario: event.target.value })} inputProps={{ min: 0, step: '0.01' }} placeholder="Opcional" /></TableCell>}
                                 <TableCell align="center"><IconButton size="small" color="error" onClick={() => removeLine(line.key)}><DeleteIcon fontSize="small" /></IconButton></TableCell>
                             </TableRow>
                         ))}

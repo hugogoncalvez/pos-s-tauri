@@ -63,7 +63,7 @@ const buildQuoteDetails = async (details, transaction = null) => {
 
         const detalle = String(detail.detalle || '').trim();
         if (!detalle) {
-            throw new ValidationError(`Ingresá el detalle de la línea ${index + 1}.`);
+            throw new ValidationError(`Ingresá el producto de la línea ${index + 1}.`);
         }
 
         const stockId = detail.stock_id ? parseInt(detail.stock_id, 10) : null;
@@ -232,6 +232,9 @@ export const createSupplierQuote = async (req, res) => {
         if (!supplier.activo) throw new ValidationError('No se pueden crear cotizaciones para un proveedor inactivo.');
 
         const details = await buildQuoteDetails(body.details, transaction);
+        if (details.some(detail => detail.precio_unitario !== null)) {
+            throw new ValidationError('Los precios se cargan recién cuando la cotización está recibida.');
+        }
 
         await SupplierQuoteCounterModel.findOrCreate({
             where: { id: 1 },
@@ -301,6 +304,9 @@ export const updateSupplierQuote = async (req, res) => {
         if (!supplier.activo) throw new ValidationError('No se puede usar un proveedor inactivo.');
 
         const details = await buildQuoteDetails(body.details, transaction);
+        if (quote.estado === 'solicitada' && details.some(detail => detail.precio_unitario !== null)) {
+            throw new ValidationError('Marcá la cotización como recibida antes de cargar precios.');
+        }
 
         await quote.update({
             fecha: body.fecha || quote.fecha,

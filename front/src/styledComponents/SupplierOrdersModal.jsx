@@ -439,15 +439,58 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                 <Table size="small" sx={{ tableLayout: 'fixed' }}>
                     <TableHead>
                         <TableRow>
-                            <TableCell align="center" sx={{ width: 130 }}>UND.</TableCell>
+                            <TableCell>Producto</TableCell>
                             <TableCell align="center" sx={{ width: 150 }}>Cantidad</TableCell>
-                            <TableCell>Detalle</TableCell>
+                            <TableCell align="center" sx={{ width: 130 }}>UND.</TableCell>
                             <TableCell align="center" sx={{ width: 56 }} />
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {lines.map((line) => (
                             <TableRow key={line.key}>
+                                <TableCell>
+                                    <Autocomplete
+                                        freeSolo
+                                        fullWidth
+                                        options={productList}
+                                        groupBy={(option) => (
+                                            Number(option?.supplier_id) === Number(supplier?.id)
+                                                ? 'De este proveedor'
+                                                : 'Otros productos'
+                                        )}
+                                        getOptionLabel={(option) => (typeof option === 'string' ? option : option?.name || '')}
+                                        isOptionEqualToValue={(option, value) => option?.id === value?.id}
+                                        onChange={(_event, value) => {
+                                            if (typeof value === 'string') {
+                                                updateLine(line.key, { detalle: value, stock_id: null, units_id: null, unidad: '' });
+                                            } else {
+                                                handleSelectProduct(line.key, value);
+                                            }
+                                        }}
+                                        onInputChange={(_event, value, reason) => {
+                                            if (reason === 'input') {
+                                                updateLine(line.key, { detalle: value, stock_id: null, units_id: null, unidad: '' });
+                                            }
+                                        }}
+                                        inputValue={line.detalle}
+                                        renderInput={(params) => <TextField {...params} fullWidth size="small" placeholder="Buscar producto o escribir el producto" />}
+                                    />
+                                </TableCell>
+                                <TableCell>
+                                    <TextField
+                                        name={`cantidad_${line.key}`}
+                                        type="number"
+                                        size="small"
+                                        fullWidth
+                                        value={line.cantidad}
+                                        onChange={(event) => updateLine(line.key, { cantidad: event.target.value })}
+                                        inputProps={{
+                                            min: 0,
+                                            step: lineAllowsDecimal(line) ? '0.01' : '1',
+                                            inputMode: lineAllowsDecimal(line) ? 'decimal' : 'numeric'
+                                        }}
+                                    />
+                                </TableCell>
                                 <TableCell>
                                     {line.stock_id ? (
                                         <TextField
@@ -485,49 +528,6 @@ export const SupplierOrdersModal = ({ open, onClose, supplier, onChanged }) => {
                                             ))}
                                         </TextField>
                                     )}
-                                </TableCell>
-                                <TableCell>
-                                    <TextField
-                                        name={`cantidad_${line.key}`}
-                                        type="number"
-                                        size="small"
-                                        fullWidth
-                                        value={line.cantidad}
-                                        onChange={(event) => updateLine(line.key, { cantidad: event.target.value })}
-                                        inputProps={{
-                                            min: 0,
-                                            step: lineAllowsDecimal(line) ? '0.01' : '1',
-                                            inputMode: lineAllowsDecimal(line) ? 'decimal' : 'numeric'
-                                        }}
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    <Autocomplete
-                                        freeSolo
-                                        fullWidth
-                                        options={productList}
-                                        groupBy={(option) => (
-                                            Number(option?.supplier_id) === Number(supplier?.id)
-                                                ? 'De este proveedor'
-                                                : 'Otros productos'
-                                        )}
-                                        getOptionLabel={(option) => (typeof option === 'string' ? option : option?.name || '')}
-                                        isOptionEqualToValue={(option, value) => option?.id === value?.id}
-                                        onChange={(_event, value) => {
-                                            if (typeof value === 'string') {
-                                                updateLine(line.key, { detalle: value, stock_id: null, units_id: null, unidad: '' });
-                                            } else {
-                                                handleSelectProduct(line.key, value);
-                                            }
-                                        }}
-                                        onInputChange={(_event, value, reason) => {
-                                            if (reason === 'input') {
-                                                updateLine(line.key, { detalle: value, stock_id: null, units_id: null, unidad: '' });
-                                            }
-                                        }}
-                                        inputValue={line.detalle}
-                                        renderInput={(params) => <TextField {...params} fullWidth size="small" placeholder="Buscar producto o escribir el detalle" />}
-                                    />
                                 </TableCell>
                                 <TableCell align="center">
                                     <Tooltip title="Quitar ítem">
