@@ -19,9 +19,12 @@ const SalesStatCardSkeleton = () => (
     </StyledCard>
 );
 
-const SalesStatCard = ({ title, endpoint, icon, color, periodText }) => {
-    const { data, isLoading, isError } = UseFetchQuery(endpoint, endpoint);
+const SalesStatCard = ({ title, endpoint, icon, color, periodText, data: externalData, isLoading: externalLoading, isError: externalError }) => {
+    const { data, isLoading, isError } = UseFetchQuery(title, endpoint, Boolean(endpoint), 60 * 1000);
     const theme = useTheme();
+    const displayData = externalData !== undefined ? externalData : data;
+    const loading = externalLoading ?? isLoading;
+    const error = externalError ?? isError;
 
     const avatarBgColor = useMemo(() => {
         switch (color) {
@@ -32,11 +35,11 @@ const SalesStatCard = ({ title, endpoint, icon, color, periodText }) => {
         }
     }, [color, theme.palette]);
 
-    if (isLoading) {
+    if (loading) {
         return <SalesStatCardSkeleton />;
     }
 
-    const change = data?.change || 0;
+    const change = displayData?.change || 0;
     const isPositive = change > 0;
     const isNegative = change < 0;
 
@@ -63,7 +66,7 @@ const SalesStatCard = ({ title, endpoint, icon, color, periodText }) => {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Box>
                     <Typography color="text.secondary" sx={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }}>{title}</Typography>
-                    <Typography variant="h6" sx={{ fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)' }}>$ {data?.total || '0.00'}</Typography>
+                    <Typography variant="h6" sx={{ fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)' }}>$ {displayData?.total || '0.00'}</Typography>
                 </Box>
                 <Avatar sx={{
                     bgcolor: avatarBgColor,
@@ -85,7 +88,7 @@ const SalesStatCard = ({ title, endpoint, icon, color, periodText }) => {
                 color={trendColor}
                 sx={{ display: 'flex', alignItems: 'center', fontSize: 'clamp(0.75rem, 1.2vw, 0.875rem)' }}
             >
-                {isError ? (
+                {error ? (
                     <Typography color="error" variant="caption">Error</Typography>
                 ) : (
                     <>

@@ -16,9 +16,12 @@ const SummaryCardSkeleton = () => {
     );
 };
 
-const SummaryCard = ({ title, endpoint, icon, color }) => {
-    const { data, isLoading, isError } = UseFetchQuery(endpoint, endpoint);
+const SummaryCard = ({ title, endpoint, icon, color, value, isLoading: externalLoading, isError: externalError }) => {
+    const { data, isLoading, isError } = UseFetchQuery(title, endpoint, Boolean(endpoint), 60 * 1000);
     const theme = useTheme();
+    const loading = externalLoading ?? isLoading;
+    const error = externalError ?? isError;
+    const displayValue = value !== undefined ? value : (data?.total || 0);
 
     const avatarBgColor = useMemo(() => {
         switch (color) {
@@ -30,7 +33,7 @@ const SummaryCard = ({ title, endpoint, icon, color }) => {
         }
     }, [color, theme.palette]);
 
-    if (isLoading) {
+    if (loading) {
         return <SummaryCardSkeleton />;
     }
 
@@ -48,8 +51,8 @@ const SummaryCard = ({ title, endpoint, icon, color }) => {
             </Avatar>
             <Box>
                 <Typography color="text.secondary" gutterBottom sx={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }}>{title}</Typography>
-                <Typography variant="h5" sx={{ fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)' }}>{data?.total || 0}</Typography>
-                {isError && <Typography color="error" variant="caption" sx={{ fontSize: 'clamp(0.75rem, 1.2vw, 0.875rem)' }}>Error al cargar</Typography>}
+                <Typography variant="h5" sx={{ fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)' }}>{displayValue}</Typography>
+                {error && <Typography color="error" variant="caption" sx={{ fontSize: 'clamp(0.75rem, 1.2vw, 0.875rem)' }}>Error al cargar</Typography>}
             </Box>
         </StyledCard>
     );

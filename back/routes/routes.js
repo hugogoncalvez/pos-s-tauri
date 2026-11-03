@@ -10,7 +10,7 @@ import {
     getUsers, getUserById, createUser, updateUser, deleteUser,
     createStocks, getStocks, getStock, deleteStock, updateStock, getAllElements, updateElement, getCategories, createCategory, getUnits, importarStock,
     createSale, getSales, getSaleDetails, deleteSale, getSalesDetails,
-    openCashSession, getActiveCashSession, getCashSessionHistory, getCurrentSessionSummary, getSummaryForClose, initiateClosure, finalizeClosure, directCloseSessionByAdmin, createCashMovement,
+    openCashSession, getActiveCashSession, getActiveCashSessions, getCashSessionHistory, getCurrentSessionSummary, getSummaryForClose, initiateClosure, finalizeClosure, directCloseSessionByAdmin, createCashMovement,
     getAuditLogs, getAuditStats, getUserActivity, getLowStockAlerts,
     getCustomers, getPaymentMethods, createPaymentMethod, updatePaymentMethod, deletePaymentMethod, getPaymentMethodById, getPaymentSurcharges, updatePaymentSurcharge,
     getAllSuppliers, createSupplier, getSupplierById, updateSupplier, deactivateSupplier,
@@ -21,7 +21,7 @@ import {
     getAllCustomers, getCustomerById, createCustomer, updateCustomer, deleteCustomer, getTotalCustomersDebt,
     registerCustomerPayment, getCustomerPurchaseHistory, getCustomerPaymentHistory,
     exportCustomersCSV, getCustomersStats,
-    getSalesToday, getTotalCustomers, getTotalSuppliers, getTopSellingProducts, getSalesWeek, getSalesMonth,
+    getDashboardOverview, getDashboardNovedades, getSalesToday, getTotalCustomers, getTotalSuppliers, getTopSellingProducts, getSalesWeek, getSalesMonth,
     getPurchasesToday, // <-- Añadir esta línea
     getReportSummary, getFullReport, // <-- Añadir esta línea
     getProfitMarginReport,
@@ -57,6 +57,7 @@ import {
     getUserModules,
     updateUserModules,
     getCashSessionSummary,
+    getCashSessionSales,
     getBusinessConfig,
     updateBusinessConfig
 } from "../controllers/Controller.js";
@@ -93,6 +94,8 @@ authenticatedRouter.use(verificarSesion); // NEW: Apply middleware here
 
 // Move all previously protected routes under authenticatedRouter
 // --- RUTAS DEL DASHBOARD ---
+authenticatedRouter.get('/dashboard/overview', checkPermission(['listar_ventas_historial', 'ver_vista_compras', 'ver_widget_compras_hoy', 'listar_clientes', 'ver_widget_total_clientes', 'listar_proveedores', 'ver_widget_total_proveedores', 'ver_informe_stock_bajo', 'listar_productos']), getDashboardOverview);
+authenticatedRouter.get('/dashboard/novedades', checkPermission(['ver_vista_promociones', 'ver_vista_combos', 'listar_presentaciones', 'listar_productos']), getDashboardNovedades);
 authenticatedRouter.get('/dashboard/ventas/hoy', checkPermission('listar_ventas_historial'), getSalesToday);
 authenticatedRouter.get('/customers/total', checkPermission('listar_clientes'), getTotalCustomers);
 authenticatedRouter.get('/suppliers/total', checkPermission('listar_proveedores'), getTotalSuppliers);
@@ -173,8 +176,10 @@ authenticatedRouter.post('/cash-sessions/:session_id/finalize-close', checkPermi
 authenticatedRouter.post('/cash-sessions/:session_id/direct-close-admin', checkPermission('accion_cerrar_caja_ajena'), directCloseSessionByAdmin);
 authenticatedRouter.post('/cash-sessions/movement', checkPermission('accion_registrar_movimiento_caja'), createCashMovement);
 authenticatedRouter.get('/cash-sessions/active/:user_id', checkPermission('accion_abrir_caja'), getActiveCashSession);
+authenticatedRouter.get('/cash-sessions/active-list', checkPermission(['ver_mi_caja', 'ver_vista_caja_admin']), getActiveCashSessions);
 authenticatedRouter.get('/cash-sessions/history', checkPermission(['ver_mi_caja', 'ver_vista_caja_admin']), getCashSessionHistory);
 authenticatedRouter.get('/cash-sessions/summary/:user_id', checkPermission('ver_mi_caja'), getCurrentSessionSummary);
+authenticatedRouter.get('/cash-sessions/:session_id/sales', checkPermission(['ver_vista_caja_admin', 'ver_mi_caja']), getCashSessionSales);
 authenticatedRouter.get('/cash-sessions/:session_id/summary', checkPermission(['ver_vista_caja_admin', 'ver_mi_caja']), getCashSessionSummary);
 
 // --- RUTAS DE CLIENTES ---

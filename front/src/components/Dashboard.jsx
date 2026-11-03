@@ -314,6 +314,12 @@ const DashboardSidebar = () => {
 // --- Componente Principal del Dashboard ---
 export default function Dashboard() {
   const theme = useTheme(); // Importar y usar useTheme
+  const { data: overview, isLoading: overviewLoading, isError: overviewError } = UseFetchQuery(
+    'dashboardOverview',
+    '/dashboard/overview',
+    true,
+    60 * 1000
+  );
 
   return (
     <Box sx={{
@@ -329,15 +335,15 @@ export default function Dashboard() {
 
         {/* Tarjetas de Resumen */}
         <Box sx={{ display: 'flex', gap: 'clamp(1rem, 2vw, 3rem)', flexWrap: 'wrap', alignItems: 'flex-start', mb: 'clamp(1rem, 2vw, 4rem)' }}>
-          <SummaryCardsSection />
+          <SummaryCardsSection overview={overview} isLoading={overviewLoading} error={overviewError} />
 
           {/* Columna derecha: Ventas Hoy / Semana / Mes */}
-          <SalesStatsSection />
+          <SalesStatsSection overview={overview} isLoading={overviewLoading} error={overviewError} />
 
         </Box>
 
         {/* Tabla de Productos y Estadísticas de Ventas */}
-        <TablesSection />
+        <TablesSection overview={overview} isLoading={overviewLoading} error={overviewError} />
 
         {/* Fila de Tarjetas de Novedades */}
         <NovedadesSection />

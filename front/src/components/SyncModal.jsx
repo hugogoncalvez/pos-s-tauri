@@ -89,7 +89,7 @@ export const SyncModal = ({ open, onSyncComplete, activeSessionData, isCheckingS
       }
 
       // Cargar datos de referencia frescos antes de sincronizar el resto
-      await syncService.loadReferenceData(usuario.id);
+      await syncService.loadReferenceData(usuario.id, { force: true });
 
       // 2. Sincronizar Ventas
       if (pendingSalesCount > 0) {

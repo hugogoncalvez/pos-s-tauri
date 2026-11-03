@@ -5,7 +5,7 @@ import { UseFetchQuery } from '../../hooks/useQuery';
 import { useTheme } from '@mui/material/styles';
 
 const TopProductsTable = () => {
-  const { data: products, isLoading, isError } = UseFetchQuery('top-productos', '/dashboard/top-productos', true, 2 * 60 * 1000);
+  const { data: products, isLoading, isError } = UseFetchQuery('top-productos', '/dashboard/top-productos?days=90', true, 5 * 60 * 1000);
   const theme = useTheme();
   const renderSkeletons = () => (
     Array.from(new Array(5)).map((_, index) => (

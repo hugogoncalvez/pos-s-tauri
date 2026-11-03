@@ -13,7 +13,13 @@ import { attachConsole } from '@tauri-apps/plugin-log';
 import { db } from './db/offlineDB'; // Importar la instancia de Dexie
 import { syncService } from './services/syncService'; // Importar el servicio de sincronización
 
-const client = new QueryClient();
+const client = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // Inyectar el cliente de React Query en el servicio de sincronización
 syncService.setQueryClient(client);

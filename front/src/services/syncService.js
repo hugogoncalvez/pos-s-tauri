@@ -1,10 +1,11 @@
-import { db, setLastSyncTime, addLocalPendingTicket, closeLocalPendingTicket, syncServerTicketsToLocal, updateLocalPendingTicket, addLocalComanda, updateLocalComandaStatus, updateLocalComanda, closeLocalComanda, syncServerComandasToLocal } from '../db/offlineDB';
+import { db, getLastSyncTime, setLastSyncTime, addLocalPendingTicket, closeLocalPendingTicket, syncServerTicketsToLocal, updateLocalPendingTicket, addLocalComanda, updateLocalComandaStatus, updateLocalComanda, closeLocalComanda, syncServerComandasToLocal } from '../db/offlineDB';
 import { Api } from '../api/api';
 
 class SyncService {
   constructor() {
     this.isSyncing = false;
     this.MAX_RETRIES = 3; // Máximo número de reintentos para una venta fallida
+    this.referenceSyncTtlMs = 30 * 60 * 1000;
     this.queryClient = null; // Para invalidar queries de React Query
   }
 
@@ -19,7 +20,7 @@ class SyncService {
    * Carga todos los datos maestros desde el servidor y los guarda en IndexedDB.
    * Esta es la principal función de sincronización descendente.
    */
-  async loadReferenceData(userId) {
+  async loadReferenceData(userId, { force = false } = {}) {
     if (!userId) return false; // No hacer nada si no hay ID de usuario
 
     if (this.isSyncing) {
@@ -31,6 +32,13 @@ class SyncService {
     //console.log('📥 Cargando datos de referencia...');
 
     try {
+      if (!force) {
+        const lastSync = await getLastSyncTime();
+        if (lastSync && Date.now() - lastSync < this.referenceSyncTtlMs) {
+          return false;
+        }
+      }
+
       // 1. Obtener todos los datos en paralelo, pero en lotes más pequeños
       const [stockRes, categoriesRes, customersRes, promotionsRes, combosRes] = await Promise.all([
         Api.get('/stock?limit=10000'),
