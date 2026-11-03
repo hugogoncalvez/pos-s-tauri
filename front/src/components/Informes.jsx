@@ -131,6 +131,14 @@ const Informes = () => {
             const reportTitle = filters.reportType === 'salesSummary' ? 'Ventas' : 'Compras';
             const currentDate = moment().format('DD/MM/YYYY HH:mm');
 
+            if (fullReport.truncated) {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'Informe truncado',
+                    text: `Se imprimirán las primeras ${fullReport.limit} filas para evitar bloquear la aplicación.`
+                });
+            }
+
             const iframe = document.createElement('iframe');
             iframe.style.position = 'absolute';
             iframe.style.width = '0px';
@@ -240,7 +248,7 @@ const Informes = () => {
             }
 
             const totalItems = printData.length;
-            const avgAmount = summaryData?.total ? (summaryData.total / totalItems) : 0;
+            const avgAmount = summaryData?.total && totalItems > 0 ? (summaryData.total / totalItems) : 0;
             const totalQuantity = printData.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
 
             htmlContent += `
@@ -268,15 +276,15 @@ const Informes = () => {
             });
             htmlContent += '</tr></thead><tbody>';
 
-            printData.forEach((row, index) => {
-                htmlContent += '<tr>';
-                columns.forEach(col => {
+            const rowsHtml = printData.map((row) => {
+                const cells = columns.map(col => {
                     const value = row[col.id] !== undefined && row[col.id] !== null ? row[col.id] : 'N/A';
                     const alignment = col.id === 'quantity' || col.id.includes('cost') ? 'text-right' : col.id === 'date' ? 'text-center' : 'text-left';
-                    htmlContent += `<td class="${alignment}">${value}</td>`;
-                });
-                htmlContent += '</tr>';
+                    return `<td class="${alignment}">${value}</td>`;
+                }).join('');
+                return `<tr>${cells}</tr>`;
             });
+            htmlContent += rowsHtml.join('');
 
             if (summaryData?.total) {
                 const formattedTotal = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(summaryData.total);
@@ -296,6 +304,7 @@ const Informes = () => {
                     Datos extraídos del sistema de gestión de inventarios<br>
                     Para consultas o aclaraciones, contacte al administrador del sistema
                 </div>
+                ${fullReport.truncated ? `<div class="footer-info" style="color:#c0392b;font-weight:bold;">Informe truncado: se muestran las primeras ${fullReport.limit} filas.</div>` : ''}
             </div>
         `;
             htmlContent += '</div></body></html>';
@@ -403,9 +412,9 @@ const Informes = () => {
         setPage(0);
     };
 
-    const isLoading = productsLoading || suppliersLoading || isFetching || isFetchingSummary;
+    const isInitialLoading = productsLoading || suppliersLoading;
 
-    if (isLoading) {
+    if (isInitialLoading) {
         return <InformesSkeleton />;
     }
 
@@ -414,7 +423,7 @@ const Informes = () => {
             animate="enter"
             exit="exit"
             variants={variants}
-            transition={{ duration: 1.5, type: "easeInOut" }}
+            transition={{ duration: 0.4, type: "easeInOut" }}
             className="relative">
             <Paper
                 elevation={3}

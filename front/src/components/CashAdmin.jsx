@@ -23,6 +23,7 @@ import {
     TableContainer,
     TableHead,
     TableRow,
+    TablePagination,
     DialogTitle,
     DialogContent,
     DialogActions,
@@ -71,7 +72,6 @@ import FinalizeClosureDialog from '../styledComponents/FinalizeClosureDialog';
 import CashMovementModal from '../styledComponents/CashMovementModal';
 import { printCashSessionReport } from '../functions/printCashSessionReport';
 import { useTheme } from '@mui/material/styles';
-import { Api } from '../api/api';
 import CashAdminSkeleton from '../styledComponents/skeletons/CashAdminSkeleton';
 
 const CashAdmin = () => {
@@ -98,6 +98,8 @@ const CashAdmin = () => {
     // Estados para controlar la carga de datos bajo demanda
     const [viewingSessionId, setViewingSessionId] = useState(null);
     const [finalizingSessionId, setFinalizingSessionId] = useState(null);
+    const [salesPage, setSalesPage] = useState(0);
+    const salesRowsPerPage = 50;
 
     // Hooks de mutación
     const { mutateAsync: saveMovement, isLoading: isSavingMovement } = useSubmit();
@@ -147,7 +149,7 @@ const CashAdmin = () => {
 
     const { data: businessConfig } = UseFetchQuery('businessConfig', '/business-config', true);
 
-    const { data: cashSessions, isLoading: cashSessionsLoading, error: cashSessionsError, refetch: refetchCashSessions } = UseFetchQuery('cashSessions', '/cash-sessions/history?status=abierta,pendiente_cierre');
+    const { data: cashSessions, isLoading: cashSessionsLoading, error: cashSessionsError, refetch: refetchCashSessions } = UseFetchQuery('cashSessions', '/cash-sessions/active-list');
 
     const historyParams = new URLSearchParams({
         page: page + 1,
@@ -176,6 +178,12 @@ const CashAdmin = () => {
         !!finalizingSessionId
     );
 
+    const { data: sessionSalesData, isLoading: sessionSalesLoading } = UseFetchQuery(
+        ['sessionSales', viewingSessionId, salesPage],
+        `/cash-sessions/${viewingSessionId}/sales?page=${salesPage + 1}&limit=${salesRowsPerPage}`,
+        !!viewingSessionId && openSalesSectionInDetails
+    );
+
     // --- EFECTOS PARA PROCESAR DATOS DE QUERIES ---
     useEffect(() => {
         if (usersData) {
@@ -185,35 +193,11 @@ const CashAdmin = () => {
     }, [usersData]);
 
     useEffect(() => {
-        const processSessions = async () => {
-            if (cashSessions && cashSessions.sessions) {
-                const sessions = cashSessions.sessions;
-                const detailedSessions = await Promise.all(sessions.map(async (session) => {
-                    if (session.status === 'abierta') {
-                        try {
-                            const { data: summaryData } = await Api.get(`/cash-sessions/${session.id}/summary`);
-                            // Usar total_sales (todos los métodos de pago) para reflejar el total real de la sesión
-                            const totalSales = summaryData.total_sales || 0;
-                            const totalIncome = summaryData.totalIncome || 0;
-                            const totalExpense = summaryData.totalExpense || 0;
-                            const current_cash = parseFloat(session.opening_amount) + totalSales + totalIncome - totalExpense;
-                            return { ...session, current_cash };
-                        } catch (error) {
-                            console.error(`Error fetching summary for session ${session.id}:`, error);
-                            return { ...session, current_cash: parseFloat(session.opening_amount) }; // Fallback
-                        }
-                    } else if (session.status === 'pendiente_cierre') {
-                        return { ...session, current_cash: parseFloat(session.cashier_declared_amount || 0) };
-                    }
-                    return session;
-                }));
-                console.log(detailedSessions);
-                setActiveSessions(detailedSessions);
-            } else {
-                setActiveSessions([]);
-            }
-        };
-        processSessions();
+        if (cashSessions && cashSessions.sessions) {
+            setActiveSessions(cashSessions.sessions);
+        } else {
+            setActiveSessions([]);
+        }
     }, [cashSessions]);
 
     useEffect(() => {
@@ -231,11 +215,16 @@ const CashAdmin = () => {
     }, [historyData]);
 
     useEffect(() => {
-        if (detailsData) {
+        if (detailsData && viewingSessionId) {
             setSessionDetails(detailsData);
             setDetailsDialogOpen(true);
         }
-    }, [detailsData]);
+    }, [detailsData, viewingSessionId]);
+
+    useEffect(() => {
+        setSalesPage(0);
+        setOpenSalesSectionInDetails(false);
+    }, [viewingSessionId]);
 
     useEffect(() => {
         if (finalizeData) {
@@ -262,6 +251,18 @@ const CashAdmin = () => {
         }
     }, [historyLoading, justFiltered]);
 
+
+    const sessionSales = sessionSalesData?.sales || [];
+    const sessionSalesTotal = sessionSalesData?.pagination?.total || 0;
+
+    const closeDetailsDialog = () => {
+        setDetailsDialogOpen(false);
+        setViewingSessionId(null);
+        setSessionDetails(null);
+        setOpenSalesSectionInDetails(false);
+        setSalesPage(0);
+        queryClient.removeQueries({ queryKey: ['sessionSales'] });
+    };
 
     // --- HANDLERS DE MUTACIONES ---
     const handleInitiateClosure = async (declaredAmount, notes, onSuccess) => {
@@ -351,7 +352,11 @@ const CashAdmin = () => {
         setCloseDialogOpen(true);
     };
 
-    const handleViewDetails = (session) => setViewingSessionId(session.id);
+    const handleViewDetails = (session) => {
+        setSessionDetails(null);
+        setViewingSessionId(session.id);
+        setDetailsDialogOpen(true);
+    };
     const openFinalizeDialog = (session) => setFinalizingSessionId(session.id);
 
     // --- HELPERS Y FORMATTERS ---
@@ -711,7 +716,7 @@ const CashAdmin = () => {
             <CloseCashSessionDialog open={closeDialogOpen} onClose={() => setCloseDialogOpen(false)} selectedSession={selectedSession} handleInitiateClosure={handleInitiateClosure} getUserName={getUserName} isLoading={isInitiatingClosure} />
             <FinalizeClosureDialog open={finalizeDialogOpen} onClose={() => { setFinalizeDialogOpen(false); setFinalizingSessionId(null); }} sessionData={sessionToFinalize} handleFinalizeClosure={handleFinalizeClosure} isLoading={isFetchingFinalize || isFinalizing} />
                         {detailsDialogOpen && (
-                            <StyledDialog open={detailsDialogOpen} onClose={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }} maxWidth="lg" fullWidth>
+                            <StyledDialog open={detailsDialogOpen} onClose={closeDetailsDialog} maxWidth="lg" fullWidth>
                                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
                                     <Box mb={-2}>
                                         Detalles de Sesión de Caja
@@ -721,7 +726,7 @@ const CashAdmin = () => {
                                             </Typography>
                                         )}
                                     </Box>
-                                    <IconButton onClick={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }}>
+                                    <IconButton onClick={closeDetailsDialog}>
                                         <CloseIcon color="error" />
                                     </IconButton>
                                 </DialogTitle>
@@ -808,40 +813,58 @@ const CashAdmin = () => {
                                                         </IconButton>
                                                     </Box>
                                                     <Box sx={{ height: openSalesSectionInDetails ? 'auto' : 0, overflow: 'hidden', transition: 'height 0.3s ease-in-out' }}>
-                                                        {sessionDetails.sales && sessionDetails.sales.length > 0 ? (
-                                                            <TableContainer component={Paper} sx={{ maxHeight: 400, background: 'transparent', border: `1px solid ${theme.palette.divider}` }}>
-                                                                                                                <Table size="small" stickyHeader>
-                                                                                                                                                                                        <TableHead sx={{ backgroundColor: theme.palette.background.paper }}>
-                                                                                                                                                                                            <TableRow>
-                                                                                                                                                                                                <TableCell align="center">Cliente</TableCell>
-                                                                                                                                                                                                <TableCell align="center">Total</TableCell>
-                                                                                                                                                                                                <TableCell align="center">Método(s) de Pago</TableCell>
-                                                                                                                                                                                                <TableCell align="center">Fecha</TableCell>
-                                                                                                                                                                                                <TableCell align="center">Items (Proveedor)</TableCell>
-                                                                                                                                                                                            </TableRow>
-                                                                                                                                                                                        </TableHead>
-                                                                                                                                                                                        <TableBody>
-                                                                                                                                                                                            {sessionDetails.sales.map((sale) => (
-                                                                                                                                                                                                <TableRow key={sale.id}>
-                                                                                                                                                                                                    <TableCell align="center">{sale.Customer ? sale.Customer.name : 'Consumidor Final'}</TableCell>
-                                                                                                                                                                                                    <TableCell align="center">{formatCurrency(sale.total_neto)}</TableCell>
-                                                                                                                                                                                                    <TableCell align="center">
-                                                                                                                                                                                                        {sale.sale_payments.map(sp => sp.payment.method).join(', ')}
-                                                                                                                                                                                                    </TableCell>
-                                                                                                                                                                                                    <TableCell align="center">{formatDate(sale.createdAt)}</TableCell>
-                                                                                                                                                                                                    <TableCell align="center">
-                                                                                                                                                                                                        {sale.sale_details.map(d => {
-                                                                                                                                                                                                            const itemName = d.stock ? d.stock.name : (d.combo ? d.combo.name : 'Producto manual');
-                                                                                                                                                                                                            const supplierName = d.stock && d.stock.supplier ? ` (${d.stock.supplier.nombre})` : '';
-                                                                                                                                                                                                            return `${itemName}${supplierName}`;
-                                                                                                                                                                                                        }).join(', ')}
-                                                                                                                                                                                                    </TableCell>
-                                                                                                                                                                                                </TableRow>
-                                                                                                                                                                                            ))}
-                                                                                                                                                                                        </TableBody>
-                                                                                                                                                                                    </Table>                                                        </TableContainer>
-                                                        ) : (
-                                                            <Typography variant="body2" color="text.secondary">No hay ventas registradas en esta sesión.</Typography>
+                                                        {openSalesSectionInDetails && (
+                                                            sessionSalesLoading ? (
+                                                                <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>Cargando ventas...</Typography>
+                                                            ) : sessionSales.length > 0 ? (
+                                                                <>
+                                                                    <TableContainer component={Paper} sx={{ maxHeight: 400, background: 'transparent', border: `1px solid ${theme.palette.divider}` }}>
+                                                                        <Table size="small" stickyHeader>
+                                                                            <TableHead sx={{ backgroundColor: theme.palette.background.paper }}>
+                                                                                <TableRow>
+                                                                                    <TableCell align="center">Cliente</TableCell>
+                                                                                    <TableCell align="center">Total</TableCell>
+                                                                                    <TableCell align="center">Método(s) de Pago</TableCell>
+                                                                                    <TableCell align="center">Fecha</TableCell>
+                                                                                    <TableCell align="center">Items (Proveedor)</TableCell>
+                                                                                </TableRow>
+                                                                            </TableHead>
+                                                                            <TableBody>
+                                                                                {sessionSales.map((sale) => (
+                                                                                    <TableRow key={sale.id}>
+                                                                                        <TableCell align="center">{sale.Customer ? sale.Customer.name : 'Consumidor Final'}</TableCell>
+                                                                                        <TableCell align="center">{formatCurrency(sale.total_neto)}</TableCell>
+                                                                                        <TableCell align="center">
+                                                                                            {(sale.sale_payments || []).map(sp => sp.payment?.method).filter(Boolean).join(', ')}
+                                                                                        </TableCell>
+                                                                                        <TableCell align="center">{formatDate(sale.createdAt)}</TableCell>
+                                                                                        <TableCell align="center">
+                                                                                            {(sale.sale_details || []).map(d => {
+                                                                                                const itemName = d.stock ? d.stock.name : (d.combo ? d.combo.name : 'Producto manual');
+                                                                                                const supplierName = d.stock && d.stock.supplier ? ` (${d.stock.supplier.nombre})` : '';
+                                                                                                return `${itemName}${supplierName}`;
+                                                                                            }).join(', ')}
+                                                                                        </TableCell>
+                                                                                    </TableRow>
+                                                                                ))}
+                                                                            </TableBody>
+                                                                        </Table>
+                                                                    </TableContainer>
+                                                                    {sessionSalesTotal > salesRowsPerPage && (
+                                                                        <TablePagination
+                                                                            component="div"
+                                                                            count={sessionSalesTotal}
+                                                                            page={salesPage}
+                                                                            onPageChange={(event, newPage) => setSalesPage(newPage)}
+                                                                            rowsPerPage={salesRowsPerPage}
+                                                                            rowsPerPageOptions={[salesRowsPerPage]}
+                                                                            labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+                                                                        />
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <Typography variant="body2" color="text.secondary">No hay ventas registradas en esta sesión.</Typography>
+                                                            )
                                                         )}
                                                     </Box>
                                                 </Grid>
@@ -849,7 +872,7 @@ const CashAdmin = () => {
                                         </Box>
                                     )}
                                 </DialogContent>                    <DialogActions sx={{ backgroundColor: 'background.dialog' }}>
-                        <StyledButton sx={{ padding: '2px 12px' }} color='secondary' variant="outlined" onClick={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }}>
+                        <StyledButton sx={{ padding: '2px 12px' }} color='secondary' variant="outlined" onClick={closeDetailsDialog}>
                             Cerrar
                         </StyledButton>
                         {sessionDetails && (

@@ -12,9 +12,10 @@ import {
 import SupplierOrderCounterModel from '../Models/SupplierOrderCounterModel.js';
 import CustomerPaymentsModel from '../Models/CustomerPaymentsModel.js';
 import db from '../database/db.js';
-import { Op } from "sequelize";
+import { Op, QueryTypes } from "sequelize";
 import bcrypt from 'bcryptjs';
 import { logAudit } from '../middleware/auditMiddleware.js';
+import { buildSessionAggregateMap } from '../services/cashAggregates.js';
 import modulePermissions from '../config/modulePermissions.js';
 
 
@@ -663,6 +664,8 @@ export const getReportSummary = async (req, res) => {
 export const getFullReport = async (req, res) => {
     try {
         const { reportType, startDate, endDate, productId, supplierId } = req.query;
+        const requestedLimit = parseInt(req.query.limit, 10);
+        const reportLimit = Math.min(Math.max(requestedLimit || 5000, 1), 10000);
 
         let whereClause = {};
         let relatedWhereClause = {};
@@ -697,7 +700,8 @@ export const getFullReport = async (req, res) => {
                         include: [{ model: SupplierModel, attributes: ['nombre'] }]
                     }
                 ],
-                order: [[{ model: SaleModel, as: 'sale' }, 'createdAt', 'DESC']]
+                order: [[{ model: SaleModel, as: 'sale' }, 'createdAt', 'DESC']],
+                limit: reportLimit + 1
             });
         } else if (reportType === 'purchasesSummary') {
             rows = await PurchasesDetailsModel.findAll({
@@ -716,11 +720,15 @@ export const getFullReport = async (req, res) => {
                         include: [{ model: SupplierModel, attributes: ['nombre'] }]
                     }
                 ],
-                order: [[{ model: PurchaseModel, as: 'purchase' }, 'createdAt', 'DESC']]
+                order: [[{ model: PurchaseModel, as: 'purchase' }, 'createdAt', 'DESC']],
+                limit: reportLimit + 1
             });
         }
 
-        res.json({ rows });
+        const truncated = rows.length > reportLimit;
+        if (truncated) rows = rows.slice(0, reportLimit);
+
+        res.json({ rows, truncated, limit: reportLimit });
 
     } catch (error) {
         console.error('Error getting full report:', error);
@@ -946,6 +954,8 @@ export const createFullPurchase = async (req, res) => {
             updated_by: req.usuario?.id || null
         }, { transaction });
 
+        const affectedStockIds = new Set();
+
         for (const item of tempValues) {
             const { stock_id, totalPerUnits, costPerUnits } = item;
 
@@ -967,7 +977,7 @@ export const createFullPurchase = async (req, res) => {
                 await stockItem.update({
                     cost: costPerUnits
                 }, { transaction });
-                await checkLowStockAndLog(stock_id, req.user ? req.user.id : null, transaction);
+                affectedStockIds.add(stock_id);
             }
         }
 
@@ -986,7 +996,8 @@ export const createFullPurchase = async (req, res) => {
 
         await transaction.commit();
 
-        await logAudit({
+        void logLowStockAlerts([...affectedStockIds], req.usuario?.id || req.user?.id);
+        void logAudit({
             user_id: req.usuario.id,
             action: 'CREAR_COMPRA',
             entity_type: 'purchase',
@@ -1153,6 +1164,7 @@ export const deletePurchase = async (req, res) => {
         });
 
         // 2. Revertir el stock de cada producto (decrementarlo)
+        const affectedStockIds = new Set();
         for (const detail of purchaseDetails) {
             const stockItem = await StockModel.findByPk(detail.stock_id, { transaction });
             if (stockItem) {
@@ -1160,7 +1172,7 @@ export const deletePurchase = async (req, res) => {
                     by: detail.quantity,
                     transaction
                 });
-                await checkLowStockAndLog(stockItem.id, req.user ? req.user.id : null, transaction);
+                affectedStockIds.add(stockItem.id);
             }
         }
 
@@ -1171,6 +1183,7 @@ export const deletePurchase = async (req, res) => {
         });
 
         await transaction.commit();
+        void logLowStockAlerts([...affectedStockIds], req.usuario?.id || req.user?.id);
         res.json({ message: 'Registro eliminado correctamente y stock actualizado.' });
     } catch (error) {
         if (!transaction.finished) {
@@ -1234,6 +1247,7 @@ export const updatePurchase = async (req, res) => {
         // 2. Crear mapa de nuevos detalles y obtener todos los IDs de productos involucrados
         const newDetailsMap = new Map(tempValues.map(item => [item.stock_id, item.totalPerUnits]));
         const allStockIds = new Set([...oldDetailsMap.keys(), ...newDetailsMap.keys()]);
+        const changedStockIds = new Set();
 
         // 3. Calcular y aplicar diferencias de stock
         for (const stockId of allStockIds) {
@@ -1250,7 +1264,7 @@ export const updatePurchase = async (req, res) => {
                     if (newItemData) {
                         await stockItem.update({ cost: newItemData.costPerUnits }, { transaction });
                     }
-                    await checkLowStockAndLog(stockId, req.user ? req.user.id : null, transaction);
+                    changedStockIds.add(stockId);
                 }
             }
         }
@@ -1288,6 +1302,7 @@ export const updatePurchase = async (req, res) => {
 
         // 6. Confirmar la transacción
         await transaction.commit();
+        void logLowStockAlerts([...changedStockIds], req.usuario?.id || req.user?.id);
 
         // 7. Devolver la compra actualizada
         const finalPurchase = await PurchaseModel.findByPk(purchaseId, {
@@ -1460,7 +1475,16 @@ export const getStocks = async (req, res) => {
             findOptions.offset = offset;
         }
 
-        const { count, rows } = await StockModel.findAndCountAll(findOptions);
+        let count;
+        let rows;
+        if (unpaginated === 'true') {
+            rows = await StockModel.findAll(findOptions);
+            count = rows.length;
+        } else {
+            const result = await StockModel.findAndCountAll(findOptions);
+            count = result.count;
+            rows = result.rows;
+        }
 
         // Mapear los resultados para incluir supplierName en el nivel superior
         const productsWithSupplierName = rows.map(product => ({
@@ -1640,8 +1664,7 @@ export const updateStock = async (req, res) => {
             await ProductPresentationsModel.bulkCreate(presentationsToCreate, { transaction });
         }
 
-        // 4. Registrar en auditoría
-        await logAudit({
+        const auditData = {
             user_id: req.usuario.id,
             action: 'ACTUALIZAR_STOCK',
             entity_type: 'stock',
@@ -1649,11 +1672,11 @@ export const updateStock = async (req, res) => {
             old_values: oldValues,
             new_values: productData,
             details: `Se actualizó el producto ${oldValues.name} (ID: ${productId}).`
-        }, req, transaction);
+        };
 
-        // 5. Verificar stock bajo y confirmar transacción
-        await checkLowStockAndLog(productId, req.usuario.id, transaction);
         await transaction.commit();
+        void logAudit(auditData, req);
+        void logLowStockAlerts([productId], req.usuario.id);
         res.json({ "message": 'Registro actualizado correctamente' });
 
     } catch (error) {
@@ -1678,17 +1701,17 @@ export const deleteStock = async (req, res) => {
 
         await productToDelete.destroy({ transaction });
 
-        // Registrar en auditoría
-        await logAudit({
+        const auditData = {
             user_id: req.usuario.id,
             action: 'ELIMINAR_PRODUCTO',
             entity_type: 'stock',
             entity_id: productId,
             old_values: productToDelete.toJSON(),
             details: `Se eliminó el producto: ${productToDelete.name} (ID: ${productId}).`
-        }, req, transaction);
+        };
 
         await transaction.commit();
+        void logAudit(auditData, req);
         res.json({ message: 'Registro eliminado correctamente' });
     } catch (error) {
         await transaction.rollback();
@@ -2379,18 +2402,38 @@ export const deleteUser = async (req, res) => {
 // Crear una nueva venta (incluye detalles y actualización de stock)
 
 // Helper function to check for low stock and log an audit event
-export const checkLowStockAndLog = async (stockId, auditUserId, transaction) => {
-    const stockItem = await StockModel.findByPk(stockId, { transaction });
-    if (stockItem && stockItem.stock <= stockItem.min_stock) {
-        await logAudit({
-            user_id: auditUserId, // Use the provided auditUserId
+export const logLowStockAlerts = async (stockIds, auditUserId) => {
+    if (!auditUserId) return;
+
+    const uniqueIds = [...new Set(stockIds)].filter(Boolean);
+    if (!uniqueIds.length) return;
+
+    try {
+        const lowStockItems = await StockModel.findAll({
+            where: {
+                id: { [Op.in]: uniqueIds },
+                [Op.or]: [db.literal('stock <= min_stock')]
+            },
+            attributes: ['id', 'name', 'stock', 'min_stock']
+        });
+
+        if (!lowStockItems.length) return;
+
+        await AuditLogModel.bulkCreate(lowStockItems.map(item => ({
+            user_id: auditUserId,
             action: 'ALERTA_STOCK_BAJO',
             entity_type: 'stock',
-            entity_id: stockItem.id,
-            new_values: { current_stock: stockItem.stock, min_stock: stockItem.min_stock },
-            details: `Alerta de stock bajo para el producto ${stockItem.name}. Stock actual: ${stockItem.stock}, Stock mínimo: ${stockItem.min_stock}`
-        }, null, transaction); // req is null here as it's an internal call
+            entity_id: item.id,
+            new_values: { current_stock: item.stock, min_stock: item.min_stock },
+            details: `Alerta de stock bajo para el producto ${item.name}. Stock actual: ${item.stock}, Stock mínimo: ${item.min_stock}`
+        })));
+    } catch (error) {
+        console.error('Error al registrar alertas de stock bajo:', error);
     }
+};
+
+export const checkLowStockAndLog = async (stockId, auditUserId) => {
+    await logLowStockAlerts([stockId], auditUserId);
 };
 
 // --- FUNCION MODIFICADA Y OPTIMIZADA --- //
@@ -2691,15 +2734,16 @@ export const createSale = async (req, res) => {
             ]);
             console.timeEnd('createSale_batch-writes');
 
+            let pendingSaleAuditLogs = [];
+            let pendingLowStockAuditLogs = [];
+            let pendingQuoteAudit = null;
+
             if (auditLogsToCreate.length) {
-                console.time('createSale_audit-logs');
                 const commonAuditData = { ip_address: req.ip, user_agent: req.get('user-agent'), createdAt: new Date() };
-                await AuditLogModel.bulkCreate(auditLogsToCreate.map(log => ({ ...log, ...commonAuditData })), { transaction });
-                console.timeEnd('createSale_audit-logs');
+                pendingSaleAuditLogs = auditLogsToCreate.map(log => ({ ...log, ...commonAuditData }));
             }
 
             if (stocksToCheck.size) {
-                console.time('createSale_low-stock-check');
                 const lowStockItems = await StockModel.findAll({
                     where: { id: { [Op.in]: Array.from(stocksToCheck) }, [Op.or]: [db.literal('stock <= min_stock')] },
                     attributes: ['id', 'name', 'stock', 'min_stock'],
@@ -2707,9 +2751,8 @@ export const createSale = async (req, res) => {
                 });
                 if (lowStockItems.length) {
                     const commonAuditData = { user_id, action: 'ALERTA_STOCK_BAJO', entity_type: 'stock', ip_address: req.ip, user_agent: req.get('user-agent'), createdAt: new Date() };
-                    await AuditLogModel.bulkCreate(lowStockItems.map(item => ({ ...commonAuditData, entity_id: item.id, new_values: { current_stock: item.stock, min_stock: item.min_stock }, details: `Stock bajo: ${item.name} (${item.stock}/${item.min_stock})` })), { transaction });
+                    pendingLowStockAuditLogs = lowStockItems.map(item => ({ ...commonAuditData, entity_id: item.id, new_values: { current_stock: item.stock, min_stock: item.min_stock }, details: `Stock bajo: ${item.name} (${item.stock}/${item.min_stock})` }));
                 }
-                console.timeEnd('createSale_low-stock-check');
             }
 
             if (quoteToConvert) {
@@ -2718,7 +2761,7 @@ export const createSale = async (req, res) => {
                     converted_sale_id: newSale.id
                 }, { transaction });
 
-                await logAudit({
+                pendingQuoteAudit = {
                     user_id: req.usuario?.id || user_id,
                     action: 'CONVERTIR_PRESUPUESTO',
                     entity_type: 'quote',
@@ -2729,10 +2772,25 @@ export const createSale = async (req, res) => {
                         total_amount
                     },
                     details: `Se convirtió el presupuesto ${quoteToConvert.quote_number} en la venta ${newSale.id}.`,
-                }, req, transaction);
+                };
             }
 
             await transaction.commit();
+
+            if (pendingSaleAuditLogs.length) {
+                void AuditLogModel.bulkCreate(pendingSaleAuditLogs).catch(error => {
+                    console.error('Error al registrar auditoría de venta:', error);
+                });
+            }
+            if (pendingLowStockAuditLogs.length) {
+                void AuditLogModel.bulkCreate(pendingLowStockAuditLogs).catch(error => {
+                    console.error('Error al registrar alertas de stock bajo:', error);
+                });
+            }
+            if (pendingQuoteAudit) {
+                void logAudit(pendingQuoteAudit, req);
+            }
+
             console.timeEnd('createSale_total');
             return res.json({ message: 'Venta registrada correctamente', id: newSale.id });
 
@@ -3177,8 +3235,7 @@ export const directCloseSessionByAdmin = async (req, res) => {
 
         await session.save({ transaction: t });
 
-        // Registrar en el log de auditoría
-        await logAudit({
+        const auditData = {
             user_id: adminUserId,
             action: 'CIERRE_DIRECTO_CAJA_ADMIN',
             entity_type: 'cash_session',
@@ -3186,9 +3243,10 @@ export const directCloseSessionByAdmin = async (req, res) => {
             old_values: { status: session.previous('status') },
             new_values: { status: session.status, declared: declared_amount, final_discrepancy: finalDiscrepancy },
             details: `Administrador cerró la caja de ${session.user_id === adminUserId ? 'su propia caja' : `el cajero ${session.user_id}`} directamente. Declarado: ${declared_amount}, Diferencia Final: ${finalDiscrepancy}`
-        }, req, t); // Pass req and transaction to logAudit
+        };
 
         await t.commit();
+        void logAudit(auditData, req);
         res.status(200).json({ message: 'Caja cerrada directamente con éxito', session });
     } catch (error) {
         await t.rollback();
@@ -3210,48 +3268,20 @@ export const getSummaryForClose = async (req, res) => {
             return res.status(404).json({ message: 'No se encontró una sesión de caja abierta con ese ID.' });
         }
 
-        // Obtener todas las ventas de esta sesión
-        const sales = await SaleModel.findAll({
-            where: { cash_session_id: session.id },
-            include: [{
-                model: SalePaymentModel,
-                as: 'sale_payments',
-                include: [{
-                    model: PaymentModel,
-                    as: 'payment',
-                    attributes: ['method']
-                }]
-            }]
-        });
-
-        // Calcular totales por método de pago
-        const sales_by_method = {};
-        let total_sales = 0;
-        sales.forEach(sale => {
-            total_sales += parseFloat(sale.total_neto);
-            (sale.sale_payments || []).forEach(payment => {
-                const methodName = payment.payment?.method || 'Desconocido';
-                sales_by_method[methodName] = (sales_by_method[methodName] || 0) + parseFloat(payment.amount);
-            });
-        });
-
-        // Obtener movimientos de caja para la sesión actual
-        const movements = await CashSessionMovementModel.findAll({ where: { cash_session_id: session.id } });
-
-        const totalIncome = movements
-            .filter(m => m.type === 'ingreso')
-            .reduce((sum, m) => sum + parseFloat(m.amount), 0);
-
-        const totalExpense = movements
-            .filter(m => m.type === 'egreso')
-            .reduce((sum, m) => sum + parseFloat(m.amount), 0);
+        const aggregates = await getSessionAggregates([session.id]);
+        const aggregate = aggregates.get(String(session.id)) || {
+            total_sales: 0,
+            payment_methods: {},
+            totalIncome: 0,
+            totalExpense: 0
+        };
 
         res.json({
             opening_amount: parseFloat(session.opening_amount),
-            sales_by_method,
-            total_sales,
-            totalIncome,
-            totalExpense
+            sales_by_method: aggregate.payment_methods,
+            total_sales: aggregate.total_sales,
+            totalIncome: aggregate.totalIncome,
+            totalExpense: aggregate.totalExpense
         });
 
     } catch (error) {
@@ -3276,20 +3306,19 @@ export const initiateClosure = async (req, res) => {
         }
 
         // --- Recalcular el resumen para asegurar datos frescos ---
-        const sales = await SaleModel.findAll({ where: { cash_session_id: session.id }, include: [{ model: SalePaymentModel, as: 'sale_payments', include: [{ model: PaymentModel, as: 'payment' }] }], transaction });
-        const cashSales = sales.reduce((sum, sale) => {
-            (sale.sale_payments || []).forEach(p => {
-                if (p.payment?.method?.toLowerCase().includes('efectivo')) {
-                    sum += parseFloat(p.amount);
-                }
-            });
-            return sum;
-        }, 0);
-        const totalSales = sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto), 0);
-
-        const movements = await CashSessionMovementModel.findAll({ where: { cash_session_id: session.id }, transaction });
-        const totalIncome = movements.filter(m => m.type === 'ingreso').reduce((sum, m) => sum + parseFloat(m.amount), 0);
-        const totalExpense = movements.filter(m => m.type === 'egreso').reduce((sum, m) => sum + parseFloat(m.amount), 0);
+        const aggregates = await getSessionAggregates([session.id], transaction);
+        const aggregate = aggregates.get(String(session.id)) || {
+            total_sales: 0,
+            payment_methods: {},
+            totalIncome: 0,
+            totalExpense: 0
+        };
+        const cashSales = Object.entries(aggregate.payment_methods).reduce((sum, [method, amount]) => (
+            method.toLowerCase().includes('efectivo') ? sum + Number(amount) : sum
+        ), 0);
+        const totalSales = aggregate.total_sales;
+        const totalIncome = aggregate.totalIncome;
+        const totalExpense = aggregate.totalExpense;
         const expected_cash = parseFloat(session.opening_amount) + cashSales + totalIncome - totalExpense;
         // --- Fin del recálculo ---
 
@@ -3313,16 +3342,17 @@ export const initiateClosure = async (req, res) => {
                 verified_at: new Date() // This is the correct field
             }, { transaction });
 
-            await logAudit({
+            const auditData = {
                 user_id: user.id,
                 action: 'CIERRE_DIRECTO_CAJA_ADMIN',
                 entity_type: 'cash_session',
                 entity_id: session.id,
                 new_values: { status: 'cerrada', declared: cashier_declared_amount, final_discrepancy },
                 details: `Administrador cerró su propia caja directamente. Declarado: ${cashier_declared_amount}, Diferencia Final: ${final_discrepancy}`
-            }, req, transaction);
+            };
 
             await transaction.commit();
+            void logAudit(auditData, req);
             return res.json({ message: 'Sesión de caja cerrada y verificada directamente.' });
         }
 
@@ -3339,16 +3369,17 @@ export const initiateClosure = async (req, res) => {
             closed_at_user: new Date()
         }, { transaction });
 
-        await logAudit({
+        const auditData = {
             user_id: user.id,
             action: 'INICIO_CIERRE_CAJA',
             entity_type: 'cash_session',
             entity_id: session.id,
             new_values: { status: 'pendiente_cierre', declared: cashier_declared_amount, discrepancy: preliminary_discrepancy },
             details: `Cajero inició cierre. Declarado: ${cashier_declared_amount}, Diferencia Preliminar: ${preliminary_discrepancy}`
-        }, req, transaction);
+        };
 
         await transaction.commit();
+        void logAudit(auditData, req);
         res.json({ message: 'Cierre de caja iniciado. Pendiente de revisión por administrador.' });
 
     } catch (error) {
@@ -3374,27 +3405,17 @@ export const finalizeClosure = async (req, res) => {
         }
 
         // Recalcular ventas en efectivo para el cálculo final
-        const sales = await SaleModel.findAll({ where: { cash_session_id: session.id }, include: [{ model: SalePaymentModel, as: 'sale_payments', include: [{ model: PaymentModel, as: 'payment' }] }], transaction });
-        const cashSales = sales.reduce((sum, sale) => {
-            (sale.sale_payments || []).forEach(p => {
-                if (p.payment?.method?.toLowerCase().includes('efectivo')) {
-                    sum += parseFloat(p.amount);
-                }
-            });
-            return sum;
-        }, 0);
-
-        // Obtener movimientos de caja para la sesión actual
-        const movements = await CashSessionMovementModel.findAll({ where: { cash_session_id: session.id }, transaction });
-
-        const totalIncome = movements
-            .filter(m => m.type === 'ingreso')
-            .reduce((sum, m) => sum + parseFloat(m.amount), 0);
-
-        const totalExpense = movements
-            .filter(m => m.type === 'egreso')
-            .reduce((sum, m) => sum + parseFloat(m.amount), 0);
-
+        const aggregates = await getSessionAggregates([session.id], transaction);
+        const aggregate = aggregates.get(String(session.id)) || {
+            payment_methods: {},
+            totalIncome: 0,
+            totalExpense: 0
+        };
+        const cashSales = Object.entries(aggregate.payment_methods).reduce((sum, [method, amount]) => (
+            method.toLowerCase().includes('efectivo') ? sum + Number(amount) : sum
+        ), 0);
+        const totalIncome = aggregate.totalIncome;
+        const totalExpense = aggregate.totalExpense;
         const expected_cash = parseFloat(session.opening_amount) + cashSales + totalIncome - totalExpense;
         const final_discrepancy = parseFloat(admin_verified_amount) - expected_cash;
 
@@ -3409,17 +3430,17 @@ export const finalizeClosure = async (req, res) => {
             notes: `${session.notes || ''}\n\nVerificación Admin: ${admin_notes || 'Sin notas.'}`
         }, { transaction });
 
-        // Registrar auditoría
-        await logAudit({
+        const auditData = {
             user_id: admin_id,
             action: 'FINALIZAR_CIERRE_CAJA',
             entity_type: 'cash_session',
             entity_id: session.id,
             new_values: { status: 'cerrada', verified_amount: admin_verified_amount, final_discrepancy },
             details: `Admin finalizó cierre. Verificado: ${admin_verified_amount}, Diferencia Final: ${final_discrepancy}`
-        }, req, transaction);
+        };
 
         await transaction.commit();
+        void logAudit(auditData, req);
         res.json({ message: 'Sesión de caja cerrada y verificada correctamente.' });
 
     } catch (error) {
@@ -3504,7 +3525,145 @@ export const getActiveCashSession = async (req, res) => {
     }
 };
 
-// Obtener historial de sesiones de caja
+const getSessionAggregates = async (sessionIds, transaction = null) => {
+    const ids = [...new Set(sessionIds)].filter(Boolean);
+    if (!ids.length) return new Map();
+
+    const queryOptions = {
+        replacements: { ids },
+        type: QueryTypes.SELECT,
+        ...(transaction ? { transaction } : {})
+    };
+
+    const runSalesQuery = () => db.query(`
+        SELECT cash_session_id,
+               COUNT(*) AS sales_count,
+               COALESCE(SUM(total_neto), 0) AS total_sales,
+               COALESCE(SUM(total_neto + COALESCE(surcharge_amount, 0)), 0) AS total_sales_with_surcharge,
+               COALESCE(SUM(promotion_discount), 0) AS total_discounts
+        FROM sales
+        WHERE cash_session_id IN (:ids)
+        GROUP BY cash_session_id
+    `, queryOptions);
+    const runPaymentQuery = () => db.query(`
+        SELECT s.cash_session_id, p.method, COALESCE(SUM(sp.amount), 0) AS total
+        FROM sale_payments sp
+        JOIN sales s ON s.id = sp.sale_id
+        JOIN payments p ON p.id = sp.payment_method_id
+        WHERE s.cash_session_id IN (:ids)
+        GROUP BY s.cash_session_id, p.method
+    `, queryOptions);
+    const runMovementQuery = () => db.query(`
+        SELECT cash_session_id, type, COALESCE(SUM(amount), 0) AS total
+        FROM cash_session_movements
+        WHERE cash_session_id IN (:ids)
+        GROUP BY cash_session_id, type
+    `, queryOptions);
+
+    const [salesRows, paymentRows, movementRows] = transaction
+        ? [await runSalesQuery(), await runPaymentQuery(), await runMovementQuery()]
+        : await Promise.all([runSalesQuery(), runPaymentQuery(), runMovementQuery()]);
+
+    return buildSessionAggregateMap(ids, salesRows, paymentRows, movementRows);
+};
+
+const getSessionHourlySales = async (sessionId) => {
+    const rows = await db.query(`
+        SELECT HOUR(createdAt) AS hour, COUNT(*) AS count
+        FROM sales
+        WHERE cash_session_id = :sessionId
+        GROUP BY HOUR(createdAt)
+    `, { replacements: { sessionId }, type: QueryTypes.SELECT });
+
+    return rows.reduce((acc, row) => {
+        acc[row.hour] = Number(row.count || 0);
+        return acc;
+    }, {});
+};
+
+const applySessionSurcharges = async (sessionId, paymentMethods) => {
+    const rows = await db.query(`
+        SELECT s.id AS sale_id, s.surcharge_amount, p.method
+        FROM sales s
+        JOIN sale_payments sp ON sp.sale_id = s.id
+        JOIN payments p ON p.id = sp.payment_method_id
+        WHERE s.cash_session_id = :sessionId
+          AND COALESCE(s.surcharge_amount, 0) > 0
+        ORDER BY s.id, sp.id
+    `, { replacements: { sessionId }, type: QueryTypes.SELECT });
+
+    const salesWithSurcharge = new Map();
+    rows.forEach(row => {
+        const key = String(row.sale_id);
+        if (!salesWithSurcharge.has(key)) {
+            salesWithSurcharge.set(key, { surcharge: Number(row.surcharge_amount || 0), methods: [] });
+        }
+        salesWithSurcharge.get(key).methods.push(row.method || 'Desconocido');
+    });
+
+    salesWithSurcharge.forEach(({ surcharge, methods }) => {
+        if (!methods.length || !surcharge) return;
+        const targetMethod = methods.find(method => method !== 'Efectivo') || methods[0];
+        paymentMethods[targetMethod] = (paymentMethods[targetMethod] || 0) + surcharge;
+    });
+
+    return paymentMethods;
+};
+
+export const getActiveCashSessions = async (req, res) => {
+    try {
+        const whereClause = {
+            status: { [Op.in]: ['abierta', 'pendiente_cierre'] }
+        };
+
+        if (req.usuario.rol_nombre === 'Cajero') {
+            whereClause.user_id = req.usuario.id;
+        }
+
+        const rows = await CashSessionsModel.findAll({
+            where: whereClause,
+            include: [
+                {
+                    model: UsuarioModel,
+                    required: false,
+                    attributes: ['id', 'username'],
+                    include: [{ model: RoleModel, as: 'rol', attributes: ['nombre'] }]
+                }
+            ],
+            order: [['opened_at', 'DESC']],
+            limit: 100
+        });
+
+        const aggregates = await getSessionAggregates(rows.map(session => session.id));
+        const sessions = rows.map((session) => {
+            const plainSession = session.toJSON();
+            const aggregate = aggregates.get(String(session.id));
+
+            if (plainSession.usuario?.rol) {
+                plainSession.usuario.rol_nombre = plainSession.usuario.rol.nombre;
+            }
+
+            const paymentMethods = aggregate?.payment_methods || {};
+            const totalIncome = Number(aggregate?.totalIncome || 0);
+            const totalExpense = Number(aggregate?.totalExpense || 0);
+            const openingAmount = parseFloat(plainSession.opening_amount);
+
+            plainSession.payment_methods = paymentMethods;
+            plainSession.sales_count = Number(aggregate?.sales_count || 0);
+            plainSession.expected_cash = openingAmount + Number(paymentMethods.Efectivo || 0) + totalIncome - totalExpense;
+            plainSession.current_cash = openingAmount + Number(aggregate?.total_sales_with_surcharge || 0) + totalIncome - totalExpense;
+            plainSession.total_sales_at_close = Number(aggregate?.total_sales || 0);
+
+            return plainSession;
+        });
+
+        res.json({ sessions });
+    } catch (error) {
+        console.error('Error al obtener sesiones de caja activas:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // Obtener historial de sesiones de caja
 export const getCashSessionHistory = async (req, res) => {
     try {
@@ -3558,9 +3717,11 @@ export const getCashSessionHistory = async (req, res) => {
             offset: offset
         });
 
-        // Recalcular dinámicamente los montos para cada sesión
-        const detailedSessions = await Promise.all(rows.map(async (session) => {
+        const aggregates = await getSessionAggregates(rows.map(session => session.id));
+
+        const detailedSessions = rows.map((session) => {
             const plainSession = session.toJSON();
+            const aggregate = aggregates.get(String(session.id));
 
             if (plainSession.usuario) {
                 if (plainSession.usuario.rol) {
@@ -3570,50 +3731,26 @@ export const getCashSessionHistory = async (req, res) => {
                 }
             }
 
-            // 1. Calcular ventas y desglosar por método de pago
-            const sales = await SaleModel.findAll({
-                where: { cash_session_id: session.id },
-                include: [{
-                    model: SalePaymentModel,
-                    as: 'sale_payments',
-                    include: [{ model: PaymentModel, as: 'payment' }]
-                }]
-            });
+            const paymentMethodsSummary = aggregate?.payment_methods || {};
+            const cashSales = Number(paymentMethodsSummary['Efectivo'] || 0);
+            const totalIncome = Number(aggregate?.totalIncome || 0);
+            const totalExpense = Number(aggregate?.totalExpense || 0);
 
-            const paymentMethodsSummary = {};
-            sales.forEach(sale => {
-                (sale.sale_payments || []).forEach(p => {
-                    const methodName = p.payment?.method || 'Desconocido';
-                    paymentMethodsSummary[methodName] = (paymentMethodsSummary[methodName] || 0) + parseFloat(p.amount);
-                });
-            });
             plainSession.payment_methods = paymentMethodsSummary;
+            plainSession.sales_count = Number(aggregate?.sales_count || 0);
+            plainSession.expected_cash = parseFloat(plainSession.opening_amount) + cashSales + totalIncome - totalExpense;
+            plainSession.current_cash = parseFloat(plainSession.opening_amount) + Number(aggregate?.total_sales_with_surcharge || 0) + totalIncome - totalExpense;
+            plainSession.total_sales_at_close = Number(aggregate?.total_sales || 0);
 
-            const cashSales = paymentMethodsSummary['Efectivo'] || 0;
-
-            // 2. Calcular movimientos de caja
-            const movements = await CashSessionMovementModel.findAll({ where: { cash_session_id: session.id } });
-            const totalIncome = movements.filter(m => m.type === 'ingreso').reduce((sum, m) => sum + parseFloat(m.amount), 0);
-            const totalExpense = movements.filter(m => m.type === 'egreso').reduce((sum, m) => sum + parseFloat(m.amount), 0);
-
-            // 3. Calcular monto esperado
-            const expected_cash = parseFloat(session.opening_amount) + cashSales + totalIncome - totalExpense;
-
-            // 4. Recalcular discrepancias
-            plainSession.expected_cash = expected_cash;
             if (plainSession.status === 'pendiente_cierre' || plainSession.status === 'cerrada') {
-                plainSession.preliminary_discrepancy = parseFloat(plainSession.cashier_declared_amount) - expected_cash;
+                plainSession.preliminary_discrepancy = parseFloat(plainSession.cashier_declared_amount) - plainSession.expected_cash;
             }
             if (plainSession.status === 'cerrada' && plainSession.admin_verified_amount !== null) {
-                plainSession.final_discrepancy = parseFloat(plainSession.admin_verified_amount) - expected_cash;
+                plainSession.final_discrepancy = parseFloat(plainSession.admin_verified_amount) - plainSession.expected_cash;
             }
 
-            // 5. Asignar el total de ventas correcto
-            plainSession.total_sales_at_close = sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto), 0);
-
-
             return plainSession;
-        }));
+        });
 
         res.json({
             sessions: detailedSessions,
@@ -3816,41 +3953,26 @@ export const getCurrentSessionSummary = async (req, res) => {
     }
 };
 
-// Obtener resumen detallado de una sesión específica
-export const getCashSessionSummary = async (req, res) => {
-    try {
-        const { session_id } = req.params;
+const fetchSessionSales = async (sessionId, page = 1, limit = 50) => {
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+    const offset = (parsedPage - 1) * parsedLimit;
 
-        // Buscar la sesión específica
-        const session = await CashSessionsModel.findByPk(session_id, {
-            include: [
-                {
-                    model: UsuarioModel,
-                    attributes: ['id', 'username'],
-                    include: [{
-                        model: RoleModel,
-                        as: 'rol',
-                        attributes: ['nombre']
-                    }]
-                },
-                {
-                    model: CashSessionMovementModel,
-                    as: 'movements',
-                    attributes: ['type', 'amount', 'description', 'createdAt'],
-                    order: [['createdAt', 'ASC']]
-                }
-            ]
-        });
+    const { count, rows: idRows } = await SaleModel.findAndCountAll({
+        where: { cash_session_id: sessionId },
+        attributes: ['id'],
+        order: [['createdAt', 'DESC']],
+        limit: parsedLimit,
+        offset,
+        raw: true
+    });
 
-        if (!session) {
-            return res.status(404).json({ message: 'Sesión de caja no encontrada' });
-        }
+    const ids = idRows.map(row => row.id);
+    let sales = [];
 
-        // Obtener ventas de esta sesión específica
-        const sales = await SaleModel.findAll({
-            where: {
-                cash_session_id: session.id, // <--- ESTA ES LA CORRECCIÓN CLAVE
-            },
+    if (ids.length) {
+        sales = await SaleModel.findAll({
+            where: { id: { [Op.in]: ids } },
             include: [
                 {
                     model: CustomerModel,
@@ -3883,59 +4005,95 @@ export const getCashSessionSummary = async (req, res) => {
             ],
             order: [['createdAt', 'DESC']]
         });
+    }
 
-        // Calcular totales y estadísticas detalladas
-        const totalIncome = session.movements
-            .filter(m => m.type === 'ingreso')
-            .reduce((sum, m) => sum + parseFloat(m.amount), 0);
+    return {
+        sales,
+        pagination: {
+            total: count,
+            page: parsedPage,
+            limit: parsedLimit,
+            totalPages: Math.ceil(count / parsedLimit)
+        }
+    };
+};
 
-        const totalExpense = session.movements
-            .filter(m => m.type === 'egreso')
-            .reduce((sum, m) => sum + parseFloat(m.amount), 0);
+// Obtener ventas paginadas de una sesión específica
+export const getCashSessionSales = async (req, res) => {
+    try {
+        const { session_id } = req.params;
+        const session = await CashSessionsModel.findByPk(session_id, { attributes: ['id'] });
+
+        if (!session) {
+            return res.status(404).json({ message: 'Sesión de caja no encontrada' });
+        }
+
+        const result = await fetchSessionSales(session_id, req.query.page, req.query.limit);
+        res.json(result);
+    } catch (error) {
+        console.error('Error al obtener ventas de la sesión:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Obtener resumen detallado de una sesión específica
+export const getCashSessionSummary = async (req, res) => {
+    try {
+        const { session_id } = req.params;
+
+        // Buscar la sesión específica
+        const session = await CashSessionsModel.findByPk(session_id, {
+            include: [
+                {
+                    model: UsuarioModel,
+                    attributes: ['id', 'username'],
+                    include: [{
+                        model: RoleModel,
+                        as: 'rol',
+                        attributes: ['nombre']
+                    }]
+                },
+                {
+                    model: CashSessionMovementModel,
+                    as: 'movements',
+                    attributes: ['type', 'amount', 'description', 'createdAt'],
+                    order: [['createdAt', 'ASC']]
+                }
+            ]
+        });
+
+        if (!session) {
+            return res.status(404).json({ message: 'Sesión de caja no encontrada' });
+        }
+
+        const includeSales = req.query.includeSales === 'true' || req.query.include_sales === 'true';
+        const aggregates = await getSessionAggregates([session.id]);
+        const aggregate = aggregates.get(String(session.id)) || {
+            sales_count: 0,
+            total_sales: 0,
+            total_sales_with_surcharge: 0,
+            total_discounts: 0,
+            payment_methods: {},
+            totalIncome: 0,
+            totalExpense: 0
+        };
+        const paymentMethods = await applySessionSurcharges(session.id, { ...aggregate.payment_methods });
+        const salesResult = includeSales
+            ? await fetchSessionSales(session.id, 1, 200)
+            : { sales: [], pagination: null };
 
         const summary = {
             ...session.toJSON(),
-            sales_count: sales.length,
-            // Incluir surcharge_amount para que coincida con el total cobrado por método de pago
-            total_sales: sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto) + parseFloat(sale.surcharge_amount || 0), 0),
-            total_discounts: sales.reduce((sum, sale) => sum + parseFloat(sale.promotion_discount || 0), 0),
-            sales: sales,
-            totalIncome,
-            totalExpense,
-            // Estadísticas adicionales
-            average_sale: sales.length > 0 ? sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto) + parseFloat(sale.surcharge_amount || 0), 0) / sales.length : 0,
-            payment_methods: sales.reduce((acc, sale) => {
-                const plainSale = sale.toJSON();
-                if (!plainSale.sale_payments) {
-                    return acc;
-                }
-
-                plainSale.sale_payments.forEach(p => {
-                    const method = p.payment?.method || 'Desconocido';
-                    acc[method] = (acc[method] || 0) + parseFloat(p.amount);
-                });
-
-                const surchargeAmount = parseFloat(plainSale.surcharge_amount || 0);
-                if (surchargeAmount > 0) {
-                    const nonCashPayment = plainSale.sale_payments.find(p => p.payment?.method !== 'Efectivo');
-                    if (nonCashPayment) {
-                        const method = nonCashPayment.payment.method;
-                        acc[method] = (acc[method] || 0) + surchargeAmount;
-                    } else {
-                        if (plainSale.sale_payments.length > 0) {
-                            const method = plainSale.sale_payments[0].payment?.method || 'Desconocido';
-                            acc[method] = (acc[method] || 0) + surchargeAmount;
-                        }
-                    }
-                }
-
-                return acc;
-            }, {}),
-            hourly_sales: sales.reduce((acc, sale) => {
-                const hour = new Date(sale.createdAt).getHours();
-                acc[hour] = (acc[hour] || 0) + 1;
-                return acc;
-            }, {})
+            sales_count: aggregate.sales_count,
+            total_sales: aggregate.total_sales_with_surcharge,
+            total_discounts: aggregate.total_discounts,
+            sales: salesResult.sales,
+            sales_pagination: salesResult.pagination,
+            totalIncome: aggregate.totalIncome,
+            totalExpense: aggregate.totalExpense,
+            average_sale: aggregate.sales_count > 0 ? aggregate.total_sales_with_surcharge / aggregate.sales_count : 0,
+            payment_methods: paymentMethods,
+            hourly_sales: await getSessionHourlySales(session.id)
         };
 
         res.json(summary);
@@ -5982,6 +6140,231 @@ export const voidSupplierOrder = async (req, res) => {
 
 // --- Dashboard Endpoints ---
 
+export const getDashboardOverview = async (req, res) => {
+    try {
+        const permissions = req.usuario?.permisos || [];
+        const now = new Date();
+
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const startOfYesterday = new Date(yesterday);
+        startOfYesterday.setHours(0, 0, 0, 0);
+        const endOfYesterday = new Date(yesterday);
+        endOfYesterday.setHours(23, 59, 59, 999);
+
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(endOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+        const startOfLastWeek = new Date(startOfWeek);
+        startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+        const endOfLastWeek = new Date(startOfWeek);
+        endOfLastWeek.setDate(endOfLastWeek.getDate() - 1);
+        endOfLastWeek.setHours(23, 59, 59, 999);
+
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        endOfMonth.setHours(23, 59, 59, 999);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        endOfLastMonth.setHours(23, 59, 59, 999);
+
+        const [salesRow] = await db.query(`
+            SELECT
+                COALESCE(SUM(CASE WHEN createdAt BETWEEN :startOfDay AND :endOfDay THEN total_neto ELSE 0 END), 0) AS today,
+                COALESCE(SUM(CASE WHEN createdAt BETWEEN :startOfYesterday AND :endOfYesterday THEN total_neto ELSE 0 END), 0) AS yesterday,
+                COALESCE(SUM(CASE WHEN createdAt BETWEEN :startOfWeek AND :endOfWeek THEN total_neto ELSE 0 END), 0) AS week,
+                COALESCE(SUM(CASE WHEN createdAt BETWEEN :startOfLastWeek AND :endOfLastWeek THEN total_neto ELSE 0 END), 0) AS lastWeek,
+                COALESCE(SUM(CASE WHEN createdAt BETWEEN :startOfMonth AND :endOfMonth THEN total_neto ELSE 0 END), 0) AS month,
+                COALESCE(SUM(CASE WHEN createdAt BETWEEN :startOfLastMonth AND :endOfLastMonth THEN total_neto ELSE 0 END), 0) AS lastMonth
+            FROM sales
+        `, {
+            replacements: {
+                startOfDay, endOfDay, startOfYesterday, endOfYesterday,
+                startOfWeek, endOfWeek, startOfLastWeek, endOfLastWeek,
+                startOfMonth, endOfMonth, startOfLastMonth, endOfLastMonth
+            },
+            type: QueryTypes.SELECT
+        });
+
+        const calculateChange = (current, previous) => {
+            if (Number(previous) > 0) return (((Number(current) - Number(previous)) / Number(previous)) * 100).toFixed(2);
+            return Number(current) > 0 ? '100.00' : '0.00';
+        };
+
+        const overview = {
+            summary: {},
+            sales: null,
+            lowStock: null
+        };
+
+        if (permissions.includes('ver_vista_compras') || permissions.includes('ver_widget_compras_hoy')) {
+            overview.summary.purchasesToday = await PurchaseModel.sum('cost', {
+                where: { createdAt: { [Op.between]: [startOfDay, endOfDay] } }
+            }) || 0;
+        }
+
+        if (permissions.includes('listar_clientes') || permissions.includes('ver_widget_total_clientes')) {
+            overview.summary.customersTotal = await CustomerModel.count({ where: { id: { [Op.ne]: 1 } } });
+        }
+
+        if (permissions.includes('listar_proveedores') || permissions.includes('ver_widget_total_proveedores')) {
+            overview.summary.suppliersTotal = await SupplierModel.count();
+        }
+
+        if (permissions.includes('listar_ventas_historial')) {
+            overview.sales = {
+                today: { total: Number(salesRow?.today || 0), change: calculateChange(salesRow?.today, salesRow?.yesterday) },
+                week: { total: Number(salesRow?.week || 0), change: calculateChange(salesRow?.week, salesRow?.lastWeek) },
+                month: { total: Number(salesRow?.month || 0), change: calculateChange(salesRow?.month, salesRow?.lastMonth) }
+            };
+        }
+
+        if (permissions.includes('ver_informe_stock_bajo') || permissions.includes('listar_productos')) {
+            const products = await StockModel.findAll({
+                where: {
+                    visible: 1,
+                    stock: { [Op.lte]: db.col('min_stock') }
+                },
+                attributes: [
+                    'id', 'name', 'stock', 'min_stock', 'units_id',
+                    [db.col('unit.abreviatura'), 'unitAbbreviation'],
+                    [db.col('stockCategory.name'), 'categoryName'],
+                    [db.col('supplier.nombre'), 'supplierName']
+                ],
+                include: [
+                    { model: UnitModel, as: 'unit', attributes: [], required: true },
+                    { model: StockCategoryModel, as: 'stockCategory', attributes: [], required: true },
+                    { model: SupplierModel, as: 'supplier', attributes: [], required: false }
+                ],
+                order: [['stock', 'ASC']],
+                limit: 20,
+                raw: true
+            });
+            overview.lowStock = { products };
+        }
+
+        res.json(overview);
+    } catch (error) {
+        console.error('Error al obtener el resumen del Dashboard:', error);
+        res.status(500).json({ message: 'Error al obtener el resumen del Dashboard', error: error.message });
+    }
+};
+
+export const getDashboardNovedades = async (req, res) => {
+    try {
+        const permissions = req.usuario?.permisos || [];
+        const now = new Date();
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+        const activeWhere = {
+            is_active: true,
+            start_date: { [Op.lte]: endOfDay },
+            end_date: { [Op.gte]: startOfDay }
+        };
+
+        const result = {
+            promotions: null,
+            combos: null,
+            presentations: null
+        };
+
+        if (permissions.includes('ver_vista_promociones')) {
+            const [activeCount, latestPromotion, highlights] = await Promise.all([
+                PromotionModel.count({ where: activeWhere }),
+                PromotionModel.findOne({ order: [['createdAt', 'DESC']], attributes: ['name'] }),
+                PromotionModel.findAll({
+                    where: activeWhere,
+                    order: [['createdAt', 'DESC']],
+                    attributes: ['id', 'name'],
+                    limit: 3
+                })
+            ]);
+            result.promotions = { activeCount, latestPromotion, highlights };
+        }
+
+        if (permissions.includes('ver_vista_combos')) {
+            const [activeCount, latestCombo, highlights] = await Promise.all([
+                ComboModel.count({ where: activeWhere }),
+                ComboModel.findOne({ order: [['createdAt', 'DESC']], attributes: ['name'] }),
+                ComboModel.findAll({
+                    where: activeWhere,
+                    order: [['createdAt', 'DESC']],
+                    attributes: ['id', 'name', 'price'],
+                    limit: 3
+                })
+            ]);
+            result.combos = { activeCount, latestCombo, highlights };
+        }
+
+        if (permissions.includes('listar_presentaciones') || permissions.includes('listar_productos')) {
+            const [totalCount, latestPresentation] = await Promise.all([
+                ProductPresentationsModel.count(),
+                ProductPresentationsModel.findOne({
+                    order: [['createdAt', 'DESC']],
+                    include: [{ model: StockModel, as: 'stock', attributes: ['name'] }],
+                    attributes: ['name']
+                })
+            ]);
+
+            const recentStockIdsResult = await ProductPresentationsModel.findAll({
+                attributes: ['stock_id', [db.fn('MAX', db.col('createdAt')), 'max_createdAt']],
+                group: ['stock_id'],
+                order: [[db.fn('MAX', db.col('createdAt')), 'DESC']],
+                limit: 3,
+                raw: true
+            });
+            const recentStockIds = recentStockIdsResult.map(item => item.stock_id);
+
+            const presentationsByStock = recentStockIds.length
+                ? await Promise.all(recentStockIds.map(stockId => ProductPresentationsModel.findAll({
+                    where: { stock_id: stockId },
+                    order: [['createdAt', 'DESC']],
+                    limit: 2,
+                    include: [{
+                        model: StockModel,
+                        as: 'stock',
+                        attributes: ['name', 'description', 'category_id', 'tipo_venta'],
+                        required: true,
+                        include: [{ model: UnitModel, as: 'unit', attributes: ['name'] }]
+                    }]
+                })))
+                : [];
+
+            const highlights = presentationsByStock.flat().map(presentation => ({
+                ...presentation.toJSON(),
+                productName: presentation.stock.name,
+                productDescription: presentation.stock.description,
+                tipo_venta: presentation.stock.tipo_venta,
+                unitName: presentation.stock.unit?.name || null
+            }));
+
+            result.presentations = {
+                totalCount,
+                latestPresentation: latestPresentation ? {
+                    name: latestPresentation.name,
+                    productName: latestPresentation.stock?.name || null
+                } : null,
+                highlights
+            };
+        }
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error al obtener novedades del Dashboard:', error);
+        res.status(500).json({ message: 'Error al obtener novedades del Dashboard', error: error.message });
+    }
+};
+
 // Ventas de hoy
 export const getSalesToday = async (req, res) => {
     try {
@@ -6478,6 +6861,10 @@ export const updateCustomer = async (req, res) => {
 
 export const getTopSellingProducts = async (req, res) => {
     try {
+        const days = Math.min(Math.max(parseInt(req.query.days, 10) || 90, 1), 365);
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+
         const topProducts = await SaleDetailModel.findAll({
             attributes: [
                 'stock_id',
@@ -6492,6 +6879,14 @@ export const getTopSellingProducts = async (req, res) => {
                     name: {
                         [Op.ne]: 'Producto Manual'
                     }
+                }
+            }, {
+                model: SaleModel,
+                as: 'sale',
+                attributes: [],
+                required: true,
+                where: {
+                    createdAt: { [Op.gte]: since }
                 }
             }],
             group: ['stock_id', 'stock.id'],

@@ -4,9 +4,11 @@ import { StyledCard } from '../../styledComponents/ui/StyledCard';
 import { UseFetchQuery } from '../../hooks/useQuery';
 import { useTheme } from '@mui/material/styles';
 
-const LowStockAlertsCard = () => {
-  const { data: stockData, isLoading, isError } = UseFetchQuery('stock', '/stock?low_stock=true&unpaginated=true', true);
+const LowStockAlertsCard = ({ lowStock, isLoading: externalLoading, isError: externalError }) => {
+  const { data: stockData, isLoading, isError } = UseFetchQuery('stock', '/stock?low_stock=true&unpaginated=true', !lowStock && !externalLoading, 60 * 1000);
   const theme = useTheme();
+  const loading = externalLoading ?? isLoading;
+  const error = externalError ?? (lowStock ? false : isError);
 
   const formatStock = (stock, unitId) => {
     const number = parseFloat(stock);
@@ -17,7 +19,7 @@ const LowStockAlertsCard = () => {
     return `${number.toFixed(3).replace('.', ',')} Kg.`;
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <StyledCard>
         <CardContent>
@@ -29,7 +31,7 @@ const LowStockAlertsCard = () => {
     );
   }
 
-  if (isError) {
+  if (error) {
     return (
       <StyledCard>
         <CardContent>
@@ -40,18 +42,18 @@ const LowStockAlertsCard = () => {
     );
   }
 
-  const lowStockProducts = stockData?.products?.filter(p => parseFloat(p.stock) <= parseFloat(p.min_stock)) || [];
+  const lowStockProducts = (lowStock?.products || stockData?.products || []).filter(p => parseFloat(p.stock) <= parseFloat(p.min_stock));
 
   return (
     <StyledCard>
       <CardContent>
         <Typography variant="h6" gutterBottom sx={{ fontSize: 'clamp(1rem, 2vw, 1.25rem)' }}>Productos con Stock Bajo</Typography>
-        {isLoading ? (
+        {loading ? (
           <Box>
             <Skeleton variant="text" height={40} />
             <Skeleton variant="text" height={40} />
           </Box>
-        ) : isError ? (
+        ) : error ? (
           <Alert severity="error">Error al cargar los productos.</Alert>
         ) : (
           <>

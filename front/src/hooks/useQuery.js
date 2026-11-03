@@ -121,9 +121,9 @@ export const UseFetchQuery = (key, queryFnOrUrl, enable = true, stale = 0, optio
 
   const result = useQuery({
     queryKey,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (typeof queryFnOrUrl === 'function') {
-        return queryFnOrUrl();
+        return queryFnOrUrl({ signal });
       }
 
       //console.log(`[UseFetchQuery - queryFn] isOnline: ${isOnline}, URL: ${queryFnOrUrl}`);
@@ -132,13 +132,13 @@ export const UseFetchQuery = (key, queryFnOrUrl, enable = true, stale = 0, optio
         return handleOfflineQuery(queryFnOrUrl);
       }
 
-      const res = await Api.get(queryFnOrUrl);
+      const res = await Api.get(queryFnOrUrl, { signal });
       //console.log(`[UseFetchQuery - API Response] URL: ${queryFnOrUrl}, Data:`, res.data);
       return res.data;
     },
     enabled: enable,
     staleTime: stale,
-    retry: isOnline ? 3 : 0,
+    retry: isOnline ? 1 : 0,
     networkMode: 'offlineFirst', // 👈 Permite que queries funcionen offline
     ...options,
   });
@@ -151,9 +151,9 @@ export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale
 
   const result = useQuery({
     queryKey,
-    queryFn: queryFnOrUrl ? async () => {
+    queryFn: queryFnOrUrl ? async ({ signal }) => {
       if (typeof queryFnOrUrl === 'function') {
-        return queryFnOrUrl();
+        return queryFnOrUrl({ signal });
       }
 
       if (!isOnline) {
@@ -166,7 +166,7 @@ export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale
         // When online, we fetch from the API and then synchronize with local Dexie DB.
         if (isOnline) {
           try {
-            const res = await Api.get(queryFnOrUrl);
+            const res = await Api.get(queryFnOrUrl, { signal });
             await syncServerTicketsToLocal(res.data); // Update local Dexie with server data
           } catch (error) {
             console.error("Error fetching or syncing pending tickets from API:", error);
@@ -181,7 +181,7 @@ export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale
       if (queryFnOrUrl === '/comandas') {
         if (isOnline) {
           try {
-            const res = await Api.get(queryFnOrUrl);
+            const res = await Api.get(queryFnOrUrl, { signal });
             await syncServerComandasToLocal(res.data);
           } catch (error) {
             console.error("Error fetching comandas from API:", error);
@@ -190,13 +190,13 @@ export const UseQueryWithCache = (key, queryFnOrUrl = null, enable = true, stale
         return getVisibleComandas();
       }
 
-      const res = await Api.get(queryFnOrUrl);
+      const res = await Api.get(queryFnOrUrl, { signal });
       //console.log(`[API Response - ${queryFnOrUrl}]`, res.data);
       return res.data;
     } : undefined,
     enabled: enable,
     staleTime: stale,
-    retry: isOnline ? 3 : 0,
+    retry: isOnline ? 1 : 0,
     networkMode: 'offlineFirst', // 👈 CORRECCIÓN: También aquí
     ...options,
   });

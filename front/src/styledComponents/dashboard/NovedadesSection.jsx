@@ -12,46 +12,26 @@ const NovedadesSection = () => {
   const navigate = useNavigate();
   const theme = useTheme();
 
-  // --- QUERIES PARA RESÚMENES (IZQUIERDA) ---
-  const { data: promotionsData, isLoading: isLoadingPromotions } = UseFetchQuery(
-    'promotionsSummary',
-    '/promotions/summary',
-    tienePermiso('ver_vista_promociones')
-  );
-  const { data: combosData, isLoading: isLoadingCombos } = UseFetchQuery(
-    'combosSummary',
-    '/combos/summary',
-    tienePermiso('ver_vista_combos')
-  );
-  const { data: presentationsData, isLoading: isLoadingPresentations } = UseFetchQuery(
-    'presentationsSummary',
-    '/presentations/summary',
-    tienePermiso('listar_presentaciones')
+  const { data: novedades, isLoading: isLoadingNovedades } = UseFetchQuery(
+    'dashboardNovedades',
+    '/dashboard/novedades',
+    tienePermiso('ver_vista_promociones') || tienePermiso('ver_vista_combos') || tienePermiso('listar_presentaciones'),
+    60 * 1000
   );
 
-  // --- QUERIES PARA DESTACADOS (DERECHA) ---
-  const { data: highlightPromos, isLoading: isLoadingHighlightPromos } = UseFetchQuery(
-    'highlightPromos',
-    '/promotions?is_active=true&limit=3',
-    tienePermiso('ver_vista_promociones')
-  );
-  const { data: highlightCombos, isLoading: isLoadingHighlightCombos } = UseFetchQuery(
-    'highlightCombos',
-    '/combos?is_active=true&limit=3',
-    tienePermiso('ver_vista_combos')
-  );
-  const { data: highlightPresentations, isLoading: isLoadingHighlightPresentations } = UseFetchQuery(
-    'highlightPresentations',
-    '/presentations?mode=dashboard',
-    tienePermiso('listar_presentaciones')
-  );
+  const promotionsData = novedades?.promotions;
+  const combosData = novedades?.combos;
+  const presentationsData = novedades?.presentations;
+  const highlightPromos = promotionsData?.highlights;
+  const highlightCombos = combosData?.highlights;
+  const highlightPresentations = presentationsData?.highlights;
 
   const cards = [
     {
       permission: 'ver_vista_promociones',
       title: 'Promociones',
       icon: <LocalOfferIcon sx={{ fontSize: 'clamp(2.5rem, 4vw, 3.5rem)' }} />,
-      isLoading: isLoadingPromotions || isLoadingHighlightPromos,
+      isLoading: isLoadingNovedades,
       linkTo: '/promociones',
       summaryData: {
         count: promotionsData?.activeCount,
@@ -65,7 +45,7 @@ const NovedadesSection = () => {
       permission: 'ver_vista_combos',
       title: 'Combos',
       icon: <ExtensionIcon sx={{ fontSize: 'clamp(2.5rem, 4vw, 3.5rem)' }} />,
-      isLoading: isLoadingCombos || isLoadingHighlightCombos,
+      isLoading: isLoadingNovedades,
       linkTo: '/combos',
       summaryData: {
         count: combosData?.activeCount,
@@ -79,7 +59,7 @@ const NovedadesSection = () => {
       permission: 'listar_presentaciones', // Changed from ver_productos
       title: 'Presentaciones',
       icon: <CategoryIcon sx={{ fontSize: 'clamp(2.5rem, 4vw, 3.5rem)' }} />,
-      isLoading: isLoadingPresentations || isLoadingHighlightPresentations,
+      isLoading: isLoadingNovedades,
       linkTo: '/stock',
       summaryData: {
         count: presentationsData?.totalCount,
@@ -87,7 +67,7 @@ const NovedadesSection = () => {
         latestLabel: 'Última Creada:',
         latestItemName: presentationsData?.latestPresentation ? `${presentationsData.latestPresentation.name} (${presentationsData.latestPresentation.productName})` : 'N/A',
       },
-      highlightItems: highlightPresentations?.presentations
+      highlightItems: highlightPresentations
     }
   ];
 

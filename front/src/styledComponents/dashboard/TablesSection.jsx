@@ -4,7 +4,7 @@ import TopProductsTable from './TopProductsTable'; // Importar TopProductsTable 
 import LowStockAlertsCard from './LowStockAlertsCard'; // Importar LowStockAlertsCard desde su nuevo archivo
 import { usePermissions } from '../../hooks/usePermissions';
 
-const TablesSection = () => {
+const TablesSection = ({ overview, isLoading, error }) => {
   const { tienePermiso } = usePermissions();
 
   return (
@@ -16,7 +16,7 @@ const TablesSection = () => {
       )}
       {tienePermiso('ver_informe_stock_bajo') && (
       <Box sx={{ flex: '1 1 28%' }}>
-        <LowStockAlertsCard />
+        <LowStockAlertsCard lowStock={overview?.lowStock} isLoading={isLoading} isError={error} />
       </Box>
       )}
     </Box>
