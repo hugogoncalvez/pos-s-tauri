@@ -55,7 +55,10 @@ export const useSubmit = (mutationKey) => {
             }
         },
         onError: (error) => {
-            const errorMessage = typeof error === 'string' ? error : error.message || 'Error desconocido';
+            const rawError = error?.response?.data ?? error;
+            const errorMessage = typeof rawError === 'string'
+                ? rawError
+                : rawError?.message || rawError?.error || 'Error desconocido';
             mostrarError(`Se ha producido un error: ${errorMessage}`, theme);
         }
     });

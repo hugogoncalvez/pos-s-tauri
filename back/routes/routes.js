@@ -201,9 +201,9 @@ authenticatedRouter.get('/customers/stats/summary', checkPermission('ver_vista_c
 // --- RUTAS DE PROVEEDORES Y PAGOS ---
 authenticatedRouter.get('/payment', checkPermission('listar_medios_pago'), getPaymentMethods);
 authenticatedRouter.get('/payment/:id', checkPermission('listar_medios_pago'), getPaymentMethodById);
-authenticatedRouter.post('/payment', checkPermission('accion_gestionar_roles'), createPaymentMethod);
-authenticatedRouter.put('/payment/:id', checkPermission('accion_gestionar_roles'), updatePaymentMethod);
-authenticatedRouter.delete('/payment/:id', checkPermission('accion_gestionar_roles'), deletePaymentMethod);
+authenticatedRouter.post('/payment', checkPermission('accion_gestionar_recargos_pagos'), createPaymentMethod);
+authenticatedRouter.put('/payment/:id', checkPermission('accion_gestionar_recargos_pagos'), updatePaymentMethod);
+authenticatedRouter.delete('/payment/:id', checkPermission('accion_gestionar_recargos_pagos'), deletePaymentMethod);
 
 // --- RUTAS PARA GESTIÓN DE RECARGOS ---
 authenticatedRouter.get('/payments/surcharges', checkPermission('ver_vista_recargos_pagos'), getPaymentSurcharges);
