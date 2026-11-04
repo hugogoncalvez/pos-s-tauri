@@ -122,11 +122,13 @@ app.get('/api/health', (req, res) => {
 });
 // ───────────────────────────────────────────────────────────────────────────
 
+const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000;
+
 const MySQLStoreSession = MySQLStore(session);
 export const sessionStore = new MySQLStoreSession({
     clearExpired: true,
     checkExpirationInterval: 900000,
-    expiration: 86400000,
+    expiration: SESSION_TTL_MS,
     createDatabaseTable: true,
     schema: {
         tableName: 'sessions',
@@ -158,6 +160,12 @@ app.use(session({
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    rolling: true,
+    cookie: {
+        maxAge: SESSION_TTL_MS,
+        httpOnly: true,
+        sameSite: 'lax'
+    },
     genid: function (req) {
         if (req.cookies && req.cookies[sessionKey]) {
             return req.cookies[sessionKey];

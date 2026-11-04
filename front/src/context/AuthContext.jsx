@@ -211,11 +211,10 @@ export const AuthProvider = ({ children }) => {
         return;
       } catch (err) {
         if (err.response?.status === 401) {
-          info('[AuthContext] ℹ️ Servidor responde 401. Limpiando datos sensibles.');
+          info('[AuthContext] ℹ️ Servidor responde 401. Se conserva sessionID para reintentar el login.');
           setUsuario(null);
           setIsAuthenticated(false);
           setPermisos([]);
-          localStorage.removeItem('sessionID');
           setIsLoading(false);
           return;
         }

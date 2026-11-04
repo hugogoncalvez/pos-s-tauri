@@ -35,12 +35,5 @@ Api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
-    // Limpiar sessionID en caso de un error de autenticación (401)
-    if (error.response?.status === 401) {
-      localStorage.removeItem('sessionID');
-      console.warn('Interceptor: sessionID eliminado por respuesta 401.');
-    }
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
