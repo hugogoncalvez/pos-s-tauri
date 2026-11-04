@@ -43,9 +43,9 @@ export const printSupplierQuote = (quote, businessConfig = {}) => {
 
     const rows = (quote.details || []).map(detail => `
         <tr>
-            <td class="center">${escapeHtml(detail.unidad || '')}</td>
-            <td class="center">${escapeHtml(formatQuantity(detail.cantidad))}</td>
             <td class="detalle">${escapeHtml(detail.detalle || '')}</td>
+            <td class="center">${escapeHtml(formatQuantity(detail.cantidad))}</td>
+            <td class="center">${escapeHtml(detail.unidad || '')}</td>
             ${hasPrices ? `<td class="right">${detail.precio_unitario === null || detail.precio_unitario === undefined ? '—' : `$ ${escapeHtml(formatMoney(detail.precio_unitario))}`}</td>` : ''}
             ${hasPrices ? `<td class="right">${detail.importe === null || detail.importe === undefined ? '—' : `$ ${escapeHtml(formatMoney(detail.importe))}`}</td>` : ''}
         </tr>`).join('');
@@ -75,7 +75,7 @@ export const printSupplierQuote = (quote, businessConfig = {}) => {
             .doc-title { font-size: 17px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: #0f766e; }
             .doc-number { margin-top: 4px; font-size: 22px; font-weight: 800; }
             .rule { margin-top: 12px; border-top: 2px solid #1f2933; }
-            .meta { margin-top: 14px; display: grid; grid-template-columns: 22% 36% 42%; gap: 14px; background: #f3f4f6; border-left: 5px solid #0f766e; padding: 11px 16px; }
+            .meta { margin-top: 14px; display: grid; grid-template-columns: 16% 28% 36% 20%; gap: 14px; background: #f3f4f6; border-left: 5px solid #0f766e; padding: 11px 16px; }
             .meta .label { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6b7280; }
             .meta .value { display: block; margin-top: 3px; font-size: 12px; font-weight: 700; }
             table.items { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 16px; }
@@ -112,13 +112,14 @@ export const printSupplierQuote = (quote, businessConfig = {}) => {
                 <div><span class="label">FECHA</span><span class="value">${escapeHtml(formatDate(quote.fecha))}</span></div>
                 <div><span class="label">PROVEEDOR</span><span class="value">${escapeHtml(quote.supplier?.nombre || '')}</span></div>
                 <div><span class="label">RUBRO</span><span class="value">${escapeHtml(quote.rubro || '')}</span></div>
+                <div><span class="label">PRODUCTOS</span><span class="value">${(quote.details || []).length}</span></div>
             </div>
             <table class="items">
                 <thead>
                     <tr>
-                        <th style="width: 12%">UNIDAD</th>
-                        <th style="width: 14%">CANTIDAD</th>
                         <th>DETALLE</th>
+                        <th style="width: 14%">CANTIDAD</th>
+                        <th style="width: 12%">UNIDAD</th>
                         ${hasPrices ? '<th style="width: 16%">PRECIO UNIT.</th><th style="width: 16%">IMPORTE</th>' : ''}
                     </tr>
                 </thead>

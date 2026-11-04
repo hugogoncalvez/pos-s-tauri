@@ -8,9 +8,7 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
-    FormControlLabel,
     IconButton,
-    MenuItem,
     Paper,
     Table,
     TableBody,
@@ -468,8 +466,8 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
                                         renderInput={params => <TextField {...params} placeholder="Buscar producto o escribir el producto" />}
                                     />
                                 </TableCell>
-                                <TableCell align="center" sx={{ width: 110 }}>
-                                    <TextField size="small" type="number" value={line.cantidad} onChange={event => updateLine(line.key, { cantidad: event.target.value })} inputProps={{ min: 0, step: lineAllowsDecimal(line) ? '0.001' : '1' }} />
+                                <TableCell align="center" sx={{ width: 170 }}>
+                                    <TextField fullWidth size="small" type="number" value={line.cantidad} onChange={event => updateLine(line.key, { cantidad: event.target.value })} inputProps={{ min: 0, step: lineAllowsDecimal(line) ? '0.001' : '1' }} />
                                 </TableCell>
                                 <TableCell align="center" sx={{ width: 140 }}>
                                     <Autocomplete size="small" options={unitList} getOptionLabel={unitOptionLabel} value={unitList.find(unit => Number(unit.id) === Number(line.units_id)) || null} onChange={(_, value) => updateLine(line.key, { units_id: value?.id || null, unidad: unitLabel({ unit: value }) })} renderInput={params => <TextField {...params} />} />
