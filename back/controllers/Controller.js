@@ -3456,6 +3456,11 @@ export const finalizeClosure = async (req, res) => {
     }
 };
 
+const addClosedAtAlias = (session) => ({
+    ...session,
+    closed_at: session.verified_at || session.closed_at_user || null
+});
+
 // Obtener sesión de caja activa del usuario
 export const getActiveCashSession = async (req, res) => {
     const { user_id } = req.params;
@@ -3520,7 +3525,7 @@ export const getActiveCashSession = async (req, res) => {
         return res.status(200).json({
             hasActiveSession: true,
             session: {
-                ...session.toJSON(),
+                ...addClosedAtAlias(session.toJSON()),
                 current_cash: currentCash
             }
         });
@@ -3642,7 +3647,7 @@ export const getActiveCashSessions = async (req, res) => {
 
         const aggregates = await getSessionAggregates(rows.map(session => session.id));
         const sessions = rows.map((session) => {
-            const plainSession = session.toJSON();
+            const plainSession = addClosedAtAlias(session.toJSON());
             const aggregate = aggregates.get(String(session.id));
 
             if (plainSession.usuario?.rol) {
@@ -3726,7 +3731,7 @@ export const getCashSessionHistory = async (req, res) => {
         const aggregates = await getSessionAggregates(rows.map(session => session.id));
 
         const detailedSessions = rows.map((session) => {
-            const plainSession = session.toJSON();
+            const plainSession = addClosedAtAlias(session.toJSON());
             const aggregate = aggregates.get(String(session.id));
 
             if (plainSession.usuario) {
@@ -4089,7 +4094,7 @@ export const getCashSessionSummary = async (req, res) => {
             : { sales: [], pagination: null };
 
         const summary = {
-            ...session.toJSON(),
+            ...addClosedAtAlias(session.toJSON()),
             sales_count: aggregate.sales_count,
             total_sales: aggregate.total_sales_with_surcharge,
             total_discounts: aggregate.total_discounts,
