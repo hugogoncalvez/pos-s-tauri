@@ -95,7 +95,7 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
                     <Grid container spacing={2} sx={{ mt: 1 }}>
                         <InfoItem label="Fecha y Hora" value={formatDate(saleDetails.createdAt)} />
                         <InfoItem label="Nº Venta" value={`#${saleDetails.id}`} />
-                        <InfoItem label="Cliente" value={saleDetails.Customer?.name || 'Consumidor Final'} />
+                        <InfoItem label="Cliente" value={saleDetails.customer?.name || 'Consumidor Final'} />
                         <InfoItem label="Cajero" value={saleDetails.usuario?.username || 'N/A'} />
                         <Grid xs={12}>
                             <Paper elevation={2} sx={{ p: 2, mt: 2, textAlign: 'center', background: theme.palette.background.default }}>
@@ -174,7 +174,7 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
             </DialogContent>
             <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog', borderTop: `1px solid ${theme.palette.divider}`, gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
                 <StyledButton 
-                    onClick={() => printReceipt(saleDetails, 'sale', saleDetails.Customer?.name || 'Consumidor Final', businessConfig, true)} 
+                    onClick={() => printReceipt(saleDetails, 'sale', saleDetails.customer?.name || 'Consumidor Final', businessConfig, true)}
                     color="success" 
                     variant="contained" 
                     startIcon={<PrintIcon />} 
@@ -183,7 +183,7 @@ const SaleDetailsModal = ({ open, onClose, saleId }) => {
                     Imprimir Térmico (80mm)
                 </StyledButton>
                 <StyledButton 
-                    onClick={() => printReceipt(saleDetails, 'sale', saleDetails.Customer?.name || 'Consumidor Final', businessConfig, false)} 
+                    onClick={() => printReceipt(saleDetails, 'sale', saleDetails.customer?.name || 'Consumidor Final', businessConfig, false)}
                     color="primary" 
                     variant="outlined" 
                     startIcon={<PrintIcon />} 

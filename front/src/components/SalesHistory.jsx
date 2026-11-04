@@ -121,7 +121,7 @@ const SalesHistory = ({ scope = 'all' }) => {
     const salesColumns = [
         { id: 'id', label: 'ID Venta', valueGetter: ({ row }) => row.id },
         { id: 'createdAt', label: 'Fecha', valueGetter: ({ row }) => formatDate(row.createdAt) },
-        { id: 'customer', label: 'Cliente', valueGetter: ({ row }) => row.Customer?.name || 'Consumidor Final' },
+        { id: 'customer', label: 'Cliente', valueGetter: ({ row }) => row.customer?.name || 'Consumidor Final' },
         { id: 'user', label: 'Cajero', valueGetter: ({ row }) => row.usuario?.username || 'N/A' },
         {
             id: 'paymentMethods', label: 'Métodos de Pago', valueGetter: ({ row }) => (

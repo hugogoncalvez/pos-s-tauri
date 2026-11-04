@@ -832,7 +832,7 @@ const CashAdmin = () => {
                                                                             <TableBody>
                                                                                 {sessionSales.map((sale) => (
                                                                                     <TableRow key={sale.id}>
-                                                                                        <TableCell align="center">{sale.Customer ? sale.Customer.name : 'Consumidor Final'}</TableCell>
+                                                                                        <TableCell align="center">{sale.customer ? sale.customer.name : 'Consumidor Final'}</TableCell>
                                                                                         <TableCell align="center">{formatCurrency(sale.total_neto)}</TableCell>
                                                                                         <TableCell align="center">
                                                                                             {(sale.sale_payments || []).map(sp => sp.payment?.method).filter(Boolean).join(', ')}

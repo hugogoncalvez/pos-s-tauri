@@ -11,7 +11,7 @@ export const exportSalesToExcel = (sales, filters) => {
     const dataToExport = sales.map(sale => ({
         'ID Venta': sale.id,
         'Fecha': moment(sale.createdAt).format('DD/MM/YYYY HH:mm'),
-        'Cliente': sale.Customer?.name || 'Consumidor Final',
+        'Cliente': sale.customer?.name || 'Consumidor Final',
         'Cajero': sale.usuario?.username || 'N/A',
         'Métodos de Pago': sale.sale_payments.map(p => p.payment.method).join(', '),
         'Descuento Promoción': sale.promotion_discount,
