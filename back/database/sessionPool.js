@@ -160,6 +160,7 @@
 
 import mysql2 from 'mysql2/promise';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { updateHealthStatus } from './healthMonitor.js';
@@ -178,6 +179,21 @@ const withTimeout = (promise, ms, label = 'operación') =>
         )
     ]);
 
+// TLS para endpoints públicos (TiDB Cloud lo exige). DB_SSL=true activa,
+// DB_SSL_CA=/ruta/ca.pem fija la CA (si no, usa las del sistema).
+const getSslConfig = () => {
+    if (process.env.DB_SSL !== 'true') return null;
+    const cfg = { minVersion: 'TLSv1.2', rejectUnauthorized: true };
+    if (process.env.DB_SSL_CA) {
+        try {
+            cfg.ca = fs.readFileSync(process.env.DB_SSL_CA, 'utf8');
+        } catch (e) {
+            console.error('❌ [SessionPool] No se pudo leer DB_SSL_CA:', e.message);
+        }
+    }
+    return cfg;
+};
+
 // Función de creación del pool separada para poder recrearlo al fallar
 const createPool = () => mysql2.createPool({
     host: process.env.DB_HOST,
@@ -195,6 +211,8 @@ const createPool = () => mysql2.createPool({
 
     connectTimeout: 10000,   // 10s — antes 60s
     // idleTimeout no es una opción válida en mysql2, se eliminó
+
+    ...(() => { const s = getSslConfig(); return s ? { ssl: s } : {}; })(),
 });
 
 export let sessionPool = null;
