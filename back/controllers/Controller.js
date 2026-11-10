@@ -442,6 +442,8 @@ export const createFullPurchase = async (req, res) => {
         }, { transaction });
 
         // 2. Preparar y crear los detalles de la compra
+        const affectedStockIds = new Set();
+
         for (const item of tempValues) {
             const { stock_id, totalPerUnits, costPerUnits } = item;
 
@@ -466,7 +468,7 @@ export const createFullPurchase = async (req, res) => {
                 await stockItem.update({
                     cost: costPerUnits
                 }, { transaction });
-                await checkLowStockAndLog(stock_id, req.user ? req.user.id : null, transaction);
+                affectedStockIds.add(stock_id);
             }
         }
 
@@ -474,7 +476,8 @@ export const createFullPurchase = async (req, res) => {
         await transaction.commit();
 
         // 4. Registrar en auditoría
-        await logAudit({
+        void logLowStockAlerts([...affectedStockIds], req.usuario?.id || req.user?.id);
+        void logAudit({
             user_id: req.usuario.id, // Asume que el usuario está en req.usuario
             action: 'CREAR_COMPRA',
             entity_type: 'purchase',
@@ -614,6 +617,7 @@ export const deletePurchase = async (req, res) => {
         });
 
         // 2. Revertir el stock de cada producto (decrementarlo)
+        const affectedStockIds = new Set();
         for (const detail of purchaseDetails) {
             const stockItem = await StockModel.findByPk(detail.stock_id, { transaction });
             if (stockItem) {
@@ -621,7 +625,7 @@ export const deletePurchase = async (req, res) => {
                     by: detail.quantity,
                     transaction
                 });
-                await checkLowStockAndLog(stockItem.id, req.user ? req.user.id : null, transaction);
+                affectedStockIds.add(stockItem.id);
             }
         }
 
@@ -632,6 +636,7 @@ export const deletePurchase = async (req, res) => {
         });
 
         await transaction.commit();
+        void logLowStockAlerts([...affectedStockIds], req.usuario?.id || req.user?.id);
         res.json({ message: 'Registro eliminado correctamente y stock actualizado.' });
     } catch (error) {
         await transaction.rollback();
@@ -657,6 +662,7 @@ export const updatePurchase = async (req, res) => {
         // 2. Crear mapa de nuevos detalles y obtener todos los IDs de productos involucrados
         const newDetailsMap = new Map(tempValues.map(item => [item.stock_id, item.totalPerUnits]));
         const allStockIds = new Set([...oldDetailsMap.keys(), ...newDetailsMap.keys()]);
+        const changedStockIds = new Set();
 
         // 3. Calcular y aplicar diferencias de stock
         for (const stockId of allStockIds) {
@@ -673,7 +679,7 @@ export const updatePurchase = async (req, res) => {
                     if (newItemData) {
                         await stockItem.update({ cost: newItemData.costPerUnits }, { transaction });
                     }
-                    await checkLowStockAndLog(stockId, req.user ? req.user.id : null, transaction);
+                    changedStockIds.add(stockId);
                 }
             }
         }
@@ -706,6 +712,7 @@ export const updatePurchase = async (req, res) => {
 
         // 6. Confirmar la transacción
         await transaction.commit();
+        void logLowStockAlerts([...changedStockIds], req.usuario?.id || req.user?.id);
 
         // 7. Devolver la compra actualizada
         const finalPurchase = await PurchaseModel.findByPk(purchaseId, {
@@ -1049,7 +1056,7 @@ export const updateStock = async (req, res) => {
         }
 
         // 4. Registrar en auditoría
-        await logAudit({
+        const auditData = {
             user_id: req.usuario.id,
             action: 'ACTUALIZAR_STOCK',
             entity_type: 'stock',
@@ -1057,11 +1064,12 @@ export const updateStock = async (req, res) => {
             old_values: oldValues,
             new_values: productData,
             details: `Se actualizó el producto ${oldValues.name} (ID: ${productId}).`
-        }, req, transaction);
+        };
 
-        // 5. Verificar stock bajo y confirmar transacción
-        await checkLowStockAndLog(productId, req.usuario.id, transaction);
+        // 5. Confirmar transacción y auditar/alertar fuera de ella
         await transaction.commit();
+        void logAudit(auditData, req);
+        void logLowStockAlerts([productId], req.usuario.id);
         res.json({ "message": 'Registro actualizado correctamente' });
 
     } catch (error) {
@@ -1087,16 +1095,17 @@ export const deleteStock = async (req, res) => {
         await productToDelete.destroy({ transaction });
 
         // Registrar en auditoría
-        await logAudit({
+        const auditData = {
             user_id: req.usuario.id,
             action: 'ELIMINAR_PRODUCTO',
             entity_type: 'stock',
             entity_id: productId,
             old_values: productToDelete.toJSON(),
             details: `Se eliminó el producto: ${productToDelete.name} (ID: ${productId}).`
-        }, req, transaction);
+        };
 
         await transaction.commit();
+        void logAudit(auditData, req);
         res.json({ message: 'Registro eliminado correctamente' });
     } catch (error) {
         await transaction.rollback();
@@ -1758,19 +1767,39 @@ export const deleteUser = async (req, res) => {
 
 // Crear una nueva venta (incluye detalles y actualización de stock)
 
-// Helper function to check for low stock and log an audit event
-export const checkLowStockAndLog = async (stockId, auditUserId, transaction) => {
-    const stockItem = await StockModel.findByPk(stockId, { transaction });
-    if (stockItem && stockItem.stock <= stockItem.min_stock) {
-        await logAudit({
-            user_id: auditUserId, // Use the provided auditUserId
+// Helper function to check for low stock and log audit events after the transaction
+export const logLowStockAlerts = async (stockIds, auditUserId) => {
+    if (!auditUserId) return;
+
+    const uniqueIds = [...new Set(stockIds)].filter(Boolean);
+    if (!uniqueIds.length) return;
+
+    try {
+        const lowStockItems = await StockModel.findAll({
+            where: {
+                id: { [Op.in]: uniqueIds },
+                [Op.or]: [db.literal('stock <= min_stock')]
+            },
+            attributes: ['id', 'name', 'stock', 'min_stock']
+        });
+
+        if (!lowStockItems.length) return;
+
+        await AuditLogModel.bulkCreate(lowStockItems.map(item => ({
+            user_id: auditUserId,
             action: 'ALERTA_STOCK_BAJO',
             entity_type: 'stock',
-            entity_id: stockItem.id,
-            new_values: { current_stock: stockItem.stock, min_stock: stockItem.min_stock },
-            details: `Alerta de stock bajo para el producto ${stockItem.name}. Stock actual: ${stockItem.stock}, Stock mínimo: ${stockItem.min_stock}`
-        }, null, transaction); // req is null here as it's an internal call
+            entity_id: item.id,
+            new_values: { current_stock: item.stock, min_stock: item.min_stock },
+            details: `Alerta de stock bajo para el producto ${item.name}. Stock actual: ${item.stock}, Stock mínimo: ${item.min_stock}`
+        })));
+    } catch (error) {
+        console.error('Error al registrar alertas de stock bajo:', error);
     }
+};
+
+export const checkLowStockAndLog = async (stockId, auditUserId) => {
+    await logLowStockAlerts([stockId], auditUserId);
 };
 
 // --- FUNCION MODIFICADA Y OPTIMIZADA --- //
@@ -1900,15 +1929,15 @@ export const createSale = async (req, res) => {
             ]);
             console.timeEnd('createSale_batch-writes');
 
+            let pendingSaleAuditLogs = [];
+            let pendingLowStockAuditLogs = [];
+
             if (auditLogsToCreate.length) {
-                console.time('createSale_audit-logs');
                 const commonAuditData = { ip_address: req.ip, user_agent: req.get('user-agent'), createdAt: new Date() };
-                await AuditLogModel.bulkCreate(auditLogsToCreate.map(log => ({ ...log, ...commonAuditData })), { transaction });
-                console.timeEnd('createSale_audit-logs');
+                pendingSaleAuditLogs = auditLogsToCreate.map(log => ({ ...log, ...commonAuditData }));
             }
 
             if (stocksToCheck.size) {
-                console.time('createSale_low-stock-check');
                 const lowStockItems = await StockModel.findAll({
                     where: { id: { [Op.in]: Array.from(stocksToCheck) }, [Op.or]: [db.literal('stock <= min_stock')] },
                     attributes: ['id', 'name', 'stock', 'min_stock'],
@@ -1916,12 +1945,23 @@ export const createSale = async (req, res) => {
                 });
                 if (lowStockItems.length) {
                     const commonAuditData = { user_id, action: 'ALERTA_STOCK_BAJO', entity_type: 'stock', ip_address: req.ip, user_agent: req.get('user-agent'), createdAt: new Date() };
-                    await AuditLogModel.bulkCreate(lowStockItems.map(item => ({ ...commonAuditData, entity_id: item.id, new_values: { current_stock: item.stock, min_stock: item.min_stock }, details: `Stock bajo: ${item.name} (${item.stock}/${item.min_stock})` })), { transaction });
+                    pendingLowStockAuditLogs = lowStockItems.map(item => ({ ...commonAuditData, entity_id: item.id, new_values: { current_stock: item.stock, min_stock: item.min_stock }, details: `Stock bajo: ${item.name} (${item.stock}/${item.min_stock})` }));
                 }
-                console.timeEnd('createSale_low-stock-check');
             }
 
             await transaction.commit();
+
+            if (pendingSaleAuditLogs.length) {
+                void AuditLogModel.bulkCreate(pendingSaleAuditLogs).catch(error => {
+                    console.error('Error al registrar auditoría de venta:', error);
+                });
+            }
+            if (pendingLowStockAuditLogs.length) {
+                void AuditLogModel.bulkCreate(pendingLowStockAuditLogs).catch(error => {
+                    console.error('Error al registrar alertas de stock bajo:', error);
+                });
+            }
+
             console.timeEnd('createSale_total');
             return res.json({ message: 'Venta registrada correctamente', id: newSale.id });
 
@@ -2367,7 +2407,7 @@ export const directCloseSessionByAdmin = async (req, res) => {
         await session.save({ transaction: t });
 
         // Registrar en el log de auditoría
-        await logAudit({
+        const auditData = {
             user_id: adminUserId,
             action: 'CIERRE_DIRECTO_CAJA_ADMIN',
             entity_type: 'cash_session',
@@ -2375,9 +2415,10 @@ export const directCloseSessionByAdmin = async (req, res) => {
             old_values: { status: session.previous('status') },
             new_values: { status: session.status, declared: declared_amount, final_discrepancy: finalDiscrepancy },
             details: `Administrador cerró la caja de ${session.user_id === adminUserId ? 'su propia caja' : `el cajero ${session.user_id}`} directamente. Declarado: ${declared_amount}, Diferencia Final: ${finalDiscrepancy}`
-        }, req, t); // Pass req and transaction to logAudit
+        };
 
         await t.commit();
+        void logAudit(auditData, req);
         res.status(200).json({ message: 'Caja cerrada directamente con éxito', session });
     } catch (error) {
         await t.rollback();
@@ -2502,16 +2543,17 @@ export const initiateClosure = async (req, res) => {
                 verified_at: new Date() // This is the correct field
             }, { transaction });
 
-            await logAudit({
+            const auditData = {
                 user_id: user.id,
                 action: 'CIERRE_DIRECTO_CAJA_ADMIN',
                 entity_type: 'cash_session',
                 entity_id: session.id,
                 new_values: { status: 'cerrada', declared: cashier_declared_amount, final_discrepancy },
                 details: `Administrador cerró su propia caja directamente. Declarado: ${cashier_declared_amount}, Diferencia Final: ${final_discrepancy}`
-            }, req, transaction);
+            };
 
             await transaction.commit();
+            void logAudit(auditData, req);
             return res.json({ message: 'Sesión de caja cerrada y verificada directamente.' });
         }
 
@@ -2528,16 +2570,17 @@ export const initiateClosure = async (req, res) => {
             closed_at_user: new Date()
         }, { transaction });
 
-        await logAudit({
+        const auditData = {
             user_id: user.id,
             action: 'INICIO_CIERRE_CAJA',
             entity_type: 'cash_session',
             entity_id: session.id,
             new_values: { status: 'pendiente_cierre', declared: cashier_declared_amount, discrepancy: preliminary_discrepancy },
             details: `Cajero inició cierre. Declarado: ${cashier_declared_amount}, Diferencia Preliminar: ${preliminary_discrepancy}`
-        }, req, transaction);
+        };
 
         await transaction.commit();
+        void logAudit(auditData, req);
         res.json({ message: 'Cierre de caja iniciado. Pendiente de revisión por administrador.' });
 
     } catch (error) {
@@ -2599,16 +2642,17 @@ export const finalizeClosure = async (req, res) => {
         }, { transaction });
 
         // Registrar auditoría
-        await logAudit({
+        const auditData = {
             user_id: admin_id,
             action: 'FINALIZAR_CIERRE_CAJA',
             entity_type: 'cash_session',
             entity_id: session.id,
             new_values: { status: 'cerrada', verified_amount: admin_verified_amount, final_discrepancy },
             details: `Admin finalizó cierre. Verificado: ${admin_verified_amount}, Diferencia Final: ${final_discrepancy}`
-        }, req, transaction);
+        };
 
         await transaction.commit();
+        void logAudit(auditData, req);
         res.json({ message: 'Sesión de caja cerrada y verificada correctamente.' });
 
     } catch (error) {

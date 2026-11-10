@@ -10,6 +10,7 @@ import sessionHeaderMiddleware from './middleware/sessionHeaderMiddleware.js';
 import { sessionPoolProxy, closeSessionPool } from './database/sessionPool.js';
 import { closeConnection } from './database/db.js';
 import { getHealthStatus } from './database/healthMonitor.js';
+import { createThrottledTouch } from './database/sessionTouch.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -136,6 +137,18 @@ export const sessionStore = new MySQLStoreSession({
         }
     }
 }, sessionPoolProxy);
+
+const originalSessionTouch = typeof sessionStore.touch === 'function'
+    ? sessionStore.touch.bind(sessionStore)
+    : null;
+
+if (originalSessionTouch) {
+    const throttledTouch = createThrottledTouch(originalSessionTouch);
+    sessionStore.touch = throttledTouch.touch;
+
+    const cleanupTimer = setInterval(() => throttledTouch.cleanup(), 10 * 60 * 1000);
+    cleanupTimer.unref?.();
+}
 
 const sessionKey = process.env.SESSION_KEY || 'pos_session_key';
 
