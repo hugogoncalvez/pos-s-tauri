@@ -63,6 +63,7 @@ temp/
 *.pem
 *.key
 *.cert
+!back/certs/isrgrootx1.pem
 
 # PM2
 .pm2/
@@ -73,6 +74,14 @@ pids/
 
 # Archivos temporales y varios del proyecto
 varios/
+# Datos locales
+/defaultdb_*.sql
+back/.env_el-corralon
+# Copia de despliegue del backend (no versionar)
+produccion-back/
+*.sql.gz
+*.cnf
+nssm.exe
 # Skils
 .agents/
 *.skill
