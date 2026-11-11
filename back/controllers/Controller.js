@@ -55,6 +55,11 @@ const toPositiveNumber = (value) => {
     return Number.isFinite(parsed) ? parsed : null;
 };
 
+const formatStockQuantity = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? String(Number(parsed.toFixed(3))) : '0';
+};
+
 const roundMoney = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
 const normalizePaymentMethod = (value = 'efectivo') => {
@@ -2644,7 +2649,14 @@ export const createSale = async (req, res) => {
                     continue;
                 }
                 if (!item.force_sale && Number(stockItem.stock) < baseQuantity) {
-                    validationErrors.push(`Stock insuficiente: ${stockItem.name}`);
+                    const availableStock = Number(stockItem.stock);
+                    const missingStock = baseQuantity - availableStock;
+                    const unit = stockItem.unit?.abreviatura || stockItem.unit?.name || '';
+                    const unitSuffix = unit ? ` ${unit}` : '';
+                    const presentationLabel = presentation ? ` (${presentation.name})` : '';
+                    validationErrors.push(
+                        `Stock insuficiente: ${stockItem.name}${presentationLabel} — stock actual ${formatStockQuantity(availableStock)}${unitSuffix}, solicitado ${formatStockQuantity(baseQuantity)}${unitSuffix}, faltan ${formatStockQuantity(missingStock)}${unitSuffix}`
+                    );
                 }
                 if (!presentation && !stockAllowsDecimalQuantity(stockItem) && !Number.isInteger(baseQuantity)) {
                     validationErrors.push(`${stockItem.name} requiere cantidad entera`);
@@ -2809,7 +2821,7 @@ export const createSale = async (req, res) => {
             }
             if (error instanceof ValidationError) {
                 console.error(`❌ createSale: Error de validación: ${error.message}`);
-                return res.status(error.statusCode).json({ error: error.message });
+                return res.status(error.statusCode).json({ error: error.message, message: error.message });
             }
             console.error(`❌ createSale error (intento ${attempt}):`, error);
             return res.status(500).json({ error: `Error al registrar venta: ${error.message}` });

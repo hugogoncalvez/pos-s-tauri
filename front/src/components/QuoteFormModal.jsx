@@ -110,6 +110,7 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
     const [selectedCustomer, setSelectedCustomer] = useState({ id: 1, name: 'Consumidor Final' });
     const [lines, setLines] = useState([]);
     const [productChoice, setProductChoice] = useState(null);
+    const [productInput, setProductInput] = useState('');
     const [saving, setSaving] = useState(false);
     const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
     const [creatingCustomer, setCreatingCustomer] = useState(false);
@@ -227,6 +228,7 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
         });
         setLines(Array.isArray(quote?.details) ? quote.details.map(mapQuoteLine) : []);
         setProductChoice(null);
+        setProductInput('');
         setQuickCustomerOpen(false);
         setNewCustomer({ name: '', dni: '', phone: '', address: '', email: '' });
     }, [open, quote]);
@@ -271,6 +273,7 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
             },
         ]);
         setProductChoice(null);
+        setProductInput('');
     };
 
     const addManualLine = () => {
@@ -348,7 +351,8 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
                 const unit = stockBaseUnitById.get(Number(shortage.stockId)) || '';
                 const available = formatStockValue(shortage.available, unit);
                 const requested = formatStockValue(shortage.requested, unit);
-                return `<li><strong>${escapeHtml(shortage.name)}</strong>: disponible ${escapeHtml(available)}, solicitado ${escapeHtml(requested)}</li>`;
+                const missing = formatStockValue(shortage.missing, unit);
+                return `<li><strong>${escapeHtml(shortage.name)}</strong>: stock actual ${escapeHtml(available)}, solicitado ${escapeHtml(requested)}, faltan ${escapeHtml(missing)}</li>`;
             }).join('');
 
             const result = await mostrarConfirmacion({
@@ -541,7 +545,9 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
                             options={productOptions}
                             loading={loadingProducts}
                             value={productChoice}
+                            inputValue={productInput}
                             onChange={(_, value) => addProductOption(value)}
+                            onInputChange={(_, value) => setProductInput(value)}
                             getOptionLabel={(option) => option?.label || ''}
                             isOptionEqualToValue={(option, value) => option.key === value?.key}
                             renderInput={(params) => (

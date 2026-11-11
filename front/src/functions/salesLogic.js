@@ -86,6 +86,8 @@ export const findStockShortages = (items, products) => {
                 name: [...entry.names].join(' / '),
                 available,
                 requested: entry.requested,
+                missing: entry.requested - available,
+                unit: stockItem.unitAbbreviation || stockItem.unitName || stockItem.unit?.abreviatura || stockItem.unit?.name || '',
             });
         }
     });

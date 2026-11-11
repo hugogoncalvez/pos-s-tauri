@@ -439,10 +439,14 @@ const Ventas = () => {
           ? number.toLocaleString('es-AR', { maximumFractionDigits: 3 })
           : String(value ?? '');
       };
+      const formatQuantityWithUnit = (value, unit) => {
+        const formatted = formatQuantity(value);
+        return unit ? `${formatted} ${escapeHtml(unit)}` : formatted;
+      };
 
       const shortageList = shortages
         .map((shortage) => (
-          `<li><strong>${escapeHtml(shortage.name)}</strong>: disponible ${formatQuantity(shortage.available)}, solicitado ${formatQuantity(shortage.requested)}</li>`
+          `<li><strong>${escapeHtml(shortage.name)}</strong>: stock actual ${formatQuantityWithUnit(shortage.available, shortage.unit)}, solicitado ${formatQuantityWithUnit(shortage.requested, shortage.unit)}, faltan ${formatQuantityWithUnit(shortage.missing, shortage.unit)}</li>`
         ))
         .join('');
 
@@ -678,7 +682,11 @@ const Ventas = () => {
       },
       onError: (error) => {
         Swal.close(); // Cerrar la alerta de carga
-        mostrarError(`Error al guardar la venta: ${error.message || 'Error desconocido'}`, theme);
+        const responseData = error.response?.data;
+        const apiErrorMessage = typeof responseData === 'string'
+          ? responseData
+          : responseData?.error || responseData?.message;
+        mostrarError(`No se pudo guardar la venta: ${apiErrorMessage || error.message || 'Error desconocido'}`, theme);
         inputRefCodigoBarra.current?.focus();
       }
     });

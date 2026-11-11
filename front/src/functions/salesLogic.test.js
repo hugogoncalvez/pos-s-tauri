@@ -11,7 +11,7 @@ test('detecta stock insuficiente en la conversión de un presupuesto', () => {
     ];
 
     assert.deepEqual(findStockShortages(items, products), [
-        { stockId: 10, name: 'Flete', available: 0, requested: 1 },
+        { stockId: 10, name: 'Flete', available: 0, requested: 1, missing: 1, unit: '' },
     ]);
 });
 
@@ -21,11 +21,11 @@ test('agrupa cantidades del mismo producto y conserva los nombres de las líneas
         { stock_id: 20, is_manual_entry: false, name: 'Cemento (bolsa)', quantity_for_stock_deduction: 5 },
     ];
     const products = [
-        { id: 20, name: 'Cemento', stock: '12' },
+        { id: 20, name: 'Cemento', stock: '12', unitAbbreviation: 'kg' },
     ];
 
     assert.deepEqual(findStockShortages(items, products), [
-        { stockId: 20, name: 'Cemento / Cemento (bolsa)', available: 12, requested: 15 },
+        { stockId: 20, name: 'Cemento / Cemento (bolsa)', available: 12, requested: 15, missing: 3, unit: 'kg' },
     ]);
 });
 
