@@ -140,7 +140,7 @@ export const printQuote = ({ quote, businessConfig = null }) => {
 
                 .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
                 .brand-name { font-size: 30px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: #1f2933; line-height: 1.1; }
-                .brand-logo { max-height: 100px; max-width: 240px; object-fit: contain; }
+                .brand-logo { max-height: 110px; max-width: 240px; object-fit: contain; }
                 .brand-meta { margin-top: 6px; font-size: 10px; line-height: 1.6; color: #4b5563; }
                 .doc { text-align: right; }
                 .doc-title { font-size: 17px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: #c2410c; }
@@ -158,6 +158,7 @@ export const printQuote = ({ quote, businessConfig = null }) => {
                     border-left: 5px solid #c2410c;
                     padding: 11px 16px;
                 }
+                .meta.has-validity { grid-template-columns: 16% 30% 34% 20%; }
                 .meta .label { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6b7280; }
                 .meta .value { display: block; margin-top: 3px; font-size: 12px; font-weight: 700; color: #1f2933; }
                 .meta .value-sub { display: block; margin-top: 2px; font-size: 9px; color: #6b7280; }
@@ -240,7 +241,7 @@ export const printQuote = ({ quote, businessConfig = null }) => {
                 </div>
                 <div class="rule"></div>
 
-                <div class="meta">
+                <div class="meta${quote.valid_until ? ' has-validity' : ''}">
                     <div>
                         <span class="label">FECHA</span>
                         <span class="value">${escapeHtml(formatDate(quote.quote_date))}</span>
@@ -254,6 +255,11 @@ export const printQuote = ({ quote, businessConfig = null }) => {
                         <span class="value">${escapeHtml(quote.customer_name || '')}</span>
                         ${customerMeta ? `<span class="value-sub">${customerMeta}</span>` : ''}
                     </div>
+                    ${quote.valid_until ? `
+                    <div>
+                        <span class="label">PRESUPUESTO VÁLIDO</span>
+                        <span class="value">${escapeHtml(formatDate(quote.valid_until))}</span>
+                    </div>` : ''}
                 </div>
 
                 <table class="items">
