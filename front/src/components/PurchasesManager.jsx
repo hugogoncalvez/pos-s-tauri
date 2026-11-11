@@ -61,6 +61,7 @@ import { mostrarCarga } from '../functions/mostrarCarga';
 import { manualPaymentMethods } from '../functions/manualPaymentMethods';
 import Swal from 'sweetalert2';
 import { debounce } from '../functions/Debounce';
+import { attachPrintLifecycle } from '../functions/printLifecycle';
 import PurchasesManagerSkeleton from '../styledComponents/skeletons/PurchasesManagerSkeleton';
 
 moment.locale('es');
@@ -293,18 +294,14 @@ const PurchasesManager = () => {
             </html>`;
 
             iframe.onload = () => {
+                const printLifecycle = attachPrintLifecycle(iframe);
                 try {
                     iframe.contentWindow.focus();
                     iframe.contentWindow.print();
                 } catch (error) {
                     console.error('Error al intentar imprimir:', error);
+                    printLifecycle.cleanup({ restoreFocus: true });
                     mostrarError('No se pudo abrir el diálogo de impresión.', theme);
-                } finally {
-                    setTimeout(() => {
-                        if (iframe.parentNode) {
-                            iframe.parentNode.removeChild(iframe);
-                        }
-                    }, 1000);
                 }
             };
 

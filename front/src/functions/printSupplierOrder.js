@@ -1,3 +1,5 @@
+import { attachPrintLifecycle } from './printLifecycle';
+
 const formatQuantity = (value) => {
     const number = Number(value);
     if (!Number.isFinite(number)) return '';
@@ -172,12 +174,14 @@ export const printSupplierOrder = (order, businessConfig = {}) => {
     doc.write(htmlContent);
     doc.close();
 
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
-
-    setTimeout(() => {
-        document.body.removeChild(iframe);
-    }, 1000);
+    const printLifecycle = attachPrintLifecycle(iframe);
+    try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+    } catch (error) {
+        console.error('No se pudo imprimir el pedido al proveedor:', error);
+        printLifecycle.cleanup({ restoreFocus: true });
+    }
 };
 
 export default printSupplierOrder;

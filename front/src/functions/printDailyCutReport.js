@@ -2,6 +2,7 @@ import moment from 'moment';
 import 'moment/locale/es';
 
 import Swal from 'sweetalert2';
+import { attachPrintLifecycle } from './printLifecycle';
 
 export const printDailyCutReport = (report, { formatCurrency, businessConfig }) => {
     if (!report) {
@@ -275,18 +276,14 @@ export const printDailyCutReport = (report, { formatCurrency, businessConfig }) 
     document.body.appendChild(iframe);
 
     iframe.onload = () => {
+        const printLifecycle = attachPrintLifecycle(iframe);
         try {
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
         } catch (error) {
             console.error('Error al intentar imprimir:', error);
+            printLifecycle.cleanup({ restoreFocus: true });
             Swal.fire('Error', 'No se pudo completar la impresión.', 'error');
-        } finally {
-            setTimeout(() => {
-                if (iframe.parentNode) {
-                    iframe.parentNode.removeChild(iframe);
-                }
-            }, 1000);
         }
     };
 

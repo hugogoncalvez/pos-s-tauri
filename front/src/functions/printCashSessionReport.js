@@ -1,4 +1,5 @@
 import Swal from 'sweetalert2';
+import { attachPrintLifecycle } from './printLifecycle';
 
 /**
  * Genera y muestra una ventana de impresión para el reporte de una sesión de caja.
@@ -175,18 +176,14 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
     document.body.appendChild(iframe);
 
     iframe.onload = () => {
+        const printLifecycle = attachPrintLifecycle(iframe);
         try {
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
         } catch (error) {
             console.error('Error al intentar imprimir:', error);
+            printLifecycle.cleanup({ restoreFocus: true });
             Swal.fire('Error', 'No se pudo completar la impresión.', 'error');
-        } finally {
-            setTimeout(() => {
-                if (iframe.parentNode) {
-                    iframe.parentNode.removeChild(iframe);
-                }
-            }, 1000);
         }
     };
 

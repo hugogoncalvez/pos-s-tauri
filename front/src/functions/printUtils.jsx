@@ -3,6 +3,8 @@
  * Personalizado para el mercado argentino con soporte para datos dinámicos de la empresa.
  */
 
+import { attachPrintLifecycle } from './printLifecycle';
+
 const sanitizeHtml = (str) => {
     if (str == null) return '';
     return String(str)
@@ -22,16 +24,6 @@ const formatQuantity = (value) => {
     const parsed = parseFloat(value);
     if (isNaN(parsed)) return '';
     return parsed % 1 === 0 ? String(parsed) : parsed.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
-};
-
-const removeIframe = (iframe) => {
-    if (iframe && iframe.parentNode) {
-        try {
-            iframe.parentNode.removeChild(iframe);
-        } catch (e) {
-            console.warn('Error al remover iframe:', e);
-        }
-    }
 };
 
 export const printReceipt = (data, type, customerName = '', businessData = null, isThermal = false) => {
@@ -57,14 +49,13 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
 
     // 2. Manejador onload con cleanup para evitar memory leaks
     iframe.onload = () => {
+        const printLifecycle = attachPrintLifecycle(iframe);
         try {
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
         } catch (error) {
             console.error('Error al intentar imprimir:', error);
-            removeIframe(iframe);
-        } finally {
-            setTimeout(() => removeIframe(iframe), 500);
+            printLifecycle.cleanup({ restoreFocus: true });
         }
     };
 
@@ -346,14 +337,13 @@ export const printComanda = (comandaData, options = {}) => {
     document.body.appendChild(iframe);
 
     iframe.onload = () => {
+        const printLifecycle = attachPrintLifecycle(iframe);
         try {
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
         } catch (error) {
             console.error('Error al intentar imprimir comanda:', error);
-            removeIframe(iframe);
-        } finally {
-            setTimeout(() => removeIframe(iframe), 500);
+            printLifecycle.cleanup({ restoreFocus: true });
         }
     };
 

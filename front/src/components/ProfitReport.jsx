@@ -20,6 +20,7 @@ import { useTheme } from '@mui/material/styles';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
 import { StyledTextField } from '../styledComponents/ui/StyledTextField';
 import ProfitReportSkeleton from '../styledComponents/skeletons/ProfitReportSkeleton';
+import { attachPrintLifecycle } from '../functions/printLifecycle';
 
 function ProfitReport() {
     const theme = useTheme();
@@ -185,18 +186,15 @@ function ProfitReport() {
             document.body.appendChild(iframe);
 
             iframe.onload = () => {
+                const printLifecycle = attachPrintLifecycle(iframe);
                 try {
                     iframe.contentWindow.focus();
                     iframe.contentWindow.print();
                 } catch (error) {
                     console.error('Error al intentar imprimir:', error);
+                    printLifecycle.cleanup({ restoreFocus: true });
                     Swal.fire({ icon: 'error', title: 'Error de Impresión', text: 'No se pudo abrir el diálogo de impresión.' });
                 } finally {
-                    setTimeout(() => {
-                        if (iframe.parentNode) {
-                            iframe.parentNode.removeChild(iframe);
-                        }
-                    }, 1000);
                     Swal.close();
                 }
             };

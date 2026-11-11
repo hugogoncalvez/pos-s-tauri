@@ -29,6 +29,7 @@ import { useForm } from '../hooks/useForm';
 import JsBarcode from 'jsbarcode';
 import { Print as PrintIcon, Clear as ClearIcon } from '@mui/icons-material';
 import BarcodePrinterSkeleton from '../styledComponents/skeletons/BarcodePrinterSkeleton';
+import { attachPrintLifecycle } from '../functions/printLifecycle';
 
 const BarcodePrinter = () => {
     const theme = useTheme();
@@ -373,18 +374,14 @@ const BarcodePrinter = () => {
 
                 waitForImages.then(() => {
                     setTimeout(() => {
+                        const printLifecycle = attachPrintLifecycle(iframe);
                         try {
                             iframe.contentWindow.focus();
                             iframe.contentWindow.print();
                         } catch (error) {
                             console.error('Error during print:', error);
+                            printLifecycle.cleanup({ restoreFocus: true });
                             showSnackbar('Error durante el proceso de impresión.', 'error');
-                        } finally {
-                            setTimeout(() => {
-                                if (iframe.parentNode) {
-                                    iframe.parentNode.removeChild(iframe);
-                                }
-                            }, 1000);
                         }
                     }, 200);
                 });

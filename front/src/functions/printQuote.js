@@ -1,3 +1,5 @@
+import { attachPrintLifecycle } from './printLifecycle';
+
 const escapeHtml = (value) => {
     if (value == null) return '';
     return String(value)
@@ -26,16 +28,6 @@ const formatDate = (value) => {
     const date = raw.length === 10 ? new Date(`${raw}T00:00:00`) : new Date(value);
     if (Number.isNaN(date.getTime())) return raw;
     return date.toLocaleDateString('es-AR');
-};
-
-const removeIframe = (iframe) => {
-    if (iframe?.parentNode) {
-        try {
-            iframe.parentNode.removeChild(iframe);
-        } catch (error) {
-            console.warn('No se pudo quitar el iframe de impresión:', error);
-        }
-    }
 };
 
 const statusLabel = (status) => {
@@ -310,13 +302,13 @@ export const printQuote = ({ quote, businessConfig = null }) => {
     document.body.appendChild(iframe);
 
     iframe.onload = () => {
+        const printLifecycle = attachPrintLifecycle(iframe);
         try {
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
         } catch (error) {
             console.error('No se pudo imprimir el presupuesto:', error);
-        } finally {
-            setTimeout(() => removeIframe(iframe), 1000);
+            printLifecycle.cleanup({ restoreFocus: true });
         }
     };
 

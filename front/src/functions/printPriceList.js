@@ -1,3 +1,5 @@
+import { attachPrintLifecycle } from './printLifecycle';
+
 const escapeHtml = (value) => {
     if (value == null) return '';
     return String(value)
@@ -17,16 +19,6 @@ const formatPrice = (value) => {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
-};
-
-const removeIframe = (iframe) => {
-    if (iframe?.parentNode) {
-        try {
-            iframe.parentNode.removeChild(iframe);
-        } catch (error) {
-            console.warn('No se pudo quitar el iframe de impresión:', error);
-        }
-    }
 };
 
 const MM_TO_PX = 96 / 25.4;
@@ -258,13 +250,13 @@ export const printPriceList = ({
     document.body.appendChild(iframe);
 
     iframe.onload = () => {
+        const printLifecycle = attachPrintLifecycle(iframe);
         try {
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
         } catch (error) {
             console.error('No se pudo imprimir la lista de precios:', error);
-        } finally {
-            setTimeout(() => removeIframe(iframe), 1000);
+            printLifecycle.cleanup({ restoreFocus: true });
         }
     };
 

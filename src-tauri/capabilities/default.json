@@ -8,10 +8,12 @@
   "permissions": [
     "core:default",
     "core:window:default",
+    "core:window:allow-set-focus",
     "core:app:default",
     "core:event:default",
     "core:path:default",
     "core:webview:default",
+    "core:webview:allow-set-webview-focus",
     "core:menu:default",
     "core:tray:default",
     "core:image:default",

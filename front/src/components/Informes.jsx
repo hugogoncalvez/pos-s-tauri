@@ -26,6 +26,7 @@ import { mostrarCarga } from '../functions/mostrarCarga';
 import { useTheme } from '@mui/material/styles';
 import { Api as api } from '../api/api';
 import { debounce } from '../functions/Debounce';
+import { attachPrintLifecycle } from '../functions/printLifecycle';
 import InformesSkeleton from '../styledComponents/skeletons/InformesSkeleton';
 
 const Informes = () => {
@@ -311,18 +312,14 @@ const Informes = () => {
 
             iframe.onload = () => {
                 Swal.close();
+                const printLifecycle = attachPrintLifecycle(iframe);
                 try {
                     iframe.contentWindow.focus();
                     iframe.contentWindow.print();
                 } catch (error) {
                     console.error('Error al intentar imprimir:', error);
+                    printLifecycle.cleanup({ restoreFocus: true });
                     mostrarError('No se pudo abrir el diálogo de impresión.', theme);
-                } finally {
-                    setTimeout(() => {
-                        if (iframe.parentNode) {
-                            iframe.parentNode.removeChild(iframe);
-                        }
-                    }, 1000);
                 }
             };
 
