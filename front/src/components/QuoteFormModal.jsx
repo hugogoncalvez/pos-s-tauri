@@ -10,6 +10,7 @@ import {
     Divider,
     IconButton,
     MenuItem,
+    Tooltip,
     Typography,
     useTheme,
 } from '@mui/material';
@@ -18,6 +19,7 @@ import {
     Close as CloseIcon,
     Delete as DeleteIcon,
     PersonAdd as PersonAddIcon,
+    WarningAmber as WarningAmberIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
@@ -30,11 +32,39 @@ import { UseFetchQuery } from '../hooks/useQuery';
 import { usePermissions } from '../hooks/usePermissions';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { Api } from '../api/api';
+import { mostrarConfirmacion } from '../functions/mostrarConfirmacion';
 import { mostrarError } from '../functions/MostrarError';
 import { mostrarExito } from '../functions/mostrarExito';
+import { findStockShortages, getQuoteLineStockStatus } from '../functions/salesLogic';
 
 const roundMoney = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const roundQuantity = (value) => Math.round((Number(value) + Number.EPSILON) * 1000) / 1000;
+
+const formatStockQuantity = (value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '—';
+    return number.toLocaleString('es-AR', { maximumFractionDigits: 3 });
+};
+
+const formatStockValue = (value, unit) => {
+    const formatted = formatStockQuantity(value);
+    return unit ? `${formatted} ${unit}` : formatted;
+};
+
+const stockStatusColor = (status) => ({
+    ok: 'success.main',
+    insufficient: 'error.main',
+    unknown: 'warning.main',
+    unavailable: 'warning.main',
+}[status] || 'text.secondary');
+
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+}[character]));
 
 const createEmptyLine = () => ({
     key: `manual-${Date.now()}-${Math.random()}`,
@@ -108,9 +138,13 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
         return [{ id: 1, name: 'Consumidor Final' }, ...customers];
     }, [customersData]);
 
+    const stockProducts = useMemo(
+        () => (Array.isArray(stockData?.products) ? stockData.products : []),
+        [stockData]
+    );
+
     const productOptions = useMemo(() => {
-        const products = stockData?.products || [];
-        return products.flatMap((product) => {
+        return stockProducts.flatMap((product) => {
             const baseOption = {
                 key: `product-${product.id}`,
                 label: product.name,
@@ -141,7 +175,37 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
 
             return [baseOption, ...presentationOptions];
         });
-    }, [stockData]);
+    }, [stockProducts]);
+
+    const stockStatusByLine = useMemo(
+        () => new Map(lines.map((line) => [line.key, getQuoteLineStockStatus(line, stockProducts)])),
+        [lines, stockProducts]
+    );
+
+    const aggregateShortages = useMemo(() => {
+        const items = lines.map((line) => {
+            const status = stockStatusByLine.get(line.key);
+            return {
+                ...line,
+                name: [line.product_name, line.presentation_name].filter(Boolean).join(' — '),
+                quantity_for_stock_deduction: status?.requested ?? 0,
+            };
+        });
+        return findStockShortages(items, stockProducts);
+    }, [lines, stockStatusByLine, stockProducts]);
+
+    const shortageByStockId = useMemo(
+        () => new Map(aggregateShortages.map((shortage) => [Number(shortage.stockId), shortage])),
+        [aggregateShortages]
+    );
+
+    const stockBaseUnitById = useMemo(
+        () => new Map(stockProducts.map((product) => [
+            Number(product.id),
+            product.unitAbbreviation || product.unitName || '',
+        ])),
+        [stockProducts]
+    );
 
     useEffect(() => {
         if (!open) return;
@@ -279,6 +343,31 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
             return;
         }
 
+        if (aggregateShortages.length > 0) {
+            const shortageList = aggregateShortages.map((shortage) => {
+                const unit = stockBaseUnitById.get(Number(shortage.stockId)) || '';
+                const available = formatStockValue(shortage.available, unit);
+                const requested = formatStockValue(shortage.requested, unit);
+                return `<li><strong>${escapeHtml(shortage.name)}</strong>: disponible ${escapeHtml(available)}, solicitado ${escapeHtml(requested)}</li>`;
+            }).join('');
+
+            const result = await mostrarConfirmacion({
+                title: 'Stock insuficiente',
+                html: `
+                    <p>Hay ${aggregateShortages.length === 1 ? '1 producto' : `${aggregateShortages.length} productos`} con stock insuficiente:</p>
+                    <ul style="text-align: left; margin: 8px 0 0 16px; padding: 0;">
+                        ${shortageList}
+                    </ul>
+                    <p style="margin-top: 12px;">El presupuesto se puede guardar igual. El stock se volverá a validar al convertirlo en venta.</p>
+                `,
+                icon: 'warning',
+                confirmButtonText: 'Guardar igual',
+                cancelButtonText: 'Revisar cantidades',
+            }, theme);
+
+            if (!result.isConfirmed) return;
+        }
+
         const payload = {
             customer_id: selectedCustomer.id,
             quote_date: form.quote_date.format('YYYY-MM-DD'),
@@ -312,6 +401,71 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const renderStockCell = (line) => {
+        const stock = stockStatusByLine.get(line.key);
+
+        if (!stock || stock.status === 'not_applicable') {
+            return <Typography variant="body2" color="text.secondary">—</Typography>;
+        }
+
+        if (loadingProducts) {
+            return <Typography variant="body2" color="text.secondary">…</Typography>;
+        }
+
+        if (stock.status === 'unavailable' || stock.status === 'unknown' || stock.available === null) {
+            const title = stock.status === 'unavailable'
+                ? 'Producto o presentación no encontrado en stock'
+                : 'No se pudo verificar el stock';
+            return (
+                <Tooltip title={title}>
+                    <Typography
+                        variant="body2"
+                        color={stockStatusColor(stock.status)}
+                        fontWeight={600}
+                    >
+                        —
+                    </Typography>
+                </Tooltip>
+            );
+        }
+
+        const aggregateShortage = shortageByStockId.get(Number(line.stock_id));
+        const isShort = stock.status === 'insufficient' || Boolean(aggregateShortage);
+        const available = formatStockValue(stock.available, stock.baseUnit);
+        const requestedValue = aggregateShortage ? aggregateShortage.requested : stock.requested;
+        const requested = formatStockValue(requestedValue, stock.baseUnit);
+        const missing = aggregateShortage
+            ? Math.max(0, aggregateShortage.requested - aggregateShortage.available)
+            : stock.missing;
+
+        return (
+            <Tooltip title={`Disponible: ${available}. Solicitado: ${requested}.`}>
+                <Box sx={{ minWidth: 0, textAlign: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                        {isShort && <WarningAmberIcon fontSize="small" color="error" />}
+                        <Typography
+                            variant="body2"
+                            color={isShort ? 'error.main' : 'success.main'}
+                            fontWeight={isShort ? 700 : 600}
+                        >
+                            {available}
+                        </Typography>
+                    </Box>
+                    {stock.presentationAvailable !== null && stock.presentationAvailable !== undefined && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                            ≈ {formatStockQuantity(stock.presentationAvailable)} {stock.presentationAvailable === 1 ? 'presentación' : 'presentaciones'}
+                        </Typography>
+                    )}
+                    {isShort && (
+                        <Typography variant="caption" color="error.main" display="block">
+                            Faltan {formatStockValue(missing, stock.baseUnit)}{aggregateShortage ? ' en total' : ''}
+                        </Typography>
+                    )}
+                </Box>
+            </Tooltip>
+        );
     };
 
     return (
@@ -413,7 +567,7 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
                         <Box
                             sx={{
                                 display: 'grid',
-                                gridTemplateColumns: 'minmax(220px, 2.2fr) 110px 100px 130px 120px 40px',
+                                gridTemplateColumns: 'minmax(220px, 2.2fr) 110px 100px 120px 130px 120px 40px',
                                 gap: 1,
                                 alignItems: 'center',
                                 px: 1,
@@ -424,6 +578,9 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
                             <Typography variant="caption" color="text.secondary">Descripción</Typography>
                             <Typography variant="caption" color="text.secondary">Unidad</Typography>
                             <Typography variant="caption" color="text.secondary">Cantidad</Typography>
+                            <Tooltip title="Stock disponible en unidades base">
+                                <Typography variant="caption" color="text.secondary" align="center">Stock actual</Typography>
+                            </Tooltip>
                             <Typography variant="caption" color="text.secondary">Precio unit.</Typography>
                             <Typography variant="caption" color="text.secondary" align="right">Subtotal</Typography>
                             <span />
@@ -437,7 +594,7 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
                                 key={line.key}
                                 sx={{
                                     display: 'grid',
-                                    gridTemplateColumns: 'minmax(220px, 2.2fr) 110px 100px 130px 120px 40px',
+                                    gridTemplateColumns: 'minmax(220px, 2.2fr) 110px 100px 120px 130px 120px 40px',
                                     gap: 1,
                                     alignItems: 'center',
                                     px: 1,
@@ -481,6 +638,9 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
                                     onChange={(event) => updateLine(line.key, 'quantity', event.target.value)}
                                     inputProps={{ min: 0, step: line.presentation_id ? '1' : '0.001' }}
                                 />
+                                <Box sx={{ minWidth: 0, textAlign: 'center' }}>
+                                    {renderStockCell(line)}
+                                </Box>
                                 <StyledTextField
                                     size="small"
                                     type="number"
@@ -497,6 +657,12 @@ const QuoteFormModal = ({ open, onClose, quote = null, onSaved }) => {
                             </Box>
                         ))}
                     </Box>
+
+                    {aggregateShortages.length > 0 && (
+                        <Alert severity="warning" sx={{ mt: 2 }}>
+                            Hay {aggregateShortages.length === 1 ? '1 producto' : `${aggregateShortages.length} productos`} con stock insuficiente. Se puede guardar el presupuesto igual; el stock se volverá a validar al convertirlo en venta.
+                        </Alert>
+                    )}
 
                     <Box
                         sx={{

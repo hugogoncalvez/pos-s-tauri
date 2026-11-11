@@ -49,7 +49,7 @@ import PendingTicketsModal from '../styledComponents/PendingTicketsModal';
 import SummarySaleModal from '../styledComponents/SummarySaleModal';
 import ManualEntryModal from '../styledComponents/ManualEntryModal';
 import { ProductPresentationModal } from '../styledComponents/ProductPresentationModal';
-import { applyPromotions } from '../functions/salesLogic';
+import { applyPromotions, findStockShortages } from '../functions/salesLogic';
 import VentasSkeleton from '../styledComponents/skeletons/VentasSkeleton';
 
 const DECIMAL_UNIT_NAMES = new Set([
@@ -321,14 +321,17 @@ const Ventas = () => {
     const rawQuote = sessionStorage.getItem('pendingQuoteConversion');
     if (!rawQuote) return;
 
+    let quote;
+    let items;
+
     try {
-      const quote = JSON.parse(rawQuote);
+      quote = JSON.parse(rawQuote);
       const details = Array.isArray(quote.details) ? quote.details : [];
       if (details.length === 0) {
         throw new Error('El presupuesto no tiene ítems para convertir.');
       }
 
-      const items = details.map((detail) => {
+      items = details.map((detail) => {
         const quantity = Number(detail.quantity);
         const baseQuantity = Number(detail.base_quantity);
         const unitPrice = Number(detail.unit_price);
@@ -361,8 +364,14 @@ const Ventas = () => {
           type: hasPresentation ? 'presentation' : (hasStock ? 'product' : undefined),
         };
       });
+    } catch (error) {
+      sessionStorage.removeItem('pendingQuoteConversion');
+      mostrarError(error.message || 'No se pudo preparar la conversión del presupuesto.', theme);
+      return;
+    }
 
-      setTempTable(items);
+    const applyQuoteConversion = (finalItems) => {
+      setTempTable(finalItems);
       setSelectedCustomer({
         id: quote.customer_id || 1,
         name: quote.customer_name || 'Consumidor Final'
@@ -379,10 +388,86 @@ const Ventas = () => {
       setAmountReceived('');
       setQuoteConversion(quote);
       focusBarcodeInput();
-    } catch (error) {
-      sessionStorage.removeItem('pendingQuoteConversion');
-      mostrarError(error.message || 'No se pudo preparar la conversión del presupuesto.', theme);
+    };
+
+    const stockIds = [...new Set(
+      items
+        .filter((item) => item.stock_id && !item.is_manual_entry)
+        .map((item) => Number(item.stock_id))
+    )];
+
+    if (stockIds.length === 0) {
+      applyQuoteConversion(items);
+      return;
     }
+
+    const checkStockAndApply = async () => {
+      let products = [];
+      try {
+        const response = await Api.get('/stock?unpaginated=true');
+        products = Array.isArray(response.data?.products) ? response.data.products : [];
+      } catch (error) {
+        console.error('No se pudo verificar el stock del presupuesto:', error);
+        applyQuoteConversion(items);
+        return;
+      }
+
+      const shortages = findStockShortages(items, products);
+
+      if (shortages.length === 0) {
+        applyQuoteConversion(items);
+        return;
+      }
+
+      const shortageStockIds = new Set(shortages.map((shortage) => shortage.stockId));
+      const itemsWithForcedSale = items.map((item) => (
+        item.stock_id && shortageStockIds.has(Number(item.stock_id))
+          ? { ...item, force_sale: true }
+          : item
+      ));
+
+      const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[character]));
+      const formatQuantity = (value) => {
+        const number = Number(value);
+        return Number.isFinite(number)
+          ? number.toLocaleString('es-AR', { maximumFractionDigits: 3 })
+          : String(value ?? '');
+      };
+
+      const shortageList = shortages
+        .map((shortage) => (
+          `<li><strong>${escapeHtml(shortage.name)}</strong>: disponible ${formatQuantity(shortage.available)}, solicitado ${formatQuantity(shortage.requested)}</li>`
+        ))
+        .join('');
+
+      mostrarConfirmacion({
+        title: 'Stock Insuficiente',
+        html: `
+          <p>Los siguientes ítems del presupuesto no tienen stock suficiente:</p>
+          <ul style="text-align: left; margin: 8px 0 0 16px; padding: 0;">
+            ${shortageList}
+          </ul>
+          <p style="margin-top: 12px;">¿Desea continuar la venta y dejar el stock en negativo?</p>
+        `,
+        icon: 'warning',
+        confirmButtonText: 'Sí, continuar',
+        cancelButtonText: 'No, cancelar'
+      }, theme, () => {
+        applyQuoteConversion(itemsWithForcedSale);
+      }, () => {
+        sessionStorage.removeItem('pendingQuoteConversion');
+        setQuoteConversion(null);
+        mostrarInfo('Conversión cancelada. Ajustá el stock o las cantidades del presupuesto y volvé a intentar desde Presupuestos.', theme);
+      });
+    };
+
+    checkStockAndApply();
   }, [theme]);
 
   const handleCancelQuoteConversion = () => {
