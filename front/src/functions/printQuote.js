@@ -157,9 +157,10 @@ export const printQuote = ({ quote, businessConfig = null }) => {
                     background: #f3f4f6;
                     border-left: 5px solid #c2410c;
                     padding: 11px 16px;
+                    text-align: center;
                 }
                 .meta.has-validity { grid-template-columns: 16% 30% 34% 20%; }
-                .meta .label { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6b7280; }
+                .meta .label { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-align: center; color: #6b7280; }
                 .meta .value { display: block; margin-top: 3px; font-size: 12px; font-weight: 700; color: #1f2933; }
                 .meta .value-sub { display: block; margin-top: 2px; font-size: 9px; color: #6b7280; }
 
@@ -257,7 +258,7 @@ export const printQuote = ({ quote, businessConfig = null }) => {
                     </div>
                     ${quote.valid_until ? `
                     <div>
-                        <span class="label">PRESUPUESTO VÁLIDO</span>
+                        <span class="label">VÁLIDO HASTA</span>
                         <span class="value">${escapeHtml(formatDate(quote.valid_until))}</span>
                     </div>` : ''}
                 </div>
