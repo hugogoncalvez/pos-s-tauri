@@ -20,7 +20,9 @@ import {
     TableHead,
     TableRow,
     TableCell,
-    TableBody
+    TableBody,
+    Checkbox,
+    FormControlLabel
 } from '@mui/material';
 import { StyledCard } from '../styledComponents/ui/StyledCard';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
@@ -76,6 +78,7 @@ const CajeroView = () => {
     const [visibleFab, setVisibleFab] = useState(false);
     const [cashMovementModalOpen, setCashMovementModalOpen] = useState(false);
     const [viewingSessionId, setViewingSessionId] = useState(null);
+    const [printThermal, setPrintThermal] = useState(true);
 
     const queryClient = useQueryClient(); // Inicializar queryClient
 
@@ -303,7 +306,7 @@ const CajeroView = () => {
                         <IconButton size="small" onClick={() => handleViewDetails(row)}><ViewIcon /></IconButton>
                     </Tooltip>
                     <Tooltip title="Imprimir reporte">
-                        <IconButton size="small" onClick={() => printCashSessionReport(row, { formatCurrency, formatDate, getUserName, businessConfig })}>
+                        <IconButton size="small" onClick={() => printCashSessionReport(row, { formatCurrency, formatDate, getUserName, businessConfig }, { isThermal: printThermal })}>
                             <PrintIcon />
                         </IconButton>
                     </Tooltip>
@@ -645,11 +648,18 @@ const CajeroView = () => {
                         )}
                     </DialogContent>
                     <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog' }}>
+                        <Tooltip title="Desmarcá para imprimir en A4">
+                            <FormControlLabel
+                                control={<Checkbox size="small" checked={printThermal} onChange={(e) => setPrintThermal(e.target.checked)} />}
+                                label="Imprimir en 80 mm"
+                                sx={{ mr: 'auto', ml: 1 }}
+                            />
+                        </Tooltip>
                         <StyledButton sx={{ padding: '2px 12px' }} variant="outlined" color="secondary" onClick={() => {
                             setDetailsDialogOpen(false);
                             setViewingSessionId(null); // Limpiar el ID al cerrar
                         }}>Cerrar</StyledButton>
-                        {sessionDetails && <StyledButton onClick={() => printCashSessionReport(sessionDetails, { formatCurrency, formatDate, getUserName, businessConfig })} variant="contained" startIcon={<PrintIcon />}>Imprimir</StyledButton>}
+                        {sessionDetails && <StyledButton onClick={() => printCashSessionReport(sessionDetails, { formatCurrency, formatDate, getUserName, businessConfig }, { isThermal: printThermal })} variant="contained" startIcon={<PrintIcon />}>Imprimir</StyledButton>}
                     </DialogActions>
                 </StyledDialog>
             </Box>

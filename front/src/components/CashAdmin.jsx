@@ -26,7 +26,9 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    Divider
+    Divider,
+    Checkbox,
+    FormControlLabel
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { StyledCard } from '../styledComponents/ui/StyledCard';
@@ -125,6 +127,7 @@ const CashAdmin = () => {
     const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
     const [sessionToFinalize, setSessionToFinalize] = useState(null);
     const [cashMovementModalOpen, setCashMovementModalOpen] = useState(false);
+    const [printThermal, setPrintThermal] = useState(true);
 
     const { usuario, isLoading: authLoading } = useContext(AuthContext);
     const { pendingSync } = useSyncManager(); // Get pendingSync state
@@ -690,7 +693,7 @@ const CashAdmin = () => {
                                     <Tooltip title="Ver Detalles">
                                         <IconButton size="small" onClick={() => handleViewDetails(row)}><ViewIcon /></IconButton>
                                     </Tooltip>
-                                    <Tooltip title="Imprimir reporte"><IconButton size="small" onClick={() => printCashSessionReport(row, { formatCurrency, formatDate, getUserName, businessConfig })}><PrintIcon /></IconButton></Tooltip>
+                                    <Tooltip title="Imprimir reporte"><IconButton size="small" onClick={() => printCashSessionReport(row, { formatCurrency, formatDate, getUserName, businessConfig }, { isThermal: printThermal })}><PrintIcon /></IconButton></Tooltip>
                                     {row.status === 'pendiente_cierre' && tienePermiso('ver_cajas_admin') && (
                                         <Tooltip title="Revisar y Finalizar Cierre"><StyledButton size="small" variant="contained" color="secondary" onClick={() => openFinalizeDialog(row)} sx={{ ml: 1 }}>Revisar</StyledButton></Tooltip>
                                     )}
@@ -849,12 +852,19 @@ const CashAdmin = () => {
                                         </Box>
                                     )}
                                 </DialogContent>                    <DialogActions sx={{ backgroundColor: 'background.dialog' }}>
+                        <Tooltip title="Desmarcá para imprimir en A4">
+                            <FormControlLabel
+                                control={<Checkbox size="small" checked={printThermal} onChange={(e) => setPrintThermal(e.target.checked)} />}
+                                label="Imprimir en 80 mm"
+                                sx={{ mr: 'auto', ml: 1 }}
+                            />
+                        </Tooltip>
                         <StyledButton sx={{ padding: '2px 12px' }} color='secondary' variant="outlined" onClick={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }}>
                             Cerrar
                         </StyledButton>
                         {sessionDetails && (
                             <StyledButton
-                                onClick={() => printCashSessionReport(sessionDetails, { formatCurrency, formatDate, getUserName, businessConfig })}
+                                onClick={() => printCashSessionReport(sessionDetails, { formatCurrency, formatDate, getUserName, businessConfig }, { isThermal: printThermal })}
                                 variant="contained"
                                 startIcon={<PrintIcon />}
                             >

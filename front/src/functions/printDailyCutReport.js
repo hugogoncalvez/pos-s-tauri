@@ -3,7 +3,7 @@ import 'moment/locale/es';
 
 import Swal from 'sweetalert2';
 
-export const printDailyCutReport = (report, { formatCurrency, businessConfig }) => {
+export const printDailyCutReport = (report, { formatCurrency, businessConfig }, { isThermal = true } = {}) => {
     if (!report) {
         console.error("No hay datos de reporte para imprimir.");
         return;
@@ -61,14 +61,7 @@ export const printDailyCutReport = (report, { formatCurrency, businessConfig }) 
         `;
     }
 
-    const printContent = `
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Reporte de Corte de Caja - ${formattedDate}</title>
-            <style>
+    const a4Styles = `
                 body {
                     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                     margin: 20px;
@@ -168,6 +161,12 @@ export const printDailyCutReport = (report, { formatCurrency, businessConfig }) 
                     margin-bottom: 10px;
                     background-color: #fff;
                 }
+                .footer-info {
+                    text-align: center;
+                    font-size: 12px;
+                    color: #666;
+                    margin-top: 20px;
+                }
                 @media print {
                     body {
                         margin: 0;
@@ -188,7 +187,124 @@ export const printDailyCutReport = (report, { formatCurrency, businessConfig }) 
                         grid-template-columns: 1fr;
                     }
                 }
-            </style>
+    `;
+
+    const thermalStyles = `
+        @page { margin: 0; size: auto; }
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 0;
+            width: 72mm;
+            font-size: 11px;
+            line-height: 1.25;
+            color: #000;
+            background: #fff;
+        }
+        .container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            background: #fff;
+            padding: 0;
+            border-radius: 0;
+            box-shadow: none;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 6px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 5px;
+        }
+        .company-logo {
+            max-width: 25mm;
+            max-height: 25mm;
+            margin-bottom: 4px;
+            border-radius: 0;
+        }
+        .company-name { font-size: 14px; font-weight: bold; color: #000; margin-bottom: 2px; }
+        .company-info { font-size: 10px; color: #000; margin-bottom: 2px; }
+        h1, h2, h3 {
+            color: #000;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 2px;
+            margin-top: 6px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 13px;
+            margin-top: 4px;
+            border-bottom: none;
+        }
+        h2 { font-size: 11px; }
+        .header-info {
+            text-align: center;
+            margin-bottom: 4px;
+            font-size: 10px;
+            color: #000;
+            background: none;
+            padding: 2px 0;
+            border-radius: 0;
+        }
+        .info-grid { display: block; margin-bottom: 4px; }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 1px 0;
+            border-bottom: none;
+            font-size: 11px;
+            gap: 4px;
+        }
+        .info-row:last-child { border-bottom: none; }
+        .label { font-weight: normal; color: #000; flex: 1; }
+        .value { font-weight: bold; color: #000; text-align: right; }
+        .total-row {
+            font-size: 12px;
+            font-weight: bold;
+            padding: 2px 0;
+            border-top: 1px dashed #000;
+            margin-top: 3px;
+        }
+        .positive, .negative { color: #000; }
+        .section {
+            margin-bottom: 6px;
+            padding: 0;
+            background: none;
+            border: none;
+            border-radius: 0;
+        }
+        .session-card {
+            border: 1px dashed #000;
+            border-radius: 0;
+            padding: 4px;
+            margin-bottom: 4px;
+            background: #fff;
+        }
+        .footer-info {
+            text-align: center;
+            font-size: 9px;
+            color: #000;
+            border-top: 1px dashed #000;
+            padding-top: 3px;
+            margin-top: 6px;
+        }
+        @media print {
+            body { margin: 0; }
+            .container { box-shadow: none; border-radius: 0; padding: 0; border: none; }
+            h1 { font-size: 13px; }
+            h2 { font-size: 11px; }
+            .info-grid { display: block; }
+        }
+    `;
+
+    const printContent = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Reporte de Corte de Caja - ${formattedDate}</title>
+            <style>${isThermal ? thermalStyles : a4Styles}</style>
         </head>
         <body>
             <div class="container">

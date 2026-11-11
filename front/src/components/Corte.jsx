@@ -8,7 +8,10 @@ import {
     IconButton,
     InputAdornment,
     Divider,
-    Chip
+    Chip,
+    Checkbox,
+    FormControlLabel,
+    Tooltip
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { useTheme } from '@mui/material/styles';
@@ -36,6 +39,7 @@ const Corte = () => {
         date: moment().format('YYYY-MM-DD'),
         userId: null,
     });
+    const [printThermal, setPrintThermal] = useState(true);
 
     const { data: usersData, isLoading: usersLoading, error: usersError } = UseFetchQuery(
         ['users'], '/users', tienePermiso('ver_vista_caja_admin')
@@ -63,7 +67,7 @@ const Corte = () => {
 
     const handlePrint = () => {
         if (reportData?.report?.totals) {
-            printDailyCutReport(reportData.report, { formatCurrency, businessConfig });
+            printDailyCutReport(reportData.report, { formatCurrency, businessConfig }, { isThermal: printThermal });
         } else {
             mostrarError('No hay datos para imprimir.', theme);
         }
@@ -101,9 +105,18 @@ const Corte = () => {
                         <Typography variant="body1" sx={{ opacity: 0.9 }}>Resumen de movimientos de caja por fecha y cajero</Typography>
                     </Grid>
                     <Grid>
-                        <StyledButton variant="outlined" onClick={handlePrint} size="small" startIcon={<PrintIcon />} sx={{ padding: '2px 12px' }} disabled={!hasData || reportLoading}>
-                            Imprimir Corte
-                        </StyledButton>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, flexWrap: 'wrap' }}>
+                            <Tooltip title="Desmarcá para imprimir en A4">
+                                <FormControlLabel
+                                    control={<Checkbox size="small" checked={printThermal} onChange={(e) => setPrintThermal(e.target.checked)} />}
+                                    label="Imprimir en 80 mm"
+                                    sx={{ mr: 0 }}
+                                />
+                            </Tooltip>
+                            <StyledButton variant="outlined" onClick={handlePrint} size="small" startIcon={<PrintIcon />} sx={{ padding: '2px 12px' }} disabled={!hasData || reportLoading}>
+                                Imprimir Corte
+                            </StyledButton>
+                        </Box>
                     </Grid>
                 </Grid>
             </Paper>

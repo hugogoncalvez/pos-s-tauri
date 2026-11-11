@@ -73,7 +73,7 @@ const BarcodePrinter = () => {
     );
     const { data: combosData, isLoading: isLoadingCombos, isError: isErrorCombos, error: errorCombos } = UseFetchQuery(
         ['allCombos', filters.comboSearch],
-        `/combos?search=${filters.comboSearch}`,
+        `/combos?search=${filters.comboSearch}&is_active=true`,
         true
     );
 

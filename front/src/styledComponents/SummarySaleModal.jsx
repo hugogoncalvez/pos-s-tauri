@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   DialogTitle,
   DialogContent,
@@ -117,20 +117,34 @@ const SummarySaleModal = ({
   const [surchargeDetailsOpen, setSurchargeDetailsOpen] = useState(false);
 
   // Filtrar métodos activos y añadir la opción de Mixto
-  const activeMethods = paymentMethods ? paymentMethods.filter(pm => pm.active && pm.method !== 'Mixto' && pm.nombre !== 'Mixto') : [];
-  const allOptions = [...activeMethods, { id: 'mixed', method: 'Mixto', nombre: 'Mixto' }];
+  const activeMethods = useMemo(
+    () => (paymentMethods ? paymentMethods.filter(pm => pm.active && pm.method !== 'Mixto' && pm.nombre !== 'Mixto') : []),
+    [paymentMethods]
+  );
+  const allOptions = useMemo(
+    () => [...activeMethods, { id: 'mixed', method: 'Mixto', nombre: 'Mixto' }],
+    [activeMethods]
+  );
+
+  // Enfoque inicial al abrir el modal: al campo de Monto Recibido.
+  // Debe depender solo de la apertura para no volver a seleccionar el texto
+  // mientras el usuario está escribiendo (cada tecla re-renderiza el modal).
+  useEffect(() => {
+    if (!isSummaryModalOpen) return;
+
+    const timer = setTimeout(() => {
+      if (amountReceivedInputRef.current) {
+        amountReceivedInputRef.current.focus();
+        amountReceivedInputRef.current.select(); // Seleccionar texto para facilitar sobreescribir
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [isSummaryModalOpen, amountReceivedInputRef]);
 
   // Atajos de teclado para seleccionar métodos de pago
   useEffect(() => {
     if (!isSummaryModalOpen) return;
-
-    // Enfoque inicial al abrir el modal: al campo de Monto Recibido
-    const timer = setTimeout(() => {
-        if (amountReceivedInputRef.current) {
-            amountReceivedInputRef.current.focus();
-            amountReceivedInputRef.current.select(); // Seleccionar texto para facilitar sobreescribir
-        }
-    }, 300);
 
     const handleKeyDown = (e) => {
       // Atajos Alt + [1-9] para métodos de pago
@@ -152,11 +166,8 @@ const SummarySaleModal = ({
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-        clearTimeout(timer);
-    };
-  }, [isSummaryModalOpen, allOptions, setPaymentOption, setSelectedSinglePaymentType, setMixedPayments, amountReceivedInputRef]);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSummaryModalOpen, allOptions, setPaymentOption, setSelectedSinglePaymentType, setMixedPayments]);
 
   const handleCancelSale = () => {
     mostrarConfirmacion(

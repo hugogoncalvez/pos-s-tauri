@@ -8,7 +8,7 @@ import Swal from 'sweetalert2';
  * @param {function} helpers.formatDate - Función para formatear una fecha.
  * @param {function} helpers.getUserName - Función para obtener el nombre de usuario.
  */
-export const printCashSessionReport = (session, { formatCurrency, formatDate, getUserName, businessConfig }) => {
+export const printCashSessionReport = (session, { formatCurrency, formatDate, getUserName, businessConfig }, { isThermal = true } = {}) => {
     const getDiscrepancyRow = (label, value) => {
         const numericValue = parseFloat(value);
         if (isNaN(numericValue)) return '';
@@ -16,6 +16,7 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
         let color = '#333'; // Color de texto por defecto
         if (numericValue > 0) color = '#27ae60'; // Verde
         if (numericValue < 0) color = '#c0392b'; // Rojo
+        if (isThermal) color = '#000';
 
         return `
             <div class="info-row total">
@@ -47,11 +48,7 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
         ? openingAmount + (parseFloat(salesAmount) || 0)
         : (session.expected_cash || 0);
 
-    const reportContent = `
-        <html>
-        <head>
-            <title>Reporte de Cierre de Caja - Sesión #${session.id}</title>
-            <style>
+    const a4Styles = `
                 @page {
                     size: A4;
                     margin: 0;
@@ -114,7 +111,84 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
                 .notes-section h3 { margin-top: 0; color: #fab005; font-size: 1.2em; }
                 .notes-section p { margin: 8px 0; }
                 hr.solid { border: none; border-top: 1px solid #dee2e6; margin: 15px 0; }
-            </style>
+    `;
+
+    const thermalStyles = `
+        @page { margin: 0; size: auto; }
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 0;
+            width: 72mm;
+            font-size: 12px;
+            line-height: 1.25;
+            color: #000;
+            background: #fff;
+        }
+        .container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: #fff;
+            box-shadow: none;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 6px;
+        }
+        .company-logo {
+            max-width: 25mm;
+            max-height: 25mm;
+            margin-bottom: 4px;
+            border-radius: 0;
+        }
+        .company-name { font-size: 14px; font-weight: bold; color: #000; margin-bottom: 2px; }
+        .header h1 { margin: 3px 0; color: #000; font-size: 13px; font-weight: bold; }
+        .header p { margin: 1px 0; color: #000; font-size: 10px; }
+        .section { margin-bottom: 8px; }
+        .section h2 {
+            border-bottom: 1px dashed #000;
+            padding-bottom: 3px;
+            margin: 6px 0 4px;
+            color: #000;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .info-grid { display: block; }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 4px;
+            padding: 1px 0;
+            border-bottom: none;
+            font-size: 11px;
+        }
+        .info-row:last-child { border-bottom: none; }
+        .info-row span:first-child { flex: 1; color: #000; }
+        .info-row span:last-child { font-weight: bold; color: #000; text-align: right; white-space: nowrap; }
+        .total { font-size: 13px; font-weight: bold; }
+        .notes-section {
+            background: #fff;
+            border: 1px dashed #000;
+            padding: 5px 6px;
+            margin-top: 6px;
+            border-radius: 0;
+        }
+        .notes-section h3 { margin: 0 0 3px; color: #000; font-size: 11px; }
+        .notes-section p { margin: 2px 0; font-size: 10px; }
+        hr.solid { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+    `;
+
+    const reportContent = `
+        <html>
+        <head>
+            <title>Reporte de Cierre de Caja - Sesión #${session.id}</title>
+            <style>${isThermal ? thermalStyles : a4Styles}</style>
         </head>
         <body>
             <div class="container">
