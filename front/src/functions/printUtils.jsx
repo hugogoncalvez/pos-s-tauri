@@ -141,7 +141,7 @@ export const printReceipt = (data, type, customerName = '', businessData = null,
             }
 
             .receipt-header { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); color: #333; padding: 20px; text-align: center; border-bottom: 2px solid #667eea; position: relative; z-index: 1; }
-            .logo-img { max-width: 60px; max-height: 60px; margin-bottom: 5px; opacity: 0.8; }
+            .logo-img { max-width: 160px; max-height: 90px; margin-bottom: 5px; opacity: 0.8; object-fit: contain; }
             .company-name { font-size: 20px; font-weight: bold; margin: 0 0 5px 0; color: #667eea; }
             .business-info { font-size: 11px; opacity: 0.9; margin-top: 5px; line-height: 1.2; }
             .receipt-title { font-size: 20px; font-weight: bold; margin: 15px 0 0 0; text-transform: uppercase; letter-spacing: 1px; }

@@ -90,7 +90,7 @@ export const printDailyCutReport = (report, { formatCurrency, businessConfig }) 
                     border-bottom: 2px solid #0056b3;
                     padding-bottom: 20px;
                 }
-                .company-logo { max-height: 80px; margin-bottom: 10px; border-radius: 8px; }
+                .company-logo { max-height: 110px; max-width: 260px; margin-bottom: 10px; border-radius: 8px; object-fit: contain; }
                 .company-name { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 5px; }
                 .company-info { font-size: 14px; color: #666; margin-bottom: 15px; }
                 h1, h2, h3 {

@@ -83,7 +83,7 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
                 }
                 .header h1 { margin: 5px 0; color: #212529; font-size: 1.8em; font-weight: 700; }
                 .header p { margin: 2px 0; color: #6c757d; font-size: 0.9em; }
-                .company-logo { max-height: 80px; margin-bottom: 10px; border-radius: 8px; }
+                .company-logo { max-height: 110px; max-width: 260px; margin-bottom: 10px; border-radius: 8px; object-fit: contain; }
                 .company-name { font-size: 1.5em; font-weight: 700; color: #212529; margin-bottom: 5px; }
                 .section { margin-bottom: 25px; }
                 .section h2 {

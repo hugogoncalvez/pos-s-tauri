@@ -140,7 +140,7 @@ export const printQuote = ({ quote, businessConfig = null }) => {
 
                 .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
                 .brand-name { font-size: 30px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: #1f2933; line-height: 1.1; }
-                .brand-logo { max-height: 54px; }
+                .brand-logo { max-height: 100px; max-width: 240px; object-fit: contain; }
                 .brand-meta { margin-top: 6px; font-size: 10px; line-height: 1.6; color: #4b5563; }
                 .doc { text-align: right; }
                 .doc-title { font-size: 17px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: #c2410c; }
@@ -214,6 +214,7 @@ export const printQuote = ({ quote, businessConfig = null }) => {
                     font-size: 8.5px;
                     color: #6b7280;
                 }
+                .footer .validity { font-size: 11px; font-weight: 700; color: #1f2933; white-space: nowrap; }
 
                 @media print {
                     .sheet { max-width: none; padding: 14mm 12mm 16mm; }
@@ -286,7 +287,7 @@ export const printQuote = ({ quote, businessConfig = null }) => {
 
                 <div class="footer">
                     <span>${escapeHtml(business?.footerText || '¡Gracias por su preferencia!')}</span>
-                    ${quote.valid_until ? `<span>Presupuesto válido hasta ${escapeHtml(formatDate(quote.valid_until))}.</span>` : ''}
+                    ${quote.valid_until ? `<span class="validity">Presupuesto válido hasta ${escapeHtml(formatDate(quote.valid_until))}.</span>` : ''}
                 </div>
             </div>
         </body>

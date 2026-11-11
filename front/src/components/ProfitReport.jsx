@@ -100,7 +100,7 @@ function ProfitReport() {
                     .report-container { max-width: 1000px; margin: 0 auto; background: #fff; }
                     .report-header { background: #f8f9fa; color: #333; padding: 30px; text-align: center; margin-bottom: 30px; border-radius: 8px; border: 2px solid #28a745; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
                     .company-info { margin-bottom: 20px; }
-                    .company-logo { max-height: 80px; margin-bottom: 10px; border-radius: 8px; }
+                    .company-logo { max-height: 110px; max-width: 260px; margin-bottom: 10px; border-radius: 8px; object-fit: contain; }
                     .company-name { font-size: 32px; font-weight: bold; margin-bottom: 8px; color: #28a745; }
                     .company-details { font-size: 14px; color: #666; margin-bottom: 20px; }
                     .report-title { font-size: 28px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; color: #333; }

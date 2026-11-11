@@ -71,7 +71,7 @@ export const printSupplierQuote = (quote, businessConfig = {}) => {
             .sheet { width: 100%; max-width: 190mm; margin: 0 auto; padding: 16mm 14mm 18mm; }
             .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
             .brand-name { font-size: 30px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; line-height: 1.1; }
-            .brand-logo { max-height: 54px; }
+            .brand-logo { max-height: 100px; max-width: 240px; object-fit: contain; }
             .brand-meta { margin-top: 6px; font-size: 10px; line-height: 1.6; color: #4b5563; }
             .doc { text-align: right; }
             .doc-title { font-size: 17px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: #0f766e; }

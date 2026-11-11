@@ -59,7 +59,7 @@ const buildStyles = () => `
 
     .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; border-bottom: 2px solid #1f2933; padding-bottom: 10px; margin-bottom: ${HEADER_GAP_PX}px; }
     .brand-name { font-size: 30px; font-weight: 800; color: #1f2933; line-height: 1.1; }
-    .brand-logo { max-height: 50px; }
+    .brand-logo { max-height: 90px; max-width: 220px; object-fit: contain; }
     .brand-meta { margin-top: 6px; font-size: 10px; color: #4b5563; }
     .doc { text-align: right; }
     .doc-title { font-size: 17px; font-weight: 800; letter-spacing: .5px; color: #c2410c; text-transform: uppercase; }

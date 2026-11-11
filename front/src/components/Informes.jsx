@@ -207,7 +207,7 @@ const Informes = () => {
                 <div class="report-container">
                     <div class="report-header">
                         <div class="company-info">
-                            ${businessConfig?.logo ? `<img src="${businessConfig.logo}" style="max-width: 80px; max-height: 80px; margin-bottom: 10px;" />` : ''}
+                            ${businessConfig?.logo ? `<img src="${businessConfig.logo}" style="max-width: 260px; max-height: 110px; margin-bottom: 10px; object-fit: contain;" />` : ''}
                             <div class="company-name">${businessConfig?.name || 'Mi Empresa'}</div>
                             <div class="company-details">
                                 ${businessConfig?.address ? `Dirección: ${businessConfig.address}<br>` : ''}
