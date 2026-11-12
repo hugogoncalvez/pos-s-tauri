@@ -1866,8 +1866,15 @@ export const createSale = async (req, res) => {
             if (!payments?.length) throw new ValidationError('Se requiere al menos un método de pago.');
 
             const totalPaymentsAmount = payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-            if (totalPaymentsAmount < total_amount - 0.01) {
-                throw new ValidationError(`Monto insuficiente: ${totalPaymentsAmount.toFixed(2)} < ${total_amount.toFixed(2)}`);
+            const parsedTotalNeto = parseFloat(total_neto);
+            const expectedTotal = Number.isFinite(parsedTotalNeto)
+                ? parsedTotalNeto
+                : parseFloat(total_amount) - parseFloat(promotion_discount || 0) + parseFloat(surcharge_amount || 0);
+            if (!Number.isFinite(expectedTotal)) {
+                throw new ValidationError('Total final inválido.');
+            }
+            if (totalPaymentsAmount < expectedTotal - 0.01) {
+                throw new ValidationError(`Monto insuficiente: ${totalPaymentsAmount.toFixed(2)} < ${expectedTotal.toFixed(2)}`);
             }
 
             const newSale = await SaleModel.create({
@@ -2741,10 +2748,10 @@ export const getActiveCashSession = async (req, res) => {
             where: { cash_session_id: session.id }
         });
 
-        // Calcular total de ventas (todos los métodos de pago + recargo) para la sesión
+        // Calcular total de ventas (todos los métodos de pago)
         const salesResult = await SaleModel.findOne({
             attributes: [
-                [db.fn('SUM', db.literal('total_neto + COALESCE(surcharge_amount, 0)')), 'totalSales']
+                [db.fn('SUM', db.col('total_neto')), 'totalSales']
             ],
             where: { cash_session_id: session.id },
             raw: true
@@ -3170,37 +3177,33 @@ export const getCashSessionSummary = async (req, res) => {
         const summary = {
             ...session.toJSON(),
             sales_count: sales.length,
-            // Incluir surcharge_amount para que coincida con el total cobrado por método de pago
-            total_sales: sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto) + parseFloat(sale.surcharge_amount || 0), 0),
+            total_sales: sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto), 0),
             total_discounts: sales.reduce((sum, sale) => sum + parseFloat(sale.promotion_discount || 0), 0),
             sales: sales,
             totalIncome,
             totalExpense,
             // Estadísticas adicionales
-            average_sale: sales.length > 0 ? sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto) + parseFloat(sale.surcharge_amount || 0), 0) / sales.length : 0,
+            average_sale: sales.length > 0 ? sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto), 0) / sales.length : 0,
             payment_methods: sales.reduce((acc, sale) => {
                 const plainSale = sale.toJSON();
                 if (!plainSale.sale_payments) {
                     return acc;
                 }
 
+                let paymentsTotal = 0;
                 plainSale.sale_payments.forEach(p => {
                     const method = p.payment?.method || 'Desconocido';
-                    acc[method] = (acc[method] || 0) + parseFloat(p.amount);
+                    const amount = parseFloat(p.amount || 0);
+                    acc[method] = (acc[method] || 0) + amount;
+                    paymentsTotal += amount;
                 });
 
-                const surchargeAmount = parseFloat(plainSale.surcharge_amount || 0);
-                if (surchargeAmount > 0) {
+                const difference = parseFloat(plainSale.total_neto || 0) - paymentsTotal;
+                if (difference > 0.01) {
                     const nonCashPayment = plainSale.sale_payments.find(p => p.payment?.method !== 'Efectivo');
-                    if (nonCashPayment) {
-                        const method = nonCashPayment.payment.method;
-                        acc[method] = (acc[method] || 0) + surchargeAmount;
-                    } else {
-                        if (plainSale.sale_payments.length > 0) {
-                            const method = plainSale.sale_payments[0].payment?.method || 'Desconocido';
-                            acc[method] = (acc[method] || 0) + surchargeAmount;
-                        }
-                    }
+                    const targetPayment = nonCashPayment || plainSale.sale_payments[0];
+                    const method = targetPayment?.payment?.method || 'Desconocido';
+                    acc[method] = (acc[method] || 0) + difference;
                 }
 
                 return acc;

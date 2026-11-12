@@ -118,6 +118,32 @@ const calcularTotalConRecargoDirecto = (subtotal, mixedPayments, paymentMethods)
   };
 };
 
+const buildSalePayments = ({ paymentOption, selectedSinglePaymentType, totalFinal, paymentBreakdown, ivaActivo }) => {
+  if (paymentOption === 'single') {
+    if (!selectedSinglePaymentType) return [];
+    return [{
+      payment_method_id: selectedSinglePaymentType.id,
+      amount: parseFloat(totalFinal.toFixed(2))
+    }];
+  }
+
+  const validPayments = (paymentBreakdown || []).filter(p => p.payment_method_id && p.baseAmount > 0);
+  const taxMultiplier = ivaActivo ? 1.21 : 1;
+  let allocatedAmount = 0;
+
+  return validPayments.map((payment, index) => {
+    const isLast = index === validPayments.length - 1;
+    const amount = isLast
+      ? parseFloat((totalFinal - allocatedAmount).toFixed(2))
+      : parseFloat((payment.finalAmount * taxMultiplier).toFixed(2));
+    allocatedAmount += amount;
+    return {
+      payment_method_id: payment.payment_method_id,
+      amount
+    };
+  });
+};
+
 import { useCreateSale } from '../hooks/useCreateSale';
 
 const Ventas = () => {
@@ -587,6 +613,7 @@ const Ventas = () => {
     let surchargeAmount = 0;
     let surchargeDetails = [];
     let saldoPendiente = 0;
+    let paymentBreakdown = [];
 
     if (paymentOption === 'single' && selectedSinglePaymentType?.surcharge_active) {
       surchargeAmount = subtotalConDescuento * (parseFloat(selectedSinglePaymentType.surcharge_percentage) / 100);
@@ -595,6 +622,7 @@ const Ventas = () => {
       surchargeAmount = result.totalRecargos;
       surchargeDetails = result.surchargeDetails;
       saldoPendiente = result.saldoPendiente;
+      paymentBreakdown = result.paymentBreakdown;
     }
 
     const impuesto = ivaActivo ? (subtotalConDescuento + surchargeAmount) * 0.21 : 0;
@@ -605,13 +633,14 @@ const Ventas = () => {
       impuesto,
       descuento: descuentoAplicado,
       surchargeAmount,
-      surchargeDetails, // <-- Importante devolver esto
-      saldoPendiente,   // <-- Importante devolver esto
+      surchargeDetails,
+      saldoPendiente,
+      paymentBreakdown,
       totalFinal
     };
   }, [processedTempTable, ivaActivo, descuento, selectedSinglePaymentType, paymentOption, mixedPayments, paymentMethods]);
 
-  const { subtotal, impuesto, descuento: descuentoAplicado, surchargeAmount, surchargeDetails, saldoPendiente, totalFinal } = useMemo(() => calcularTotal(), [calcularTotal]);
+  const { subtotal, impuesto, descuento: descuentoAplicado, surchargeAmount, surchargeDetails, saldoPendiente, totalFinal, paymentBreakdown } = useMemo(() => calcularTotal(), [calcularTotal]);
 
   const validateMixedPayments = useCallback(() => {
     const validPayments = mixedPayments.filter(p => p.payment_method_id && parseFloat(p.amount) > 0);
@@ -661,31 +690,13 @@ const Ventas = () => {
       return;
     }
 
-    let paymentsToSend = [];
-    if (paymentOption === 'single') {
-      // Lógica para pago simple
-      if (selectedSinglePaymentType) {
-        let amount = 0;
-        const paymentMethodName = (selectedSinglePaymentType.method || selectedSinglePaymentType.nombre || '').toLowerCase();
-        if (paymentMethodName.includes('credito') || paymentMethodName.includes('crédito') || paymentMethodName.includes('cuenta corriente')) {
-          amount = totalFinal; // Para crédito, el monto es el total de la venta
-        } else {
-          amount = totalFinal; // Para otros métodos de pago (ej. efectivo), el monto registrado es el total de la venta, no el monto recibido.
-        }
-        paymentsToSend.push({
-          payment_method_id: selectedSinglePaymentType.id,
-          amount: amount
-        });
-      }
-    } else { // mixed payment
-      // Lógica para pago mixto
-      paymentsToSend = mixedPayments
-        .filter(p => p.payment_method_id && parseFloat(p.amount) > 0)
-        .map(p => ({
-          payment_method_id: p.payment_method_id,
-          amount: parseFloat(p.amount)
-        }));
-    }
+    const paymentsToSend = buildSalePayments({
+      paymentOption,
+      selectedSinglePaymentType,
+      totalFinal,
+      paymentBreakdown,
+      ivaActivo
+    });
 
     const userId = usuario?.id;
     if (!userId) {
@@ -775,7 +786,7 @@ const Ventas = () => {
     });
   }, [
     currentTicketId, currentComandaId, comandas, refetchComandas, tempTable, paymentOption, selectedSinglePaymentType, selectedCustomer,
-    totalFinal, mixedPayments, usuario, theme, subtotal,
+    totalFinal, paymentBreakdown, ivaActivo, usuario, theme, subtotal,
     descuentoAplicado, surchargeAmount, processedTempTable, isOnline, queryClient,
     clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
     mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets
@@ -797,16 +808,24 @@ const Ventas = () => {
         price: item.price,
         cost: item.cost
       })),
-      sale_payments: paymentOption === 'single'
-        ? [{ payment: { method: selectedSinglePaymentType?.method || selectedSinglePaymentType?.nombre || 'Efectivo' }, amount: totalFinal }]
-        : mixedPayments.map(p => {
-          const method = paymentMethods.find(pm => pm.id === p.payment_method_id);
-          return { payment: { method: method?.method || method?.nombre || 'Mixto' }, amount: p.amount };
-        })
+      sale_payments: buildSalePayments({
+        paymentOption,
+        selectedSinglePaymentType,
+        totalFinal,
+        paymentBreakdown,
+        ivaActivo
+      }).map(payment => {
+        const method = paymentMethods.find(pm => pm.id === payment.payment_method_id)
+          || (paymentOption === 'single' ? selectedSinglePaymentType : null);
+        return {
+          payment: { method: method?.method || method?.nombre || 'Desconocido' },
+          amount: payment.amount
+        };
+      })
     };
 
     printReceipt(previewSaleData, 'sale', selectedCustomer?.name || 'Consumidor Final', businessConfig, isThermal);
-  }, [tempTable, subtotal, totalFinal, surchargeAmount, descuentoAplicado, paymentOption, selectedSinglePaymentType, mixedPayments, paymentMethods, selectedCustomer, businessConfig]);
+  }, [tempTable, subtotal, totalFinal, surchargeAmount, descuentoAplicado, paymentOption, selectedSinglePaymentType, paymentBreakdown, ivaActivo, paymentMethods, selectedCustomer, businessConfig]);
 
   // Función para guardar/actualizar ticket pendiente
   const handleSavePendingTicket = useCallback(async (fromSummaryModal = false) => {
