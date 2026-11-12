@@ -1,4 +1,5 @@
 com.hugogoncalvez.possystem/
+.env_poli24
 mejoras.txt
 mi_cert.crt
 testPOS.csr
