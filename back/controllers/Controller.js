@@ -25,6 +25,32 @@ class ValidationError extends Error {
     }
 }
 
+const roundMoney = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+
+const normalizePurchaseItems = (items) => {
+    if (!Array.isArray(items) || items.length === 0) {
+        throw new ValidationError('La compra debe tener al menos un producto.');
+    }
+
+    return items.map((item) => {
+        const quantity = Number(item.totalPerUnits);
+        const unitCost = Number(item.costPerUnits);
+        const rawLineTotal = item.lineTotal ?? item.line_total;
+        const providedLineTotal = rawLineTotal === null || rawLineTotal === undefined || rawLineTotal === ''
+            ? null
+            : Number(rawLineTotal);
+        const lineTotal = providedLineTotal !== null && Number.isFinite(providedLineTotal) && providedLineTotal > 0
+            ? roundMoney(providedLineTotal)
+            : roundMoney(quantity * unitCost);
+
+        if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitCost) || unitCost < 0 || !Number.isFinite(lineTotal) || lineTotal <= 0) {
+            throw new ValidationError('Hay un ítem con cantidad o costo inválido.');
+        }
+
+        return { ...item, quantity, unitCost, lineTotal };
+    });
+};
+
 /**
  * @description Obtiene todos los permisos disponibles en el sistema.
  */
@@ -200,7 +226,7 @@ export const getReportSummary = async (req, res) => {
             total = result ? result.total : 0;
         } else if (reportType === 'purchasesSummary') {
             const result = await PurchasesDetailsModel.findOne({
-                attributes: [[db.fn('SUM', db.literal('`purchases_details`.`quantity` * `purchases_details`.`cost`')), 'total']],
+                attributes: [[db.fn('SUM', db.literal('COALESCE(`purchases_details`.`line_total`, `purchases_details`.`quantity` * `purchases_details`.`cost`)')), 'total']],
                 where: whereClause,
                 include: [
                     {
@@ -431,28 +457,35 @@ export const getPurchases = async (req, res) => {
 export const createFullPurchase = async (req, res) => {
     const transaction = await db.transaction();
     try {
-        const { createdAt, factura, supplier, cost, tempValues } = req.body;
+        const { createdAt, factura, supplier, tempValues } = req.body;
+
+        const normalizedItems = normalizePurchaseItems(tempValues);
+        const total = roundMoney(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0));
+        if (!Number.isFinite(total) || total <= 0) {
+            throw new ValidationError('El total de la compra debe ser mayor a cero.');
+        }
 
         // 1. Crear la cabecera de la compra
         const newPurchase = await PurchaseModel.create({
             createdAt,
             factura,
             supplier,
-            cost
+            cost: total
         }, { transaction });
 
         // 2. Preparar y crear los detalles de la compra
         const affectedStockIds = new Set();
 
-        for (const item of tempValues) {
-            const { stock_id, totalPerUnits, costPerUnits } = item;
+        for (const item of normalizedItems) {
+            const { stock_id, quantity, unitCost, lineTotal } = item;
 
             // Crear el detalle de la compra
             await PurchasesDetailsModel.create({
                 purchasesId: newPurchase.id,
                 stock_id,
-                quantity: totalPerUnits,
-                cost: costPerUnits,
+                quantity,
+                cost: unitCost,
+                line_total: lineTotal,
                 createdAt: newPurchase.createdAt, // Usar la fecha de la cabecera
                 updatedAt: newPurchase.createdAt  // Usar la fecha de la cabecera
             }, { transaction });
@@ -461,12 +494,12 @@ export const createFullPurchase = async (req, res) => {
             const stockItem = await StockModel.findByPk(stock_id, { transaction });
             if (stockItem) {
                 await stockItem.increment('stock', {
-                    by: totalPerUnits,
+                    by: quantity,
                     transaction
                 });
                 // Opcional: actualizar el costo del producto en stock
                 await stockItem.update({
-                    cost: costPerUnits
+                    cost: unitCost
                 }, { transaction });
                 affectedStockIds.add(stock_id);
             }
@@ -482,8 +515,8 @@ export const createFullPurchase = async (req, res) => {
             action: 'CREAR_COMPRA',
             entity_type: 'purchase',
             entity_id: newPurchase.id,
-            new_values: { factura, supplier, cost },
-            details: `Se creó la compra con factura ${factura} del proveedor ${supplier} por un total de ${cost}.`
+            new_values: { factura, supplier, cost: total },
+            details: `Se creó la compra con factura ${factura} del proveedor ${supplier} por un total de ${total}.`
         }, req);
 
         // 5. Devolver el objeto de la compra recién creada con sus detalles
@@ -503,9 +536,11 @@ export const createFullPurchase = async (req, res) => {
 
     } catch (error) {
         // 5. Si algo falló, revertir la transacción
-        await transaction.rollback();
+        if (!transaction.finished) {
+            await transaction.rollback();
+        }
         console.error("Error en createFullPurchase:", error);
-        res.status(500).json({ message: 'Error al registrar la compra: ' + error.message });
+        res.status(error.statusCode || 500).json({ message: 'Error al registrar la compra: ' + error.message });
     }
 };
 
@@ -565,7 +600,8 @@ export const getPurchaseDetails = async (req, res) => {
                 'purchasesId',
                 'stock_id',
                 'quantity',
-                'cost'
+                'cost',
+                'line_total'
             ],
             include: [
                 {
@@ -650,7 +686,9 @@ export const updatePurchase = async (req, res) => {
     const transaction = await db.transaction();
     try {
         const purchaseId = req.params.id;
-        const { createdAt, factura, supplier, cost, tempValues } = req.body;
+        const { createdAt, factura, supplier, tempValues } = req.body;
+        const normalizedItems = normalizePurchaseItems(tempValues);
+        const total = roundMoney(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0));
 
         // 1. Obtener detalles antiguos y crear un mapa para fácil acceso
         const oldDetails = await PurchasesDetailsModel.findAll({
@@ -660,7 +698,7 @@ export const updatePurchase = async (req, res) => {
         const oldDetailsMap = new Map(oldDetails.map(item => [item.stock_id, item.quantity]));
 
         // 2. Crear mapa de nuevos detalles y obtener todos los IDs de productos involucrados
-        const newDetailsMap = new Map(tempValues.map(item => [item.stock_id, item.totalPerUnits]));
+        const newDetailsMap = new Map(normalizedItems.map(item => [item.stock_id, item.quantity]));
         const allStockIds = new Set([...oldDetailsMap.keys(), ...newDetailsMap.keys()]);
         const changedStockIds = new Set();
 
@@ -675,9 +713,9 @@ export const updatePurchase = async (req, res) => {
                 if (stockItem) {
                     await stockItem.increment('stock', { by: diff, transaction });
                     // Opcional: Actualizar costo si es necesario (aquí se usa el costo del último item)
-                    const newItemData = tempValues.find(item => item.stock_id === stockId);
+                    const newItemData = normalizedItems.find(item => item.stock_id === stockId);
                     if (newItemData) {
-                        await stockItem.update({ cost: newItemData.costPerUnits }, { transaction });
+                        await stockItem.update({ cost: newItemData.unitCost }, { transaction });
                     }
                     changedStockIds.add(stockId);
                 }
@@ -689,7 +727,7 @@ export const updatePurchase = async (req, res) => {
             createdAt,
             factura,
             supplier,
-            cost
+            cost: total
         }, {
             where: { id: purchaseId },
             transaction
@@ -701,11 +739,12 @@ export const updatePurchase = async (req, res) => {
             transaction
         });
 
-        const detailsToCreate = tempValues.map(item => ({
+        const detailsToCreate = normalizedItems.map(item => ({
             purchasesId: purchaseId,
             stock_id: item.stock_id,
-            quantity: item.totalPerUnits,
-            cost: item.costPerUnits
+            quantity: item.quantity,
+            cost: item.unitCost,
+            line_total: item.lineTotal
         }));
 
         await PurchasesDetailsModel.bulkCreate(detailsToCreate, { transaction });
@@ -730,9 +769,11 @@ export const updatePurchase = async (req, res) => {
         res.status(200).json(finalPurchase);
 
     } catch (error) {
-        await transaction.rollback();
+        if (!transaction.finished) {
+            await transaction.rollback();
+        }
         console.error("Error en updatePurchase:", error);
-        res.status(500).json({ message: 'Error al actualizar la compra: ' + error.message });
+        res.status(error.statusCode || 500).json({ message: 'Error al actualizar la compra: ' + error.message });
     }
 };
 // no borrar
