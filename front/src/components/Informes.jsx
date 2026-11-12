@@ -354,7 +354,10 @@ const Informes = () => {
 
             const unitCost = parseFloat(isSale ? item.price : item.cost || 0);
             const quantity = parseFloat(item.quantity || 0);
-            const totalCost = unitCost * quantity;
+            const hasLineTotal = item.line_total !== null && item.line_total !== undefined && item.line_total !== '';
+            const lineTotal = !isSale && hasLineTotal
+                ? parseFloat(item.line_total)
+                : unitCost * quantity;
 
             return {
                 id: item.id,
@@ -366,8 +369,8 @@ const Informes = () => {
                     : (item.purchase?.supplier_name_snapshot || item.purchase?.supplierMaster?.nombre || 'N/A'),
                 type: isSale ? 'Venta/Egreso' : 'Ingreso',
                 quantity: quantity,
-                unit_cost: `$ ${unitCost.toFixed(2)}`,
-                total_cost: `$ ${totalCost.toFixed(2)}`,
+                unit_cost: `$ ${unitCost.toFixed(isSale ? 2 : 3)}`,
+                total_cost: `$ ${(Number.isFinite(lineTotal) ? lineTotal : unitCost * quantity).toFixed(2)}`,
             };
         });
     };

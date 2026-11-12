@@ -6,6 +6,7 @@ const PurchasesDetailsModel = db.define('purchases_details', {
     stock_id: { type: DataTypes.INTEGER },
     quantity: { type: DataTypes.DECIMAL(10, 3) },
     cost: { type: DataTypes.DECIMAL(10, 3) },
+    line_total: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
 }, {
     timestamps: true // Esto habilita los campos createdAt y updatedAt automáticamente
 });

@@ -62,6 +62,30 @@ const formatStockQuantity = (value) => {
 
 const roundMoney = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
+const normalizePurchaseItems = (items) => {
+    if (!Array.isArray(items) || items.length === 0) {
+        throw new ValidationError('La compra debe tener al menos un producto.');
+    }
+
+    return items.map((item) => {
+        const quantity = Number(item.totalPerUnits);
+        const unitCost = Number(item.costPerUnits);
+        const rawLineTotal = item.lineTotal ?? item.line_total;
+        const providedLineTotal = rawLineTotal === null || rawLineTotal === undefined || rawLineTotal === ''
+            ? null
+            : Number(rawLineTotal);
+        const lineTotal = providedLineTotal !== null && Number.isFinite(providedLineTotal) && providedLineTotal > 0
+            ? roundMoney(providedLineTotal)
+            : roundMoney(quantity * unitCost);
+
+        if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitCost) || unitCost < 0 || !Number.isFinite(lineTotal) || lineTotal <= 0) {
+            throw new ValidationError('Hay un ítem con cantidad o costo inválido.');
+        }
+
+        return { ...item, quantity, unitCost, lineTotal };
+    });
+};
+
 const normalizePaymentMethod = (value = 'efectivo') => {
     const normalized = String(value)
         .trim()
@@ -638,7 +662,7 @@ export const getReportSummary = async (req, res) => {
             total = result ? result.total : 0;
         } else if (reportType === 'purchasesSummary') {
             const result = await PurchasesDetailsModel.findOne({
-                attributes: [[db.fn('SUM', db.literal('`purchases_details`.`quantity` * `purchases_details`.`cost`')), 'total']],
+                attributes: [[db.fn('SUM', db.literal('COALESCE(`purchases_details`.`line_total`, `purchases_details`.`quantity` * `purchases_details`.`cost`)')), 'total']],
                 where: whereClause,
                 include: [
                     {
@@ -893,18 +917,14 @@ export const createFullPurchase = async (req, res) => {
             createdAt,
             factura,
             supplier_id,
-            cost,
             tempValues,
             payment_condition,
             initial_payments = [],
             cash_session_id
         } = req.body;
 
-        if (!Array.isArray(tempValues) || tempValues.length === 0) {
-            throw new ValidationError('La compra debe tener al menos un producto.');
-        }
-
-        const total = roundMoney(cost);
+        const normalizedItems = normalizePurchaseItems(tempValues);
+        const total = roundMoney(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0));
         if (!Number.isFinite(total) || total <= 0) {
             throw new ValidationError('El total de la compra debe ser mayor a cero.');
         }
@@ -962,14 +982,15 @@ export const createFullPurchase = async (req, res) => {
 
         const affectedStockIds = new Set();
 
-        for (const item of tempValues) {
-            const { stock_id, totalPerUnits, costPerUnits } = item;
+        for (const item of normalizedItems) {
+            const { stock_id, quantity, unitCost, lineTotal } = item;
 
             await PurchasesDetailsModel.create({
                 purchasesId: newPurchase.id,
                 stock_id,
-                quantity: totalPerUnits,
-                cost: costPerUnits,
+                quantity,
+                cost: unitCost,
+                line_total: lineTotal,
                 createdAt: newPurchase.createdAt,
                 updatedAt: newPurchase.createdAt
             }, { transaction });
@@ -977,11 +998,11 @@ export const createFullPurchase = async (req, res) => {
             const stockItem = await StockModel.findByPk(stock_id, { transaction });
             if (stockItem) {
                 await stockItem.increment('stock', {
-                    by: totalPerUnits,
+                    by: quantity,
                     transaction
                 });
                 await stockItem.update({
-                    cost: costPerUnits
+                    cost: unitCost
                 }, { transaction });
                 affectedStockIds.add(stock_id);
             }
@@ -1105,7 +1126,8 @@ export const getPurchaseDetails = async (req, res) => {
                 'purchasesId',
                 'stock_id',
                 'quantity',
-                'cost'
+                'cost',
+                'line_total'
             ],
             include: [
                 {
@@ -1205,8 +1227,9 @@ export const updatePurchase = async (req, res) => {
     const transaction = await db.transaction();
     try {
         const purchaseId = req.params.id;
-        const { createdAt, factura, supplier_id, cost, tempValues } = req.body;
-        const total = roundMoney(cost);
+        const { createdAt, factura, supplier_id, tempValues } = req.body;
+        const normalizedItems = normalizePurchaseItems(tempValues);
+        const total = roundMoney(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0));
 
         const currentPurchase = await PurchaseModel.findByPk(purchaseId, { transaction });
         if (!currentPurchase) {
@@ -1251,7 +1274,7 @@ export const updatePurchase = async (req, res) => {
         const oldDetailsMap = new Map(oldDetails.map(item => [item.stock_id, item.quantity]));
 
         // 2. Crear mapa de nuevos detalles y obtener todos los IDs de productos involucrados
-        const newDetailsMap = new Map(tempValues.map(item => [item.stock_id, item.totalPerUnits]));
+        const newDetailsMap = new Map(normalizedItems.map(item => [item.stock_id, item.quantity]));
         const allStockIds = new Set([...oldDetailsMap.keys(), ...newDetailsMap.keys()]);
         const changedStockIds = new Set();
 
@@ -1266,9 +1289,9 @@ export const updatePurchase = async (req, res) => {
                 if (stockItem) {
                     await stockItem.increment('stock', { by: diff, transaction });
                     // Opcional: Actualizar costo si es necesario (aquí se usa el costo del último item)
-                    const newItemData = tempValues.find(item => item.stock_id === stockId);
+                    const newItemData = normalizedItems.find(item => item.stock_id === stockId);
                     if (newItemData) {
-                        await stockItem.update({ cost: newItemData.costPerUnits }, { transaction });
+                        await stockItem.update({ cost: newItemData.unitCost }, { transaction });
                     }
                     changedStockIds.add(stockId);
                 }
@@ -1297,11 +1320,12 @@ export const updatePurchase = async (req, res) => {
             transaction
         });
 
-        const detailsToCreate = tempValues.map(item => ({
+        const detailsToCreate = normalizedItems.map(item => ({
             purchasesId: purchaseId,
             stock_id: item.stock_id,
-            quantity: item.totalPerUnits,
-            cost: item.costPerUnits
+            quantity: item.quantity,
+            cost: item.unitCost,
+            line_total: item.lineTotal
         }));
 
         await PurchasesDetailsModel.bulkCreate(detailsToCreate, { transaction });

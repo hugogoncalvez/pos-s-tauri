@@ -361,6 +361,10 @@ const PurchasesManager = () => {
             setInitialPayment({ amount: '', payment_method: 'efectivo', affect_cash: true });
             setTempItems(purchase.details.map(detail => {
                 const product = detail.stock; // The backend now sends the necessary stock info
+                const hasLineTotal = detail.line_total !== null && detail.line_total !== undefined && detail.line_total !== '';
+                const lineTotal = hasLineTotal
+                    ? parseFloat(detail.line_total)
+                    : parseFloat(detail.cost || 0) * parseFloat(detail.quantity || 0);
 
                 return {
                     stock_id: detail.stock_id,
@@ -368,7 +372,7 @@ const PurchasesManager = () => {
                     description: product.description,
                     units_id: product.units_id, // Store necessary fields
                     tipo_venta: product.tipo_venta, // Store necessary fields
-                    cost: detail.cost * detail.quantity, // Costo total del item
+                    cost: Number.isFinite(lineTotal) ? lineTotal : 0,
                     costPerUnits: detail.cost, // Costo por unidad
                     quantity: parseFloat(detail.quantity),
                     totalPerUnits: parseFloat(detail.quantity)
@@ -394,14 +398,21 @@ const PurchasesManager = () => {
 
     const handleShowDetails = (purchase) => {
         setSelectedPurchase(purchase);
-        const formattedDetails = purchase.details.map(detail => ({
-            id: detail.id,
-            producto: detail.stock.name,
-            description: detail.stock.description,
-            cantidad: detail.quantity,
-            precio: formatCurrency(detail.cost),
-            total: formatCurrency(detail.cost * detail.quantity),
-        }));
+        const formattedDetails = purchase.details.map(detail => {
+            const hasLineTotal = detail.line_total !== null && detail.line_total !== undefined && detail.line_total !== '';
+            const lineTotal = hasLineTotal
+                ? parseFloat(detail.line_total)
+                : parseFloat(detail.cost || 0) * parseFloat(detail.quantity || 0);
+
+            return {
+                id: detail.id,
+                producto: detail.stock.name,
+                description: detail.stock.description,
+                cantidad: detail.quantity,
+                precio: formatCurrency(detail.cost, 3),
+                total: formatCurrency(Number.isFinite(lineTotal) ? lineTotal : 0),
+            };
+        });
         setSelectedPurchaseDetails(formattedDetails);
         setDetailsModalOpen(true);
     };
@@ -499,8 +510,8 @@ const PurchasesManager = () => {
             return;
         }
 
-        // Calcular el costo total del item antes de añadirlo
-        processedItemValues.cost = processedItemValues.totalPerUnits * parseFloat(processedItemValues.costPerUnits || 0);
+        // Conservar el total exacto ingresado por el usuario
+        processedItemValues.cost = parseFloat(processedItemValues.cost);
 
         // Usar los valores procesados para crear el nuevo item
         const newItem = { ...processedItemValues, name: selectedProduct.name, description: selectedProduct.description };
@@ -605,7 +616,8 @@ const PurchasesManager = () => {
             tempValues: tempItems.map(item => ({
                 stock_id: item.stock_id,
                 totalPerUnits: item.totalPerUnits,
-                costPerUnits: parseFloat(item.costPerUnits)
+                costPerUnits: parseFloat(item.costPerUnits),
+                lineTotal: parseFloat(item.cost)
             }))
         };
 
@@ -684,10 +696,15 @@ const PurchasesManager = () => {
 
     const visibleColumns = useMemo(() => allColumns.filter(col => columnVisibility[col.id]), [allColumns, columnVisibility]);
 
-    const formatCurrency = (value) => {
+    const formatCurrency = (value, decimals = 2) => {
         const num = parseFloat(value);
         if (isNaN(num)) return '';
-        return num.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+        return num.toLocaleString('es-AR', {
+            style: 'currency',
+            currency: 'ARS',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
     };
 
     const formatQuantity = (value, decimals = 2) => {
@@ -984,7 +1001,7 @@ const PurchasesManager = () => {
                                     onClear={() => handleItemInputChange({ target: { name: 'cost', value: '' } })}
                                 />
                             </Grid>
-                            <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Costo/Unidad" type='text' name='costPerUnits' value={formatCurrency(itemValues.costPerUnits) || ''} InputProps={{ readOnly: true }} /></Grid>
+                            <Grid xs={6} md={3} lg={2}><StyledTextField fullWidth label="Costo/Unidad" type='text' name='costPerUnits' value={formatCurrency(itemValues.costPerUnits, 3) || ''} InputProps={{ readOnly: true }} /></Grid>
                             <Grid xs={12} md={2} sx={{ display: 'flex', alignItems: 'center' }}><StyledButton fullWidth variant="outlined" onClick={handleAddItem} startIcon={<PlaylistAddIcon />}>{editingItemIndex !== null ? 'Actualizar' : 'Agregar'}</StyledButton></Grid>
                         </Grid>
                         {tempItems.length > 0 && (
