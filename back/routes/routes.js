@@ -2,7 +2,7 @@ import express from "express";
 import multer from 'multer';
 import { verificarSesion } from "../middleware/auth.js";
 import checkPermission from '../middleware/checkPermission.js';
-import { getSupplierQuotes, getSupplierQuote, createSupplierQuote, updateSupplierQuote, receiveSupplierQuote, convertSupplierQuoteToOrder, voidSupplierQuote } from '../controllers/supplierQuoteController.js';
+import { getSupplierQuotes, getSupplierQuote, createSupplierQuote, updateSupplierQuote, receiveSupplierQuote, convertSupplierQuoteToOrder, duplicateSupplierQuote, voidSupplierQuote } from '../controllers/supplierQuoteController.js';
 
 import {
     // ... (all existing controllers)
@@ -240,6 +240,7 @@ authenticatedRouter.post('/supplier-quotes', checkPermission('accion_crear_cotiz
 authenticatedRouter.put('/supplier-quotes/:id', checkPermission('accion_editar_cotizacion_proveedor'), updateSupplierQuote);
 authenticatedRouter.post('/supplier-quotes/:id/receive', checkPermission('accion_recibir_cotizacion_proveedor'), receiveSupplierQuote);
 authenticatedRouter.post('/supplier-quotes/:id/convert-to-order', checkPermission('accion_convertir_cotizacion_proveedor'), convertSupplierQuoteToOrder);
+authenticatedRouter.post('/supplier-quotes/:id/duplicate', checkPermission(['accion_duplicar_cotizacion_proveedor', 'accion_crear_cotizacion_proveedor']), duplicateSupplierQuote);
 authenticatedRouter.delete('/supplier-quotes/:id', checkPermission('accion_anular_cotizacion_proveedor'), voidSupplierQuote);
 
 // --- RUTAS DE AUDITORÍA ---

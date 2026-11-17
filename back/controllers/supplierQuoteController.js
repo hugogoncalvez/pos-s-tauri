@@ -489,6 +489,104 @@ export const convertSupplierQuoteToOrder = async (req, res) => {
     }
 };
 
+export const duplicateSupplierQuote = async (req, res) => {
+    const transaction = await db.transaction();
+    try {
+        const sourceQuote = await SupplierQuoteModel.findByPk(req.params.id, {
+            transaction,
+            include: [{
+                model: SupplierQuoteDetailModel,
+                as: 'details',
+                order: [['orden', 'ASC']]
+            }]
+        });
+        if (!sourceQuote) throw new ValidationError('Cotización origen no encontrada', 404);
+
+        const targetSupplierId = req.body?.supplier_id;
+        if (!targetSupplierId) throw new ValidationError('Debe seleccionar el proveedor destino.');
+        if (Number(targetSupplierId) === Number(sourceQuote.supplier_id)) {
+            throw new ValidationError('El proveedor destino debe ser diferente al de la cotización original.');
+        }
+
+        const targetSupplier = await SupplierModel.findByPk(targetSupplierId, { transaction });
+        if (!targetSupplier) throw new ValidationError('Proveedor destino no encontrado', 404);
+        if (!targetSupplier.activo) throw new ValidationError('No se pueden crear cotizaciones para un proveedor inactivo.');
+
+        // Obtener siguiente número correlativo
+        await SupplierQuoteCounterModel.findOrCreate({
+            where: { id: 1 },
+            defaults: { ultimo_numero: 0 },
+            transaction
+        });
+        const counter = await SupplierQuoteCounterModel.findByPk(1, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        if (!counter) throw new ValidationError('No se pudo obtener el correlativo de cotizaciones.');
+
+        const numero = Number(counter.ultimo_numero || 0) + 1;
+        const sourceNumber = getQuoteNumber(sourceQuote);
+
+        const today = new Date();
+        const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+        const newQuote = await SupplierQuoteModel.create({
+            numero,
+            fecha: localDate,
+            supplier_id: targetSupplier.id,
+            rubro: sourceQuote.rubro,
+            tipo: sourceQuote.tipo || 'MATERIALES',
+            estado: 'solicitada',
+            total: 0,
+            notas: [sourceQuote.notas, `Duplicada de ${sourceNumber}.`].filter(Boolean).join('\n'),
+            created_by: req.usuario?.nombre || req.usuario?.username || 'Sistema',
+            created_by_id: req.usuario?.id || null
+        }, { transaction });
+
+        // Duplicar detalles SIN precios (cada proveedor cotiza diferente)
+        const sourceDetails = sourceQuote.details || [];
+        if (sourceDetails.length > 0) {
+            await SupplierQuoteDetailModel.bulkCreate(
+                sourceDetails.map((detail, index) => ({
+                    supplier_quote_id: newQuote.id,
+                    stock_id: detail.stock_id,
+                    units_id: detail.units_id,
+                    cantidad: detail.cantidad,
+                    unidad: detail.unidad,
+                    detalle: detail.detalle,
+                    precio_unitario: null,
+                    importe: null,
+                    orden: index + 1
+                })),
+                { transaction }
+            );
+        }
+
+        await counter.update({ ultimo_numero: numero }, { transaction });
+
+        await logAudit({
+            user_id: req.usuario.id,
+            action: 'DUPLICAR_COTIZACION_PROVEEDOR',
+            entity_type: 'supplier_quote',
+            entity_id: newQuote.id,
+            new_values: {
+                source_quote_id: sourceQuote.id,
+                source_numero: sourceQuote.numero,
+                target_supplier_id: targetSupplier.id,
+                items: sourceDetails.length
+            },
+            details: `Se duplicó la cotización ${sourceNumber} del proveedor original al proveedor ${targetSupplier.nombre} como ${getQuoteNumber(newQuote)} con ${sourceDetails.length} ítems.`
+        }, req, transaction);
+
+        await transaction.commit();
+        res.status(201).json(await getQuoteById(newQuote.id));
+    } catch (error) {
+        if (!transaction.finished) await transaction.rollback();
+        console.error('Error al duplicar cotización de proveedor:', error);
+        res.status(error.statusCode || 500).json({ message: 'Error al duplicar la cotización: ' + error.message });
+    }
+};
+
 export const voidSupplierQuote = async (req, res) => {
     const transaction = await db.transaction();
     try {

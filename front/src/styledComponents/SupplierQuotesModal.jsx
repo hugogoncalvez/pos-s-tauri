@@ -28,6 +28,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import PrintIcon from '@mui/icons-material/Print';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { StyledDialog } from './ui/StyledDialog';
 import { StyledButton } from './ui/StyledButton';
 import { TextFieldWithClear } from './ui/TextFieldWithClear';
@@ -119,6 +120,8 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
     const [error, setError] = useState('');
     const [conversionQuote, setConversionQuote] = useState(null);
     const [selectedDetails, setSelectedDetails] = useState([]);
+    const [duplicateQuote, setDuplicateQuote] = useState(null);
+    const [targetSupplier, setTargetSupplier] = useState(null);
 
     const { mutateAsync, isPending } = useSubmit('supplierQuote');
 
@@ -126,6 +129,12 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
         ['supplierQuotes', supplier?.id],
         `/supplier-quotes?supplier_id=${supplier?.id || ''}&limit=100`,
         Boolean(open && supplier?.id),
+        0
+    );
+    const { data: activeSuppliersData } = UseFetchQuery(
+        ['allActiveSuppliers'],
+        '/suppliers?activo=true',
+        Boolean(open),
         0
     );
     const { data: products } = UseFetchQuery(
@@ -146,6 +155,10 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
     const canEditPrices = editing?.estado === 'recibida';
     const productList = useMemo(() => products || [], [products]);
     const unitList = useMemo(() => units || [], [units]);
+    const availableSuppliers = useMemo(() => {
+        const list = Array.isArray(activeSuppliersData) ? activeSuppliersData : (activeSuppliersData?.rows || []);
+        return list.filter(item => Number(item.id) !== Number(supplier?.id));
+    }, [activeSuppliersData, supplier?.id]);
 
     const lineAllowsDecimal = (line) => {
         const unit = unitList.find(item => Number(item.id) === Number(line.units_id));
@@ -169,6 +182,8 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
         setError('');
         setConversionQuote(null);
         setSelectedDetails([]);
+        setDuplicateQuote(null);
+        setTargetSupplier(null);
         setHeader({ fecha: todayLocal(), rubro: '', tipo: 'MATERIALES', notas: '' });
         setLines([emptyLine()]);
     }, [open, supplier?.id]);
@@ -356,6 +371,31 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
         }
     };
 
+    const openDuplicate = (quote) => {
+        setDuplicateQuote(quote);
+        setTargetSupplier(null);
+    };
+
+    const handleDuplicate = async () => {
+        if (!duplicateQuote) return;
+        if (!targetSupplier) return mostrarError('Seleccioná el proveedor destino.', theme);
+        try {
+            await mutateAsync({
+                url: `/supplier-quotes/${duplicateQuote.id}/duplicate`,
+                method: 'post',
+                values: { supplier_id: targetSupplier.id },
+                showSuccessAlert: false
+            });
+            mostrarExito(`Cotización duplicada con éxito para ${targetSupplier.nombre}.`, theme);
+            setDuplicateQuote(null);
+            setTargetSupplier(null);
+            await refetch();
+            onChanged?.();
+        } catch {
+            return;
+        }
+    };
+
     const renderList = () => (
         <>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2, flexWrap: 'wrap' }}>
@@ -392,6 +432,13 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
                                     <TableCell align="right">{formatMoney(quote.total)}</TableCell>
                                     <TableCell align="center">
                                         <Tooltip title="Imprimir / PDF"><IconButton size="small" color="primary" onClick={() => handlePrint(quote)}><PrintIcon fontSize="small" /></IconButton></Tooltip>
+                                        {quote.estado !== 'anulada' && (tienePermiso('accion_duplicar_cotizacion_proveedor') || tienePermiso('accion_crear_cotizacion_proveedor')) && (
+                                            <Tooltip title="Duplicar para otro proveedor">
+                                                <IconButton size="small" color="secondary" onClick={() => openDuplicate(quote)}>
+                                                    <ContentCopyIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
                                         {(quote.estado === 'solicitada' || quote.estado === 'recibida') && tienePermiso('accion_editar_cotizacion_proveedor') && (
                                             <Tooltip title="Editar"><IconButton size="small" onClick={() => startEditQuote(quote)}><EditIcon fontSize="small" /></IconButton></Tooltip>
                                         )}
@@ -527,6 +574,44 @@ export const SupplierQuotesModal = ({ open, onClose, supplier, onChanged }) => {
                 <DialogActions>
                     <StyledButton variant="outlined" onClick={() => setConversionQuote(null)}>Cancelar</StyledButton>
                     <StyledButton variant="contained" onClick={handleConvert} disabled={isPending || !selectedDetails.length}>Generar pedido</StyledButton>
+                </DialogActions>
+            </StyledDialog>
+
+            <StyledDialog open={Boolean(duplicateQuote)} onClose={() => setDuplicateQuote(null)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    Duplicar cotización
+                    <IconButton onClick={() => setDuplicateQuote(null)}><CloseIcon color="error" /></IconButton>
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Se creará una nueva cotización en estado <strong>Solicitada</strong> con los mismos ítems y cantidades para el proveedor que selecciones.
+                    </Typography>
+                    <Box sx={{ p: 1.5, mb: 2, borderRadius: 1, backgroundColor: 'action.hover' }}>
+                        <Typography variant="body2"><strong>Cotización origen:</strong> {quoteNumber(duplicateQuote)}</Typography>
+                        <Typography variant="body2"><strong>Proveedor actual:</strong> {supplier?.nombre}</Typography>
+                        {duplicateQuote?.rubro && <Typography variant="body2"><strong>Rubro:</strong> {duplicateQuote.rubro}</Typography>}
+                    </Box>
+                    <Autocomplete
+                        options={availableSuppliers}
+                        getOptionLabel={(option) => `${option.nombre}${option.cuit ? ` (${option.cuit})` : ''}`}
+                        value={targetSupplier}
+                        onChange={(_, value) => setTargetSupplier(value)}
+                        isOptionEqualToValue={(option, value) => option.id === value?.id}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Proveedor destino *"
+                                size="small"
+                                placeholder="Buscar proveedor..."
+                            />
+                        )}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <StyledButton variant="outlined" onClick={() => setDuplicateQuote(null)}>Cancelar</StyledButton>
+                    <StyledButton variant="contained" onClick={handleDuplicate} disabled={isPending || !targetSupplier}>
+                        Duplicar cotización
+                    </StyledButton>
                 </DialogActions>
             </StyledDialog>
         </>

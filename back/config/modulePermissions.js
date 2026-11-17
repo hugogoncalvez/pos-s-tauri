@@ -97,7 +97,8 @@ const modulePermissions = {
       'accion_editar_cotizacion_proveedor',
       'accion_recibir_cotizacion_proveedor',
       'accion_convertir_cotizacion_proveedor',
-      'accion_anular_cotizacion_proveedor'
+      'accion_anular_cotizacion_proveedor',
+      'accion_duplicar_cotizacion_proveedor'
     ]
   },
   DashBoard: {

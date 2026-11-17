@@ -1,0 +1,9 @@
+# Produccion - TiDB Cloud (Poli24)
+DB_NAME=poli24
+DB_USER=2TobxbWiZDTaYMh.root
+DB_PASSWORD=J28nAIK08wZ09Fqa
+DB_HOST=gateway01.sa-east-1.prod.aws.tidbcloud.com
+DB_PORT=4000
+DB_SSL=true
+DB_SSL_CA=/home/hugo/01-Proyectos/pos-s-tauri/back/certs/isrgrootx1.pem
+SESSION_SECRET='f8a9b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9'
