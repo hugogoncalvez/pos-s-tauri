@@ -1,4 +1,5 @@
 com.hugogoncalvez.possystem/
+.env-elCorralon
 .env.poli.local
 .env_poli24
 .env_corralon
