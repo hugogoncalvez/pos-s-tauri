@@ -68,6 +68,14 @@ const CustomersModel = db.define('customer', {
             min: 0
         }
     },
+    credit_balance: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: false,
+        defaultValue: 0.00,
+        validate: {
+            min: 0
+        }
+    },
 }, {
     timestamps: true,
     tableName: 'customers',

@@ -11,7 +11,10 @@ const modulePermissions = {
       // Acciones de venta
       'accion_crear_venta',
       'accion_cancelar_venta',
-      'accion_aplicar_descuento'
+      'accion_aplicar_descuento',
+      'ver_notas_credito',
+      'accion_crear_nota_credito',
+      'accion_anular_nota_credito'
     ]
   },
   Presupuestos: {

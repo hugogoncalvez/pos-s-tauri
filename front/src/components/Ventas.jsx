@@ -70,6 +70,13 @@ const productAllowsDecimalQuantity = (product) => {
   return product?.tipo_venta === 'pesable' || DECIMAL_UNIT_NAMES.has(unitName);
 };
 
+const isCreditBalanceMethod = (method) => {
+    const flag = method?.is_credit_balance;
+    if (flag === true || Number(flag) === 1) return true;
+    const name = (method?.method || method?.nombre || '').trim().toLowerCase();
+    return name.includes('saldo a favor');
+};
+
 /**
  * Calcula los totales, recargos y saldos para una venta con pagos mixtos,
  * utilizando una lógica de cálculo directo para los recargos.
@@ -264,6 +271,11 @@ const Ventas = () => {
     () => (quoteConversion ? tempTable : applyPromotions(tempTable, promotions)),
     [tempTable, promotions, quoteConversion]
   );
+
+  const availableCreditBalance = useMemo(() => {
+    const value = Number(selectedCustomer?.credit_balance);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }, [selectedCustomer]);
 
   // Función helper para enfocar el campo de código de barras (NO es useCallback)
   const focusBarcodeInput = () => {
@@ -570,8 +582,25 @@ const Ventas = () => {
       return 'No se puede otorgar crédito al Consumidor Final.';
     }
 
+    const creditBalanceTotal = validPayments.reduce((sum, p) => {
+      const method = paymentMethods?.find(pm => pm.id === p.payment_method_id);
+      return isCreditBalanceMethod(method) ? sum + (parseFloat(p.amount) || 0) : sum;
+    }, 0);
+
+    if (creditBalanceTotal > 0) {
+      if (Number(selectedCustomer?.id) === 1) {
+        return 'No se puede aplicar saldo a favor al Consumidor Final.';
+      }
+      if (!isOnline) {
+        return 'El saldo a favor solo puede usarse con conexión.';
+      }
+      if (creditBalanceTotal > availableCreditBalance + 0.001) {
+        return `Saldo a favor insuficiente: disponible $${availableCreditBalance.toFixed(2)}.`;
+      }
+    }
+
     return true;
-  }, [mixedPayments, subtotal, descuento, paymentMethods, selectedCustomer]);
+  }, [mixedPayments, subtotal, descuento, paymentMethods, selectedCustomer, availableCreditBalance, isOnline]);
 
   const handleSaveSale = useCallback(async () => {
     const ticketIdToDelete = currentTicketId;
@@ -607,10 +636,37 @@ const Ventas = () => {
       // Lógica para pago mixto
       paymentsToSend = mixedPayments
         .filter(p => p.payment_method_id && parseFloat(p.amount) > 0)
-        .map(p => ({
-          payment_method_id: p.payment_method_id,
-          amount: parseFloat(p.amount)
-        }));
+        .map(p => {
+          const method = paymentMethods?.find(pm => pm.id === p.payment_method_id);
+          const baseAmount = parseFloat(p.amount);
+          const surchargeRate = method?.surcharge_active
+            ? (parseFloat(method.surcharge_percentage) || 0) / 100
+            : 0;
+          return {
+            payment_method_id: p.payment_method_id,
+            amount: Number((baseAmount * (1 + surchargeRate)).toFixed(2))
+          };
+        });
+    }
+
+    const requestedCreditBalance = paymentsToSend.reduce((sum, payment) => {
+      const method = paymentMethods?.find(pm => pm.id === payment.payment_method_id);
+      return isCreditBalanceMethod(method) ? sum + (Number(payment.amount) || 0) : sum;
+    }, 0);
+
+    if (requestedCreditBalance > 0) {
+      if (!isOnline) {
+        setSummaryError('El saldo a favor solo puede usarse con conexión.');
+        return;
+      }
+      if (Number(selectedCustomer?.id) === 1) {
+        setSummaryError('No se puede aplicar saldo a favor al Consumidor Final.');
+        return;
+      }
+      if (requestedCreditBalance > availableCreditBalance + 0.001) {
+        setSummaryError(`Saldo a favor insuficiente: disponible $${availableCreditBalance.toFixed(2)}.`);
+        return;
+      }
     }
 
     const userId = usuario?.id;
@@ -669,6 +725,7 @@ const Ventas = () => {
 
         clearSaleState();
         setIsSummaryModalOpen(false);
+        queryClient.invalidateQueries({ queryKey: ['customers'] });
         if (convertedQuoteId) {
           queryClient.invalidateQueries({ queryKey: ['quotes'] });
         }
@@ -695,7 +752,8 @@ const Ventas = () => {
     totalFinal, mixedPayments, usuario, theme, subtotal,
     descuentoAplicado, surchargeAmount, processedTempTable, isOnline, queryClient,
     quoteConversion, clearSaleState, setIsSummaryModalOpen, reStock, setSaleCompletedId,
-    mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets
+    mostrarError, mostrarInfo, inputRefCodigoBarra, createSale, pendingTickets,
+    paymentMethods, availableCreditBalance
   ]);
 
   const handlePrintPreview = useCallback((isThermal = true) => {
@@ -958,6 +1016,13 @@ const Ventas = () => {
 
       const paymentMethodName = (selectedSinglePaymentType.method || selectedSinglePaymentType.nombre || '').toLowerCase();
 
+      if (isCreditBalanceMethod(selectedSinglePaymentType)) {
+        if (!isOnline || Number(selectedCustomer?.id) === 1) {
+          return true;
+        }
+        return totalFinal <= 0 || totalFinal > availableCreditBalance + 0.001;
+      }
+
       // Si es crédito, la validación del cliente se hará al hacer clic.
       // Aquí, el botón debe estar habilitado.
       if (paymentMethodName.includes('credito')) {
@@ -977,7 +1042,10 @@ const Ventas = () => {
     selectedSinglePaymentType,
     amountReceived,
     totalFinal,
-    validateMixedPayments
+    validateMixedPayments,
+    isOnline,
+    selectedCustomer,
+    availableCreditBalance
   ]);
 
   // Efecto para atajos de teclado globales (versión 7 - keydown con preventDefault inmediato)
@@ -1157,7 +1225,9 @@ const Ventas = () => {
     if (isSummaryModalOpen && paymentOption === 'single') {
       const paymentMethodName = (selectedSinglePaymentType?.method || selectedSinglePaymentType?.nombre || '').toLowerCase();
 
-      if (paymentMethodName.includes('credito')) {
+      if (isCreditBalanceMethod(selectedSinglePaymentType)) {
+        setAmountReceived('0');
+      } else if (paymentMethodName.includes('credito')) {
         setAmountReceived('0'); // Establecer a 0 para crédito, ya que no se recibe monto
       } else if (paymentMethodName.includes('efectivo')) {
         setAmountReceived(''); // Limpiar para efectivo, el usuario ingresará el monto
@@ -1227,7 +1297,17 @@ const Ventas = () => {
   useEffect(() => {
     if (isSummaryModalOpen && paymentOption === 'single') {
       const paymentMethodName = (selectedSinglePaymentType?.method || selectedSinglePaymentType?.nombre || '').toLowerCase();
-      if (paymentMethodName.includes('credito') && selectedCustomer?.id === 1) {
+      if (isCreditBalanceMethod(selectedSinglePaymentType)) {
+        if (!isOnline) {
+          setSummaryError('El saldo a favor solo puede usarse con conexión.');
+        } else if (Number(selectedCustomer?.id) === 1) {
+          setSummaryError('No se puede aplicar saldo a favor al Consumidor Final. Por favor, seleccione un cliente válido.');
+        } else if (totalFinal > availableCreditBalance + 0.001) {
+          setSummaryError(`Saldo a favor insuficiente. Disponible: $${availableCreditBalance.toFixed(2)}.`);
+        } else {
+          setSummaryError('');
+        }
+      } else if (paymentMethodName.includes('credito') && selectedCustomer?.id === 1) {
         setSummaryError('No se puede otorgar crédito al Consumidor Final. Por favor, seleccione un cliente válido.');
       } else {
         setSummaryError(''); // Limpiar error si la combinación es válida
@@ -1235,7 +1315,7 @@ const Ventas = () => {
     } else {
       setSummaryError(''); // Limpiar error si el modal está cerrado o es pago mixto
     }
-  }, [isSummaryModalOpen, paymentOption, selectedSinglePaymentType, selectedCustomer]);
+  }, [isSummaryModalOpen, paymentOption, selectedSinglePaymentType, selectedCustomer, isOnline, totalFinal, availableCreditBalance]);
 
   const deletingItemTempTable = (temp_id) => {
     const setFocus = () => {

@@ -24,7 +24,8 @@ import {
     Stack,
     InputAdornment,
     Pagination,
-    Avatar
+    Avatar,
+    Chip
 } from '@mui/material';
 import { StyledDialog } from '../styledComponents/ui/StyledDialog';
 import { StyledTextField } from '../styledComponents/ui/StyledTextField';
@@ -46,9 +47,12 @@ import {
     Print as PrintIcon,
     Close as CloseIcon,
     Receipt as ReceiptIcon,
+    AssignmentReturn as ReturnIcon,
     KeyboardArrowDown,
     People
 } from '@mui/icons-material';
+import { CreditNoteModal } from '../styledComponents/CreditNoteModal';
+import { CustomerCreditNotesModal } from '../styledComponents/CustomerCreditNotesModal';
 import { motion } from 'framer-motion';
 import { EnhancedTable } from '../styledComponents/EnhancedTable'; // Added
 import { MyFab } from '../styledComponents/MyFab';
@@ -150,6 +154,15 @@ const Customers = () => {
     });
     const [openCajaManager, setOpenCajaManager] = useState(false); // Added
     const [searchInput, setSearchInput] = useState(search);
+    const [openCreditNoteModal, setOpenCreditNoteModal] = useState(false);
+    const [openCustomerCreditNotesModal, setOpenCustomerCreditNotesModal] = useState(false);
+    const [creditNoteSaleId, setCreditNoteSaleId] = useState(null);
+
+    const handleOpenCreditNote = (sale) => {
+        if (!sale?.id) return;
+        setCreditNoteSaleId(sale.id);
+        setOpenCreditNoteModal(true);
+    };
 
     useEffect(() => {
         const handler = setTimeout(() => {
@@ -255,6 +268,19 @@ const Customers = () => {
             cellStyle: (row) => {
                 const debtValue = parseFloat(row?.debt || 0);
                 return { color: debtValue > 0 ? 'error.main' : 'success.main' };
+            },
+            align: 'center'
+        },
+        {
+            id: 'credit_balance',
+            label: 'Saldo a Favor',
+            valueGetter: ({ row }) => formatCurrency(row?.credit_balance || 0),
+            cellStyle: (row) => {
+                const balanceValue = parseFloat(row?.credit_balance || 0);
+                return {
+                    color: balanceValue > 0 ? 'success.main' : 'text.secondary',
+                    fontWeight: balanceValue > 0 ? 700 : 400
+                };
             },
             align: 'center'
         },
@@ -749,11 +775,34 @@ const Customers = () => {
                         onExited: () => { }
                     }}
                 >
-                    <DialogTitle id="history-dialog-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
-                        Historial - {selectedCustomer?.name}
-                        <IconButton onClick={() => { setOpenHistoryDialog(false); }}>
-                            <CloseIcon color="error" />
-                        </IconButton>
+                    <DialogTitle id="history-dialog-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary', flexWrap: 'wrap', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Typography variant="h6" fontWeight={700}>
+                                Historial - {selectedCustomer?.name}
+                            </Typography>
+                            {parseFloat(selectedCustomer?.credit_balance || 0) > 0 && (
+                                <Chip
+                                    size="small"
+                                    color="success"
+                                    label={`Saldo a favor: ${formatCurrency(selectedCustomer.credit_balance)}`}
+                                    sx={{ fontWeight: 700 }}
+                                />
+                            )}
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <StyledButton
+                                size="small"
+                                variant="contained"
+                                color="warning"
+                                startIcon={<ReceiptIcon />}
+                                onClick={() => setOpenCustomerCreditNotesModal(true)}
+                            >
+                                Ver Notas de Crédito
+                            </StyledButton>
+                            <IconButton onClick={() => { setOpenHistoryDialog(false); }}>
+                                <CloseIcon color="error" />
+                            </IconButton>
+                        </Box>
                     </DialogTitle>
                     <DialogContent id="history-dialog-description">
                         <Box sx={{ pt: 2, width: '100%', minWidth: 0 }}>
@@ -763,10 +812,12 @@ const Customers = () => {
                                     <StyledCard variant="outlined" sx={{ height: 'fit-content', minHeight: '500px' }}>
                                         <CardContent>
                                             <Typography variant="h6" gutterBottom color={theme.palette.text.titlePrimary}>
-                                                Historial de Compras (Solo Crédito)
+                                                Historial de Compras
                                             </Typography>
-                                            <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
-                                                Total Compras a Crédito: ${singleCustomerData?.data?.totalCreditSales?.toFixed(2) || '0.00'}
+                                            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                                                Total compras: {formatCurrency(singleCustomerData?.data?.totalPurchases || 0)}
+                                                {' · '}
+                                                A crédito: {formatCurrency(singleCustomerData?.data?.totalCreditSales || 0)}
                                             </Typography>
 
                                             {/* Filtros de Compras */}
@@ -846,7 +897,31 @@ const Customers = () => {
                                                                     key={index}
                                                                     divider={index < purchaseHistory.length - 1} // Línea divisoria solo entre items
                                                                     secondaryAction={
-                                                                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                                                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                                                                            {purchase.is_fully_returned ? (
+                                                                                <Tooltip title="Venta devuelta en su totalidad por Nota de Crédito">
+                                                                                    <span>
+                                                                                        <IconButton
+                                                                                            size="small"
+                                                                                            disabled
+                                                                                            sx={{ p: 0.5 }}
+                                                                                        >
+                                                                                            <ReturnIcon fontSize="small" />
+                                                                                        </IconButton>
+                                                                                    </span>
+                                                                                </Tooltip>
+                                                                            ) : (
+                                                                                <Tooltip title={purchase.is_partially_returned ? "Emitir Nota de Crédito (Devolución parcial restante)" : "Nota de Crédito / Devolución"}>
+                                                                                    <IconButton
+                                                                                        size="small"
+                                                                                        onClick={() => handleOpenCreditNote(purchase)}
+                                                                                        color="warning"
+                                                                                        sx={{ p: 0.5 }}
+                                                                                    >
+                                                                                        <ReturnIcon fontSize="small" />
+                                                                                    </IconButton>
+                                                                                </Tooltip>
+                                                                            )}
                                                                             <Tooltip title="Ver detalle">
                                                                                 <IconButton
                                                                                     size="small"
@@ -869,10 +944,20 @@ const Customers = () => {
                                                                             </Tooltip>
                                                                         </Box>
                                                                     }
-                                                                    sx={{ pr: 10 }} // Espacio para los botones
+                                                                    sx={{ pr: 12 }} // Espacio para los botones
                                                                 >
                                                                     <ListItemText
-                                                                        primary={`Venta #${purchase.id} - ${purchase.total_neto}`}
+                                                                        primary={
+                                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                                                                <span>{`Venta #${purchase.id} - ${purchase.total_neto}`}</span>
+                                                                                {purchase.is_fully_returned && (
+                                                                                    <Chip size="small" label="Devuelta (NC)" color="success" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />
+                                                                                )}
+                                                                                {purchase.is_partially_returned && (
+                                                                                    <Chip size="small" label="Dev. Parcial" color="warning" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />
+                                                                                )}
+                                                                            </Box>
+                                                                        }
                                                                         secondary={new Date(purchase.createdAt).toLocaleDateString()}
                                                                         primaryTypographyProps={{
                                                                             variant: 'body2',
@@ -1185,6 +1270,17 @@ const Customers = () => {
                         </Box>
                     </DialogContent>
                     <DialogActions >
+                        <StyledButton
+                            onClick={() => {
+                                setOpenPurchaseDetailDialog(false);
+                                handleOpenCreditNote(selectedPurchase);
+                            }}
+                            variant="contained"
+                            color="warning"
+                            startIcon={<ReturnIcon />}
+                        >
+                            Nota de Crédito
+                        </StyledButton>
                         <StyledButton variant='outlined' onClick={() => {
                             setOpenPurchaseDetailDialog(false);
                         }}>
@@ -1327,6 +1423,25 @@ const Customers = () => {
                         activeSession={activeSession}
                     />
                 )}
+                {/* Modal de Nota de Crédito */}
+                <CreditNoteModal
+                    open={openCreditNoteModal}
+                    onClose={() => {
+                        setOpenCreditNoteModal(false);
+                        setCreditNoteSaleId(null);
+                    }}
+                    saleId={creditNoteSaleId}
+                    onSuccess={() => {
+                        applyHistoryFilters();
+                    }}
+                />
+                {/* Modal de Consulta de Notas de Crédito del Cliente */}
+                <CustomerCreditNotesModal
+                    open={openCustomerCreditNotesModal}
+                    onClose={() => setOpenCustomerCreditNotesModal(false)}
+                    customerId={selectedCustomer?.id}
+                    customerName={selectedCustomer?.name}
+                />
             </Box>
         </LocalizationProvider>
     );

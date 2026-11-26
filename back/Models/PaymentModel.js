@@ -29,6 +29,11 @@ const PaymentModel = db.define('payment', {
         type: DataTypes.DECIMAL(5, 2),
         defaultValue: 0.00,
         comment: 'Porcentaje de recargo a aplicar si surcharge_active es true.'
+    },
+    is_credit_balance: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        comment: 'Indica si el método aplica saldo a favor del cliente.'
     }
 }, {
     // Opciones adicionales del modelo

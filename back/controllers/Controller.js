@@ -7,7 +7,7 @@ import {
     ThemeSettingModel, PendingTicketModel, ProductPresentationsModel, ProductPromotionsModel,
     ComboModel, ComboItem, PermissionModel, UserPermissionModel, BusinessConfigModel,
     QuoteModel, SupplierPaymentsModel, SupplierPaymentAllocationModel, PurchaseConditionChangeModel,
-    SupplierOrderModel, SupplierOrderDetailModel
+    SupplierOrderModel, SupplierOrderDetailModel, CreditNoteModel, CreditNoteDetailModel
 } from '../database/associations.js';
 import SupplierOrderCounterModel from '../Models/SupplierOrderCounterModel.js';
 import CustomerPaymentsModel from '../Models/CustomerPaymentsModel.js';
@@ -2559,6 +2559,49 @@ export const createSale = async (req, res) => {
             });
             const paymentMethodsMap = new Map(paymentMethodsList.map(pm => [pm.id, pm]));
 
+            const creditBalancePayments = payments.filter(payment => {
+                const method = paymentMethodsMap.get(payment.payment_method_id);
+                if (!method) return false;
+                return method.is_credit_balance === true
+                    || Number(method.is_credit_balance) === 1
+                    || method.method?.toLowerCase().includes('saldo a favor');
+            });
+
+            let appliedCreditBalance = 0;
+            if (creditBalancePayments.length > 0) {
+                if (Number(customer_id) === 1 || !customer_id) {
+                    throw new ValidationError('No se puede aplicar saldo a favor al Consumidor Final.');
+                }
+
+                if (creditBalancePayments.some(payment => !(Number(payment.amount) > 0))) {
+                    throw new ValidationError('El monto de saldo a favor debe ser mayor a cero.');
+                }
+
+                const requestedCreditBalance = creditBalancePayments.reduce(
+                    (sum, payment) => sum + Number(payment.amount),
+                    0
+                );
+
+                const customer = await CustomerModel.findByPk(customer_id, {
+                    transaction,
+                    lock: transaction.LOCK.UPDATE
+                });
+
+                if (!customer) {
+                    throw new ValidationError('Cliente no encontrado.');
+                }
+
+                const availableCreditBalance = Number(customer.credit_balance) || 0;
+                if (requestedCreditBalance > availableCreditBalance + 0.001) {
+                    throw new ValidationError(`Saldo a favor insuficiente: disponible $${availableCreditBalance.toFixed(2)}, solicitado $${requestedCreditBalance.toFixed(2)}.`);
+                }
+
+                appliedCreditBalance = Number(requestedCreditBalance.toFixed(2));
+                await customer.update({
+                    credit_balance: Number((availableCreditBalance - appliedCreditBalance).toFixed(2))
+                }, { transaction });
+            }
+
             console.time('createSale_payment-processing');
             const salePaymentsToCreate = payments.map(p => ({
                 sale_id: newSale.id,
@@ -2831,6 +2874,17 @@ export const createSale = async (req, res) => {
             }
             if (pendingQuoteAudit) {
                 void logAudit(pendingQuoteAudit, req);
+            }
+            if (appliedCreditBalance > 0) {
+                void logAudit({
+                    user_id,
+                    action: 'USO_SALDO_A_FAVOR',
+                    entity_type: 'customer',
+                    entity_id: customer_id,
+                    session_id: activeSession.id,
+                    new_values: { sale_id: newSale.id, amount: appliedCreditBalance },
+                    details: `Se aplicó $${appliedCreditBalance} de saldo a favor en la venta #${newSale.id}.`
+                }, req);
             }
 
             console.timeEnd('createSale_total');
@@ -4784,6 +4838,7 @@ export const getAllCustomers = async (req, res) => {
                 'address',
                 'dni',
                 'debt',
+                'credit_balance',
                 'credit_limit',
                 'discount_percentage',
                 'createdAt'
@@ -4918,10 +4973,16 @@ export const getCustomerById = async (req, res) => {
             totalCreditSales = creditSales.reduce((sum, sale) => sum + parseFloat(sale.total_neto), 0);
         }
 
-        // 5. Add the calculated totals to the customer object
+        // 5. Total de todas las compras del cliente
+        const totalPurchases = await SaleModel.sum('total_neto', {
+            where: { customer_id: id }
+        });
+
+        // 6. Add the calculated totals to the customer object
         const customerData = customer.toJSON();
         customerData.totalCreditSales = totalCreditSales;
         customerData.totalPaymentsReceived = totalPaymentsReceived;
+        customerData.totalPurchases = Number(totalPurchases) || 0;
 
         // --- END of new logic ---
 
@@ -6723,22 +6784,19 @@ export const getCustomerPurchaseHistory = async (req, res) => {
             };
         }
 
-        const creditWhere = {
-            method: {
-                [Op.or]: [
-                    { [Op.like]: '%credito%' },
-                    { [Op.like]: '%crédito%' },
-                    { [Op.like]: '%cuenta corriente%' },
-                    { [Op.like]: '%Credito%' },
-                    { [Op.like]: '%Crédito%' },
-                    { [Op.like]: '%CREDITO%' },
-                    { [Op.like]: '%CRÉDITO%' }
-                ]
-            }
-        };
+        const totalItems = await SaleModel.count({ where: whereConditions });
 
-        const { count, rows } = await SaleModel.findAndCountAll({
+        const pageSaleIds = (await SaleModel.findAll({
             where: whereConditions,
+            attributes: ['id'],
+            order: [['createdAt', 'DESC'], ['id', 'DESC']],
+            offset: parseInt(offset),
+            limit: parseInt(limit),
+            raw: true
+        })).map(sale => sale.id);
+
+        const rows = pageSaleIds.length > 0 ? await SaleModel.findAll({
+            where: { id: { [Op.in]: pageSaleIds } },
             include: [
                 {
                     model: SaleDetailModel,
@@ -6747,11 +6805,9 @@ export const getCustomerPurchaseHistory = async (req, res) => {
                 {
                     model: SalePaymentModel,
                     as: 'sale_payments',
-                    required: true,
                     include: [{
                         model: PaymentModel,
                         as: 'payment',
-                        required: true,
                         attributes: ['method']
                     }]
                 },
@@ -6760,23 +6816,68 @@ export const getCustomerPurchaseHistory = async (req, res) => {
                     attributes: ['username']
                 }
             ],
-            order: [['createdAt', 'DESC']],
-            offset: parseInt(offset),
-            distinct: true,
-            subQuery: false // Solución definitiva para evitar la subconsulta problemática
-        });
+            order: [['createdAt', 'DESC'], ['id', 'DESC']]
+        }) : [];
 
         // Asegurarse de que los objetos sean planos para facilitar el acceso en el frontend
         const plainRows = rows.map(row => row.toJSON());
 
-        // Cuando se usa subQuery: false y distinct, el `count` es un array de los elementos contados.
-        const totalItems = count;
+        // Consultar Notas de Crédito de estas ventas para conocer su estado de devolución
+        const saleIds = plainRows.map(r => r.id);
+        const creditNotes = saleIds.length > 0 ? await CreditNoteModel.findAll({
+            where: { sale_id: { [Op.in]: saleIds }, estado: { [Op.ne]: 'anulada' } },
+            include: [{ model: CreditNoteDetailModel, as: 'details' }]
+        }) : [];
+
+        const creditNotesBySale = new Map();
+        for (const cn of creditNotes) {
+            const list = creditNotesBySale.get(Number(cn.sale_id)) || [];
+            list.push(cn.toJSON ? cn.toJSON() : cn);
+            creditNotesBySale.set(Number(cn.sale_id), list);
+        }
+
+        const enrichedPurchases = plainRows.map(purchase => {
+            const cns = creditNotesBySale.get(Number(purchase.id)) || [];
+            const hasCreditNotes = cns.length > 0;
+
+            let totalPurchasedQty = 0;
+            let totalReturnedQty = 0;
+
+            const returnedByDetail = new Map();
+            for (const cn of cns) {
+                for (const d of cn.details || []) {
+                    if (d.sale_detail_id) {
+                        const cur = returnedByDetail.get(Number(d.sale_detail_id)) || 0;
+                        returnedByDetail.set(Number(d.sale_detail_id), cur + Number(d.quantity));
+                    }
+                }
+            }
+
+            for (const d of purchase.sale_details || []) {
+                const qty = Number(d.quantity);
+                totalPurchasedQty += qty;
+                const ret = returnedByDetail.get(Number(d.id)) || 0;
+                totalReturnedQty += ret;
+            }
+
+            const isFullyReturned = totalPurchasedQty > 0 && (totalReturnedQty >= totalPurchasedQty - 0.001);
+            const isPartiallyReturned = hasCreditNotes && !isFullyReturned;
+
+            return {
+                ...purchase,
+                credit_notes: cns,
+                has_credit_notes: hasCreditNotes,
+                is_fully_returned: isFullyReturned,
+                is_partially_returned: isPartiallyReturned,
+                total_returned_qty: totalReturnedQty
+            };
+        });
 
         res.json({
             success: true,
             data: {
                 customer,
-                purchases: plainRows, // Se renombra a 'purchases' para mayor claridad en el frontend.
+                purchases: enrichedPurchases, // Se renombra a 'purchases' para mayor claridad en el frontend.
                 pagination: {
                     currentPage: parseInt(page),
                     totalPages: Math.ceil(totalItems / limit),
@@ -6786,7 +6887,7 @@ export const getCustomerPurchaseHistory = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error al obtener historial de compras a crédito:', error);
+        console.error('Error al obtener historial de compras del cliente:', error);
         res.status(500).json({
             success: false,
             message: 'Error interno del servidor al obtener historial de compras.',

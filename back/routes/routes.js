@@ -3,6 +3,7 @@ import multer from 'multer';
 import { verificarSesion } from "../middleware/auth.js";
 import checkPermission from '../middleware/checkPermission.js';
 import { getSupplierQuotes, getSupplierQuote, createSupplierQuote, updateSupplierQuote, receiveSupplierQuote, convertSupplierQuoteToOrder, duplicateSupplierQuote, voidSupplierQuote } from '../controllers/supplierQuoteController.js';
+import { getSaleReturnableItems, createCreditNote, getCreditNotes, getCreditNote } from '../controllers/creditNoteController.js';
 
 import {
     // ... (all existing controllers)
@@ -242,6 +243,12 @@ authenticatedRouter.post('/supplier-quotes/:id/receive', checkPermission('accion
 authenticatedRouter.post('/supplier-quotes/:id/convert-to-order', checkPermission('accion_convertir_cotizacion_proveedor'), convertSupplierQuoteToOrder);
 authenticatedRouter.post('/supplier-quotes/:id/duplicate', checkPermission(['accion_duplicar_cotizacion_proveedor', 'accion_crear_cotizacion_proveedor']), duplicateSupplierQuote);
 authenticatedRouter.delete('/supplier-quotes/:id', checkPermission('accion_anular_cotizacion_proveedor'), voidSupplierQuote);
+
+// --- RUTAS DE NOTAS DE CRÉDITO ---
+authenticatedRouter.get('/sales/:sale_id/returnable-items', checkPermission(['ver_notas_credito', 'accion_crear_nota_credito', 'ver_clientes', 'ver_ventas']), getSaleReturnableItems);
+authenticatedRouter.get('/credit-notes', checkPermission(['ver_notas_credito', 'ver_clientes', 'ver_ventas']), getCreditNotes);
+authenticatedRouter.get('/credit-notes/:id', checkPermission(['ver_notas_credito', 'ver_clientes', 'ver_ventas']), getCreditNote);
+authenticatedRouter.post('/credit-notes', checkPermission(['accion_crear_nota_credito', 'accion_crear_venta']), createCreditNote);
 
 // --- RUTAS DE AUDITORÍA ---
 authenticatedRouter.get('/audit/logs', checkPermission('ver_vista_auditoria'), getAuditLogs);

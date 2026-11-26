@@ -22,6 +22,8 @@ import SupplierOrderModel from '../Models/SupplierOrderModel.js';
 import SupplierOrderDetailModel from '../Models/SupplierOrderDetailModel.js';
 import SupplierQuoteModel from '../Models/SupplierQuoteModel.js';
 import SupplierQuoteDetailModel from '../Models/SupplierQuoteDetailModel.js';
+import CreditNoteModel from '../Models/CreditNoteModel.js';
+import CreditNoteDetailModel from '../Models/CreditNoteDetailModel.js';
 
 import CashSessionMovementModel from '../Models/CashSessionMovementModel.js';
 import ThemeSettingModel from '../Models/ThemeSettingModel.js';
@@ -287,6 +289,22 @@ ComboItem.belongsTo(StockModel, { foreignKey: 'stock_id', as: 'stock' });
 ProductPresentationsModel.hasMany(ComboItem, { foreignKey: 'component_presentation_id', as: 'combo_component_presentations' });
 ComboItem.belongsTo(ProductPresentationsModel, { foreignKey: 'component_presentation_id', as: 'component_presentation' });
 
+// CreditNote associations
+CreditNoteModel.belongsTo(CustomerModel, { foreignKey: 'customer_id', as: 'customer' });
+CustomerModel.hasMany(CreditNoteModel, { foreignKey: 'customer_id', as: 'credit_notes' });
+
+CreditNoteModel.belongsTo(SaleModel, { foreignKey: 'sale_id', as: 'sale' });
+SaleModel.hasMany(CreditNoteModel, { foreignKey: 'sale_id', as: 'credit_notes' });
+
+CreditNoteModel.belongsTo(UsuarioModel, { foreignKey: 'user_id', as: 'user' });
+CreditNoteModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id', as: 'cash_session' });
+
+CreditNoteModel.hasMany(CreditNoteDetailModel, { foreignKey: 'credit_note_id', as: 'details' });
+CreditNoteDetailModel.belongsTo(CreditNoteModel, { foreignKey: 'credit_note_id', as: 'credit_note' });
+
+CreditNoteDetailModel.belongsTo(StockModel, { foreignKey: 'stock_id', as: 'stock' });
+CreditNoteDetailModel.belongsTo(SaleDetailModel, { foreignKey: 'sale_detail_id', as: 'sale_detail' });
+
 export {
   StockCategoryModel, StockModel, PurchaseModel, PurchasesDetailsModel, UnitModel,
   SaleModel, SaleDetailModel, CustomerModel, PaymentModel, PromotionModel, UsuarioModel,
@@ -294,5 +312,6 @@ export {
   CashSessionMovementModel, ThemeSettingModel, PendingTicketModel, ComandaModel, ProductPresentationsModel, ProductPromotionsModel,
   ComboModel, ComboItem, UserPermissionModel, PermissionModel, BusinessConfigModel,
   QuoteModel, QuoteDetailModel, SupplierPaymentsModel, SupplierPaymentAllocationModel, PurchaseConditionChangeModel,
-  SupplierOrderModel, SupplierOrderDetailModel, SupplierQuoteModel, SupplierQuoteDetailModel
+  SupplierOrderModel, SupplierOrderDetailModel, SupplierQuoteModel, SupplierQuoteDetailModel,
+  CreditNoteModel, CreditNoteDetailModel
 };

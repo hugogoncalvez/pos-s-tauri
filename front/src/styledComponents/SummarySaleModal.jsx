@@ -116,6 +116,15 @@ const SummarySaleModal = ({
   const { subtotal, impuesto, descuento: descuentoAplicado, surchargeAmount, surchargeDetails, totalFinal } = calcularTotal();
   const [surchargeDetailsOpen, setSurchargeDetailsOpen] = useState(false);
 
+  const isCreditBalanceMethod = (method) => {
+    const flag = method?.is_credit_balance;
+    if (flag === true || Number(flag) === 1) return true;
+    const name = (method?.method || method?.nombre || '').trim().toLowerCase();
+    return name.includes('saldo a favor');
+  };
+  const availableCreditBalance = Number(selectedCustomer?.credit_balance) > 0 ? Number(selectedCustomer.credit_balance) : 0;
+  const singleUsesCreditBalance = paymentOption === 'single' && isCreditBalanceMethod(selectedSinglePaymentType);
+
   // Filtrar métodos activos y añadir la opción de Mixto
   const activeMethods = paymentMethods ? paymentMethods.filter(pm => pm.active && pm.method !== 'Mixto' && pm.nombre !== 'Mixto') : [];
   const allOptions = [...activeMethods, { id: 'mixed', method: 'Mixto', nombre: 'Mixto' }];
@@ -317,6 +326,12 @@ const SummarySaleModal = ({
           />
         </Box>
 
+        {availableCreditBalance > 0 && !singleUsesCreditBalance && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Saldo a favor disponible: ${availableCreditBalance.toFixed(2)}. Puede aplicarlo con el método &quot;Saldo a Favor&quot; (total o parcial en pago mixto).
+          </Alert>
+        )}
+
         <Divider sx={{ my: 2 }} />
 
         <Box sx={{
@@ -365,7 +380,7 @@ const SummarySaleModal = ({
                 type="number"
                 value={amountReceived}
                 onChange={(e) => setAmountReceived(e.target.value)} // Set as string
-                disabled={selectedSinglePaymentType?.method?.toLowerCase().includes('credito') || selectedSinglePaymentType?.nombre?.toLowerCase().includes('credito')}
+                disabled={singleUsesCreditBalance || selectedSinglePaymentType?.method?.toLowerCase().includes('credito') || selectedSinglePaymentType?.nombre?.toLowerCase().includes('credito')}
                 InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                 size="medium"
                 fullWidth
@@ -373,7 +388,11 @@ const SummarySaleModal = ({
                 autoComplete="off"
               />
               <StyledCard sx={{ p: 1 }}>
-                {(() => {
+                {singleUsesCreditBalance ? (
+                  <Typography variant="h6" align="center" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                    Saldo a aplicar: ${totalFinal.toFixed(2)}
+                  </Typography>
+                ) : (() => {
                   const parsedAmount = parseFloat(amountReceived);
                   if (amountReceived === '' || isNaN(parsedAmount)) { // Check for empty string or NaN
                     return (
@@ -400,6 +419,15 @@ const SummarySaleModal = ({
                   }
                 })()}
               </StyledCard>
+              {singleUsesCreditBalance && (
+                <Box sx={{ gridColumn: '1 / -1' }}>
+                  <Alert severity={totalFinal > availableCreditBalance ? 'error' : 'info'}>
+                    {totalFinal > availableCreditBalance
+                      ? `Saldo a favor insuficiente. Disponible: $${availableCreditBalance.toFixed(2)}. Use pago mixto para aplicar una parte.`
+                      : `Se aplicarán $${totalFinal.toFixed(2)} del saldo a favor. Disponible: $${availableCreditBalance.toFixed(2)}.`}
+                  </Alert>
+                </Box>
+              )}
             </Box>
           ) : (
             <Box sx={{ mt: 0 }}>
@@ -442,6 +470,7 @@ const SummarySaleModal = ({
                           size="small"
                           fullWidth
                           autoComplete="off"
+                          helperText={isCreditBalanceMethod(method) ? `Saldo disponible: $${availableCreditBalance.toFixed(2)}` : undefined}
                         />
                         {hasSurcharge && (
                           <StyledTextField
