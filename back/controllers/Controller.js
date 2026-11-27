@@ -3434,8 +3434,7 @@ export const initiateClosure = async (req, res) => {
                 closed_by_user_id: user.id,
                 verified_by_admin_id: user.id, // Se auto-verifica
                 closed_at_user: new Date(),
-                verified_at: new Date(),
-                verified_at: new Date() // This is the correct field
+                verified_at: new Date()
             }, { transaction });
 
             const auditData = {
@@ -3522,7 +3521,6 @@ export const finalizeClosure = async (req, res) => {
             final_discrepancy,
             verified_by_admin_id: admin_id,
             verified_at: new Date(),
-            verified_at: new Date(), // This is the correct field
             notes: `${session.notes || ''}\n\nVerificación Admin: ${admin_notes || 'Sin notas.'}`
         }, { transaction });
 
@@ -3589,10 +3587,10 @@ export const getActiveCashSession = async (req, res) => {
             where: { cash_session_id: session.id }
         });
 
-        // Calcular total de ventas (todos los métodos de pago + recargo) para la sesión
+        // Calcular total de ventas de la sesión
         const salesResult = await SaleModel.findOne({
             attributes: [
-                [db.fn('SUM', db.literal('total_neto + COALESCE(surcharge_amount, 0)')), 'totalSales']
+                [db.fn('SUM', db.col('total_neto')), 'totalSales']
             ],
             where: { cash_session_id: session.id },
             raw: true
@@ -3640,7 +3638,6 @@ const getSessionAggregates = async (sessionIds, transaction = null) => {
         SELECT cash_session_id,
                COUNT(*) AS sales_count,
                COALESCE(SUM(total_neto), 0) AS total_sales,
-               COALESCE(SUM(total_neto + COALESCE(surcharge_amount, 0)), 0) AS total_sales_with_surcharge,
                COALESCE(SUM(promotion_discount), 0) AS total_discounts
         FROM sales
         WHERE cash_session_id IN (:ids)
@@ -3680,35 +3677,6 @@ const getSessionHourlySales = async (sessionId) => {
         acc[row.hour] = Number(row.count || 0);
         return acc;
     }, {});
-};
-
-const applySessionSurcharges = async (sessionId, paymentMethods) => {
-    const rows = await db.query(`
-        SELECT s.id AS sale_id, s.surcharge_amount, p.method
-        FROM sales s
-        JOIN sale_payments sp ON sp.sale_id = s.id
-        JOIN payments p ON p.id = sp.payment_method_id
-        WHERE s.cash_session_id = :sessionId
-          AND COALESCE(s.surcharge_amount, 0) > 0
-        ORDER BY s.id, sp.id
-    `, { replacements: { sessionId }, type: QueryTypes.SELECT });
-
-    const salesWithSurcharge = new Map();
-    rows.forEach(row => {
-        const key = String(row.sale_id);
-        if (!salesWithSurcharge.has(key)) {
-            salesWithSurcharge.set(key, { surcharge: Number(row.surcharge_amount || 0), methods: [] });
-        }
-        salesWithSurcharge.get(key).methods.push(row.method || 'Desconocido');
-    });
-
-    salesWithSurcharge.forEach(({ surcharge, methods }) => {
-        if (!methods.length || !surcharge) return;
-        const targetMethod = methods.find(method => method !== 'Efectivo') || methods[0];
-        paymentMethods[targetMethod] = (paymentMethods[targetMethod] || 0) + surcharge;
-    });
-
-    return paymentMethods;
 };
 
 export const getActiveCashSessions = async (req, res) => {
@@ -3752,7 +3720,7 @@ export const getActiveCashSessions = async (req, res) => {
             plainSession.payment_methods = paymentMethods;
             plainSession.sales_count = Number(aggregate?.sales_count || 0);
             plainSession.expected_cash = openingAmount + Number(paymentMethods.Efectivo || 0) + totalIncome - totalExpense;
-            plainSession.current_cash = openingAmount + Number(aggregate?.total_sales_with_surcharge || 0) + totalIncome - totalExpense;
+            plainSession.current_cash = openingAmount + Number(aggregate?.total_sales || 0) + totalIncome - totalExpense;
             plainSession.total_sales_at_close = Number(aggregate?.total_sales || 0);
 
             return plainSession;
@@ -3840,7 +3808,7 @@ export const getCashSessionHistory = async (req, res) => {
             plainSession.payment_methods = paymentMethodsSummary;
             plainSession.sales_count = Number(aggregate?.sales_count || 0);
             plainSession.expected_cash = parseFloat(plainSession.opening_amount) + cashSales + totalIncome - totalExpense;
-            plainSession.current_cash = parseFloat(plainSession.opening_amount) + Number(aggregate?.total_sales_with_surcharge || 0) + totalIncome - totalExpense;
+            plainSession.current_cash = parseFloat(plainSession.opening_amount) + Number(aggregate?.total_sales || 0) + totalIncome - totalExpense;
             plainSession.total_sales_at_close = Number(aggregate?.total_sales || 0);
 
             if (plainSession.status === 'pendiente_cierre' || plainSession.status === 'cerrada') {
@@ -4172,13 +4140,12 @@ export const getCashSessionSummary = async (req, res) => {
         const aggregate = aggregates.get(String(session.id)) || {
             sales_count: 0,
             total_sales: 0,
-            total_sales_with_surcharge: 0,
             total_discounts: 0,
             payment_methods: {},
             totalIncome: 0,
             totalExpense: 0
         };
-        const paymentMethods = await applySessionSurcharges(session.id, { ...aggregate.payment_methods });
+        const paymentMethods = { ...aggregate.payment_methods };
         const salesResult = includeSales
             ? await fetchSessionSales(session.id, 1, 200)
             : { sales: [], pagination: null };
@@ -4186,13 +4153,13 @@ export const getCashSessionSummary = async (req, res) => {
         const summary = {
             ...addClosedAtAlias(session.toJSON()),
             sales_count: aggregate.sales_count,
-            total_sales: aggregate.total_sales_with_surcharge,
+            total_sales: aggregate.total_sales,
             total_discounts: aggregate.total_discounts,
             sales: salesResult.sales,
             sales_pagination: salesResult.pagination,
             totalIncome: aggregate.totalIncome,
             totalExpense: aggregate.totalExpense,
-            average_sale: aggregate.sales_count > 0 ? aggregate.total_sales_with_surcharge / aggregate.sales_count : 0,
+            average_sale: aggregate.sales_count > 0 ? aggregate.total_sales / aggregate.sales_count : 0,
             payment_methods: paymentMethods,
             hourly_sales: await getSessionHourlySales(session.id)
         };

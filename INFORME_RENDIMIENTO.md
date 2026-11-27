@@ -5,7 +5,7 @@
 **Rama:** `el-corralon`
 **Síntoma reportado:** la aplicación se congela al cerrar el modal de detalle de caja y volver al Dashboard; también puede ocurrir al generar el informe de producto.
 **Pantalla confirmada:** `/admin-cajas` (`CashAdmin.jsx`).
-**Estado (actualizado 2026-11-04):** se aplicó la optimización de `b451c1c9` (auditoría, caja, dashboard, sesiones e informe) y los índices de `20261103_performance_indexes.sql` en producción. Quedan pendientes los puntos marcados abajo. Las mediciones finales en la PC afectada siguen pendientes.
+**Estado (actualizado 2026-11-24):** se aplicó la optimización de `b451c1c9` (auditoría, caja, dashboard, sesiones e informe) y los índices de `20261103_performance_indexes.sql` en producción. También se resolvió el doble conteo de `surcharge_amount` en caja (§3.10). Quedan pendientes los puntos marcados abajo. Las mediciones finales en la PC afectada siguen pendientes.
 
 ---
 
@@ -31,12 +31,12 @@ Con pocos datos el costo es invisible. Con una sesión de caja de cientos o mile
 - `useQuery` ya usa `retry: 1`, `AbortSignal` y `refetchOnWindowFocus: false`; Dashboard tiene `staleTime` de 60 s.
 - El detalle de caja carga ventas solo al expandir la sección; el resumen ya no incluye ventas por defecto.
 - Las respuestas de sesiones de caja incluyen `closed_at` como alias de `verified_at`/`closed_at_user`, sin cambiar el front ni la base.
+- Resuelto el doble conteo de `surcharge_amount` en caja (§3.10, 2026-11-24): `total_neto` es el único total y los pagos mixtos registran el recargo una sola vez.
 
 **Pendiente**
 - Medir el resultado real en la PC afectada; las capturas son previas a estos cambios.
 - Validar los índices con `EXPLAIN` y medir el impacto en escrituras.
 - Virtualizar tablas grandes, reemplazar el skeleton que desmonta la vista y limpiar el cache de `sessionDetails` al cerrar el modal.
-- Resolver el doble conteo de `surcharge_amount` (§3.10), que sigue presente en `getSessionAggregates`/`getCashSessionSummary`.
 - Corregir los hallazgos incidentales restantes de §7 (`verified_at` duplicado y componente muerto); `closed_at` ya tiene alias en el backend.
 
 ### Causas principales
@@ -479,9 +479,11 @@ La animación de salida de 1,5 s hace que la navegación se sienta más lenta, s
 
 ---
 
-### 3.10 Posible doble conteo de `surcharge_amount`
+### 3.10 Doble conteo de `surcharge_amount`
 
-**Qué pasa**
+**Estado:** resuelto el 2026-11-24.
+
+**Qué pasaba**
 
 En el flujo de venta, `Ventas.jsx:438` calcula `totalFinal = subtotalConDescuento + surchargeAmount + impuesto` y `Ventas.jsx:537` lo envía como `total_neto`. El backend guarda ese valor tal cual (`Controller.js:2482`), y el comentario del modelo (`SalesModel.js:26`) confirma que `total_neto` es el total final a pagar. Es decir, **`total_neto` ya incluye el recargo**.
 
@@ -497,17 +499,17 @@ Sin embargo, algunos cálculos vuelven a sumar `surcharge_amount`:
 Venta con subtotal 100, recargo 10 y `total_neto` 110:
 
 - Total correcto: **110**.
-- Cálculo actual del summary: 110 + 10 = **120**.
-- Métodos de pago: el pago simple ya manda 110; el summary le suma otros 10 → **120**.
+- Cálculo con el bug: 110 + 10 = **120**.
+- Métodos de pago: el pago simple ya mandaba 110; el summary le sumaba otros 10 → **120**.
 
-**Qué queda afectado**
+**Qué estaba afectado**
 
 - `total_sales` del summary y del detalle de caja.
 - `payment_methods` del summary.
 - `current_cash` de cajas abiertas y el “Monto en Cajas”.
 - El reporte impreso de caja, que usa esos valores.
 
-**Qué no queda afectado**
+**Qué no estaba afectado**
 
 - `getSalesToday/Week/Month` usan `total_neto` solo.
 - `total_sales_at_close` del historial usa `total_neto` solo.
@@ -532,12 +534,26 @@ SELECT SUM(total_neto) FROM sales WHERE cash_session_id = ?;
 -- contra el total_sales que devuelve /cash-sessions/:id/summary
 ```
 
-**Corrección propuesta**
+**Corrección aplicada (2026-11-24)**
 
-- Tratar `total_neto` como el único total final y no volver a sumar `surcharge_amount`.
-- Usar `surcharge_amount` solo como desglose informativo.
-- Revisar pagos mixtos: el frontend envía montos base, no `amountWithSurcharge`; eso puede hacer que `payment_methods` y `expected_cash` no coincidan.
-- Agregar un test con una venta que tenga recargo.
+- `total_neto` es el único total final; `surcharge_amount` queda solo como desglose informativo.
+- `getActiveCashSession`: usa `SUM(total_neto)`; ya no suma `surcharge_amount`.
+- `getSessionAggregates` y `buildSessionAggregateMap`: se eliminó `total_sales_with_surcharge`; todos los consumidores usan `total_sales`.
+- `getCashSessionSummary`: usa `total_sales` y `payment_methods` del agregado; se eliminó `applySessionSurcharges`.
+- `getActiveCashSessions` y `getCashSessionHistory`: `current_cash` se calcula con el total de ventas sin recargo duplicado.
+- `Ventas.jsx`: en pago mixto se envía el monto con recargo (`base * (1 + porcentaje)`), no el monto base, para que `sale_payments` coincida con `expected_cash` y `payment_methods`.
+- Test de agregados actualizado (`back/test/cashAggregates.test.js`).
+
+**Verificación**
+
+- Venta de prueba: subtotal 5.000, recargo 123, `total_neto` 5.123.
+- `/cash-sessions/:id/summary`: `total_sales` 5.123 (antes habría dado 5.246) y métodos 2.000 + 3.123 = 5.123.
+- `current_cash` = `opening_amount + SUM(total_neto) + ingresos - egresos`.
+- Backend: 12/12 tests OK.
+
+**Residual**
+
+- Las ventas mixtas con recargo creadas antes de este cambio guardaron `sale_payments.amount` sin recargo. Su total de caja sigue siendo correcto porque sale de `total_neto`, pero el desglose por método puede quedar bajo por el recargo. Evaluar una corrección de datos si el volumen lo justifica.
 
 ---
 
@@ -676,6 +692,7 @@ Remove-NetFirewallRule -DisplayName $rule
 - [x] **Auditoría:** sacar `logAudit` y las alertas de stock de la transacción y de la ruta crítica; escribir después del `commit`. Aplicado en ventas, stock y cierres; el recorte de `old_values`/`new_values` y una cola global siguen pendientes.
 - [x] **Alertas de stock:** no llamar `checkLowStockAndLog` por ítem dentro de la transacción; las alertas de venta se agrupan y persisten después del `commit`.
 - [x] **Sesiones:** `touch` throttleado cada 5 minutos (`sessionTouch.js`).
+- [x] **Recargo:** eliminado el doble conteo de `surcharge_amount` en caja (§3.10); pagos mixtos registran el recargo una sola vez.
 - [x] **Historial de caja:** reemplazado el N+1 por agregados por página (`getSessionAggregates`).
 - [x] **Doble carga:** separado el endpoint de cajas activas (`active-list`) del historial paginado.
 - [x] **Summaries de tarjetas:** `getActiveCashSessions` devuelve totales sin ventas.
@@ -716,8 +733,8 @@ Remove-NetFirewallRule -DisplayName $rule
 
 ## 7. Hallazgos incidentales
 
-- [ ] `front/src/styledComponents/CashSessionDetails.jsx` referencia `InputAdornment`, `ClearIcon`, `handleCloseSession` y `loading` sin definirlos, pero el componente **no se importa en ningún lado**. Es código muerto; conviene eliminarlo o corregirlo aparte. **Pendiente.**
-- [ ] `back/controllers/Controller.js` tiene `verified_at` duplicado en el objeto de actualización de cierre. No rompe, pero es señal de código a limpiar. **Pendiente.**
+- [x] `front/src/styledComponents/CashSessionDetails.jsx` referenciaba `InputAdornment`, `ClearIcon`, `handleCloseSession` y `loading` sin definirlos, y el componente **no se importaba en ningún lado**. Se eliminó el archivo por ser código muerto. **Resuelto.**
+- [x] `back/controllers/Controller.js` tenía `verified_at` duplicado en el objeto de actualización de cierre. Se eliminó el duplicado en los dos flujos de cierre (`CIERRE_DIRECTO_CAJA_ADMIN` y `FINALIZAR_CIERRE_CAJA`). **Resuelto.**
 - [x] `CashAdmin.jsx:743` y `CajeroView.jsx:592` calculaban la duración con `sessionDetails.closed_at`, pero el modelo `CashSessionsModel` no expone `closed_at`. El backend ahora devuelve `closed_at` como alias de `verified_at`/`closed_at_user` en las respuestas de caja. **Resuelto en backend; el front no se modificó.**
 - [x] `front/src/components/Informes.jsx` calculaba `avgAmount = summaryData.total / totalItems` y podía dar `Infinity`; ahora usa `totalItems > 0 ? ... : 0`. **Resuelto.**
 
