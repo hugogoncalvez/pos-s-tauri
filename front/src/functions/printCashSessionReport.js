@@ -44,9 +44,12 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
 
     const salesAmount = session.status === 'abierta' ? (session.total_sales || 0) : (session.total_sales_at_close || 0);
     const openingAmount = parseFloat(session.opening_amount) || 0;
-    const expectedAmount = session.status === 'abierta' 
-        ? openingAmount + (parseFloat(salesAmount) || 0)
-        : (session.expected_cash || 0);
+    const cashSales = Number(session.payment_methods?.Efectivo ?? session.sales_by_method?.Efectivo ?? 0);
+    const totalIncome = Number(session.totalIncome ?? 0);
+    const totalExpense = Number(session.totalExpense ?? 0);
+    const expectedAmount = session.expected_cash !== undefined && session.expected_cash !== null
+        ? (Number(session.expected_cash) || 0)
+        : openingAmount + cashSales + totalIncome - totalExpense;
 
     const reportContent = `
         <html>
