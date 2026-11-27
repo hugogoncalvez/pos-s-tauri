@@ -7,8 +7,16 @@ import Swal from 'sweetalert2';
  * @param {function} helpers.formatCurrency - Función para formatear un número a moneda.
  * @param {function} helpers.formatDate - Función para formatear una fecha.
  * @param {function} helpers.getUserName - Función para obtener el nombre de usuario.
+ * @param {object} options - Opciones de impresión.
+ * @param {boolean} options.isThermal - Si es true imprime en 80 mm; si no, en A4.
+ * @param {string[]} options.detailMethods - Métodos de pago a detallar línea por línea.
+ * @param {boolean} options.includeCustomer - Si se incluye el nombre del cliente.
  */
-export const printCashSessionReport = (session, { formatCurrency, formatDate, getUserName, businessConfig }, { isThermal = true } = {}) => {
+export const printCashSessionReport = (
+    session,
+    { formatCurrency, formatDate, getUserName, businessConfig },
+    { isThermal = true, detailMethods = [], includeCustomer = false } = {}
+) => {
     const getDiscrepancyRow = (label, value) => {
         const numericValue = parseFloat(value);
         if (isNaN(numericValue)) return '';
@@ -26,6 +34,13 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
         `;
     };
 
+    const escapeHtml = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
     const paymentMethodsHtml = session.payment_methods && Object.keys(session.payment_methods).length > 0
     ? `
     <div class="section">
@@ -33,7 +48,7 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
         <div>
         ${Object.entries(session.payment_methods).map(([method, amount]) => `
             <div class="info-row">
-                <span>${method}:</span>
+                <span>${escapeHtml(method)}:</span>
                 <span>${formatCurrency(amount)}</span>
             </div>
         `).join('')}
@@ -42,11 +57,85 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
     `
     : '';
 
+    const normalizeMethod = (method) => String(method || '').trim().toLowerCase();
+    const detailMethodSet = new Set(
+        (Array.isArray(detailMethods) ? detailMethods : [])
+            .map(normalizeMethod)
+            .filter(Boolean)
+    );
+
+    const detailRows = (Array.isArray(session.sales) ? session.sales : [])
+        .flatMap(sale => (sale.sale_payments || [])
+            .filter(salePayment => detailMethodSet.has(normalizeMethod(salePayment.payment?.method)))
+            .map(salePayment => ({
+                saleId: sale.id,
+                date: sale.createdAt,
+                customer: sale.Customer?.name || '',
+                method: salePayment.payment?.method || 'Desconocido',
+                amount: parseFloat(salePayment.amount) || 0
+            })))
+        .sort((a, b) => {
+            const dateDiff = new Date(a.date) - new Date(b.date);
+            return dateDiff !== 0 ? dateDiff : a.saleId - b.saleId;
+        });
+
+    const detailMethodsHtml = detailRows.length > 0
+        ? `
+    <div class="section">
+        <h2>Detalle de Movimientos</h2>
+        ${isThermal
+            ? detailRows.map(row => `
+                <div class="detail-item">
+                    <div class="detail-line">
+                        <span>#${row.saleId} - ${formatDate(row.date)}</span>
+                        <span>${formatCurrency(row.amount)}</span>
+                    </div>
+                    <div class="detail-subline">
+                        ${escapeHtml(row.method)}${includeCustomer && row.customer ? ` - ${escapeHtml(row.customer)}` : ''}
+                    </div>
+                </div>
+            `).join('')
+            : `
+            <table class="detail-table">
+                <thead>
+                    <tr>
+                        <th>Venta</th>
+                        <th>Fecha</th>
+                        <th>Método</th>
+                        ${includeCustomer ? '<th>Cliente</th>' : ''}
+                        <th class="amount">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${detailRows.map(row => `
+                        <tr>
+                            <td>#${row.saleId}</td>
+                            <td>${formatDate(row.date)}</td>
+                            <td>${escapeHtml(row.method)}</td>
+                            ${includeCustomer ? `<td>${escapeHtml(row.customer || '-')}</td>` : ''}
+                            <td class="amount">${formatCurrency(row.amount)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            `}
+    </div>
+    `
+        : '';
+
     const salesAmount = session.status === 'abierta' ? (session.total_sales || 0) : (session.total_sales_at_close || 0);
     const openingAmount = parseFloat(session.opening_amount) || 0;
-    const expectedAmount = session.status === 'abierta' 
-        ? openingAmount + (parseFloat(salesAmount) || 0)
-        : (session.expected_cash || 0);
+    const cashSalesFromMethods = Object.entries(session.payment_methods || {})
+        .filter(([method]) => String(method).toLowerCase().includes('efectivo'))
+        .reduce((sum, [, amount]) => sum + (parseFloat(amount) || 0), 0);
+    const cashSalesAmount = session.cash_sales != null
+        ? (parseFloat(session.cash_sales) || 0)
+        : cashSalesFromMethods;
+    const totalIncome = parseFloat(session.totalIncome) || 0;
+    const totalExpense = parseFloat(session.totalExpense) || 0;
+    const expectedAmount = session.expected_cash != null
+        ? (parseFloat(session.expected_cash) || 0)
+        : openingAmount + cashSalesAmount + totalIncome - totalExpense;
 
     const a4Styles = `
                 @page {
@@ -110,6 +199,10 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
                 .notes-section { background-color: #fffbe6; border-left: 5px solid #fcc419; padding: 15px 20px; margin-top: 25px; border-radius: 4px; }
                 .notes-section h3 { margin-top: 0; color: #fab005; font-size: 1.2em; }
                 .notes-section p { margin: 8px 0; }
+                .detail-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+                .detail-table th, .detail-table td { padding: 8px 10px; border-bottom: 1px solid #f1f3f5; text-align: left; }
+                .detail-table th { color: #495057; font-weight: 500; background-color: #f8f9fa; }
+                .detail-table .amount { text-align: right; white-space: nowrap; }
                 hr.solid { border: none; border-top: 1px solid #dee2e6; margin: 15px 0; }
     `;
 
@@ -181,6 +274,10 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
         }
         .notes-section h3 { margin: 0 0 3px; color: #000; font-size: 11px; }
         .notes-section p { margin: 2px 0; font-size: 10px; }
+        .detail-item { border-bottom: 1px dashed #999; padding: 2px 0; }
+        .detail-line { display: flex; justify-content: space-between; gap: 4px; font-size: 11px; }
+        .detail-line span:last-child { font-weight: bold; white-space: nowrap; }
+        .detail-subline { font-size: 10px; }
         hr.solid { border: none; border-top: 1px dashed #000; margin: 6px 0; }
     `;
 
@@ -215,10 +312,15 @@ export const printCashSessionReport = (session, { formatCurrency, formatDate, ge
 
                 ${paymentMethodsHtml}
 
+                ${detailMethodsHtml}
+
                 <div class="section">
                     <h2>Resumen Financiero</h2>
                     <div class="info-row"><span>Monto de Apertura:</span> <span>${formatCurrency(session.opening_amount)}</span></div>
                     <div class="info-row"><span>Ventas del Sistema:</span> <span>${formatCurrency(salesAmount)}</span></div>
+                    <div class="info-row"><span>Ventas en Efectivo:</span> <span>${formatCurrency(cashSalesAmount)}</span></div>
+                    ${totalIncome > 0 ? `<div class="info-row"><span>Ingresos de Caja:</span> <span>${formatCurrency(totalIncome)}</span></div>` : ''}
+                    ${totalExpense > 0 ? `<div class="info-row"><span>Egresos de Caja:</span> <span>${formatCurrency(totalExpense)}</span></div>` : ''}
                     <div class="info-row total"><span>Monto Esperado (Sistema):</span> <span>${formatCurrency(expectedAmount)}</span></div>
                     <hr class="solid">
                     <div class="info-row"><span>Monto Declarado (Cajero):</span> <span>${formatCurrency(session.cashier_declared_amount)}</span></div>

@@ -27,8 +27,7 @@ import {
     DialogContent,
     DialogActions,
     Divider,
-    Checkbox,
-    FormControlLabel
+    CircularProgress
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import { StyledCard } from '../styledComponents/ui/StyledCard';
@@ -47,7 +46,8 @@ import {
     Print as PrintIcon,
     Person as PersonIcon,
     Clear as ClearIcon,
-    KeyboardArrowDown
+    KeyboardArrowDown,
+    Settings as SettingsIcon
 } from '@mui/icons-material';
 import moment from 'moment';
 import 'moment/locale/es';
@@ -71,7 +71,9 @@ import { useSyncManager } from '../hooks/useSyncManager'; // Import useSyncManag
 import CloseCashSessionDialog from '../styledComponents/CloseCashSessionDialog';
 import FinalizeClosureDialog from '../styledComponents/FinalizeClosureDialog';
 import CashMovementModal from '../styledComponents/CashMovementModal';
+import PrintOptionsDialog from '../styledComponents/PrintOptionsDialog';
 import { printCashSessionReport } from '../functions/printCashSessionReport';
+import { loadPrintOptions, savePrintOptions } from '../functions/printOptions';
 import { useTheme } from '@mui/material/styles';
 import { Api } from '../api/api';
 import CashAdminSkeleton from '../styledComponents/skeletons/CashAdminSkeleton';
@@ -127,9 +129,15 @@ const CashAdmin = () => {
     const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
     const [sessionToFinalize, setSessionToFinalize] = useState(null);
     const [cashMovementModalOpen, setCashMovementModalOpen] = useState(false);
-    const [printThermal, setPrintThermal] = useState(true);
 
     const { usuario, isLoading: authLoading } = useContext(AuthContext);
+    const [printOptions, setPrintOptions] = useState(() => loadPrintOptions(usuario?.id));
+    const [printOptionsOpen, setPrintOptionsOpen] = useState(false);
+    const [printingSessionId, setPrintingSessionId] = useState(null);
+
+    useEffect(() => {
+        setPrintOptions(loadPrintOptions(usuario?.id));
+    }, [usuario?.id]);
     const { pendingSync } = useSyncManager(); // Get pendingSync state
 
     const statusOptions = [
@@ -195,11 +203,9 @@ const CashAdmin = () => {
                     if (session.status === 'abierta') {
                         try {
                             const { data: summaryData } = await Api.get(`/cash-sessions/${session.id}/summary`);
-                            // Usar total_sales (todos los métodos de pago) para reflejar el total real de la sesión
-                            const totalSales = summaryData.total_sales || 0;
-                            const totalIncome = summaryData.totalIncome || 0;
-                            const totalExpense = summaryData.totalExpense || 0;
-                            const current_cash = parseFloat(session.opening_amount) + totalSales + totalIncome - totalExpense;
+                            const current_cash = summaryData.expected_cash != null
+                                ? parseFloat(summaryData.expected_cash) || 0
+                                : parseFloat(session.opening_amount) || 0;
                             return { ...session, current_cash };
                         } catch (error) {
                             console.error(`Error fetching summary for session ${session.id}:`, error);
@@ -380,6 +386,38 @@ const CashAdmin = () => {
             return `${user.username} (${user.rol.nombre})`;
         }
         return users[session.user_id] || `Usuario ${session.user_id}`;
+    };
+
+    const printHelpers = { formatCurrency, formatDate, getUserName, businessConfig };
+
+    const handleSavePrintOptions = (options) => {
+        savePrintOptions(usuario?.id, options);
+        setPrintOptions(options);
+        setPrintOptionsOpen(false);
+    };
+
+    const handlePrintSession = async (session) => {
+        const detailMethods = Array.isArray(printOptions.detailMethods) ? printOptions.detailMethods : [];
+        if (detailMethods.length === 0) {
+            printCashSessionReport(session, printHelpers, printOptions);
+            return;
+        }
+
+        try {
+            setPrintingSessionId(session.id);
+            const { data } = await Api.get(`/cash-sessions/${session.id}/print-report`);
+            printCashSessionReport(data, printHelpers, printOptions);
+        } catch (error) {
+            mostrarError(error.response?.data?.message || 'No se pudo preparar el reporte de caja.', theme);
+        } finally {
+            setPrintingSessionId(null);
+        }
+    };
+
+    const handleCloseDetails = () => {
+        setDetailsDialogOpen(false);
+        setViewingSessionId(null);
+        setPrintOptionsOpen(false);
     };
 
     const isLoading = authLoading || usersLoading || cashSessionsLoading || historyLoading;
@@ -693,7 +731,13 @@ const CashAdmin = () => {
                                     <Tooltip title="Ver Detalles">
                                         <IconButton size="small" onClick={() => handleViewDetails(row)}><ViewIcon /></IconButton>
                                     </Tooltip>
-                                    <Tooltip title="Imprimir reporte"><IconButton size="small" onClick={() => printCashSessionReport(row, { formatCurrency, formatDate, getUserName, businessConfig }, { isThermal: printThermal })}><PrintIcon /></IconButton></Tooltip>
+                                    <Tooltip title="Imprimir reporte">
+                                        <span>
+                                            <IconButton size="small" disabled={printingSessionId === row.id} onClick={() => handlePrintSession(row)}>
+                                                {printingSessionId === row.id ? <CircularProgress size={18} /> : <PrintIcon />}
+                                            </IconButton>
+                                        </span>
+                                    </Tooltip>
                                     {row.status === 'pendiente_cierre' && tienePermiso('ver_cajas_admin') && (
                                         <Tooltip title="Revisar y Finalizar Cierre"><StyledButton size="small" variant="contained" color="secondary" onClick={() => openFinalizeDialog(row)} sx={{ ml: 1 }}>Revisar</StyledButton></Tooltip>
                                     )}
@@ -714,7 +758,7 @@ const CashAdmin = () => {
             <CloseCashSessionDialog open={closeDialogOpen} onClose={() => setCloseDialogOpen(false)} selectedSession={selectedSession} handleInitiateClosure={handleInitiateClosure} getUserName={getUserName} isLoading={isInitiatingClosure} />
             <FinalizeClosureDialog open={finalizeDialogOpen} onClose={() => { setFinalizeDialogOpen(false); setFinalizingSessionId(null); }} sessionData={sessionToFinalize} handleFinalizeClosure={handleFinalizeClosure} isLoading={isFetchingFinalize || isFinalizing} />
                         {detailsDialogOpen && (
-                            <StyledDialog open={detailsDialogOpen} onClose={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }} maxWidth="lg" fullWidth>
+                            <StyledDialog open={detailsDialogOpen} onClose={handleCloseDetails} maxWidth="lg" fullWidth>
                                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
                                     <Box mb={-2}>
                                         Detalles de Sesión de Caja
@@ -724,7 +768,7 @@ const CashAdmin = () => {
                                             </Typography>
                                         )}
                                     </Box>
-                                    <IconButton onClick={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }}>
+                                    <IconButton onClick={handleCloseDetails}>
                                         <CloseIcon color="error" />
                                     </IconButton>
                                 </DialogTitle>
@@ -852,28 +896,41 @@ const CashAdmin = () => {
                                         </Box>
                                     )}
                                 </DialogContent>                    <DialogActions sx={{ backgroundColor: 'background.dialog' }}>
-                        <Tooltip title="Desmarcá para imprimir en A4">
-                            <FormControlLabel
-                                control={<Checkbox size="small" checked={printThermal} onChange={(e) => setPrintThermal(e.target.checked)} />}
-                                label="Imprimir en 80 mm"
-                                sx={{ mr: 'auto', ml: 1 }}
-                            />
-                        </Tooltip>
-                        <StyledButton sx={{ padding: '2px 12px' }} color='secondary' variant="outlined" onClick={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }}>
+                        <StyledButton
+                            sx={{ mr: 'auto', ml: 1, padding: '2px 12px' }}
+                            color="secondary"
+                            variant="outlined"
+                            startIcon={<SettingsIcon />}
+                            disabled={!sessionDetails}
+                            onClick={() => setPrintOptionsOpen(true)}
+                        >
+                            Opciones de impresión
+                        </StyledButton>
+                        <StyledButton sx={{ padding: '2px 12px' }} color='secondary' variant="outlined" onClick={handleCloseDetails}>
                             Cerrar
                         </StyledButton>
                         {sessionDetails && (
                             <StyledButton
-                                onClick={() => printCashSessionReport(sessionDetails, { formatCurrency, formatDate, getUserName, businessConfig }, { isThermal: printThermal })}
+                                onClick={() => handlePrintSession(sessionDetails)}
                                 variant="contained"
-                                startIcon={<PrintIcon />}
+                                disabled={printingSessionId === sessionDetails.id}
+                                startIcon={printingSessionId === sessionDetails.id ? <CircularProgress size={18} color="inherit" /> : <PrintIcon />}
                             >
-                                Imprimir Reporte
+                                {printingSessionId === sessionDetails.id ? 'Preparando...' : 'Imprimir Reporte'}
                             </StyledButton>
                         )}
                     </DialogActions>
                 </StyledDialog>
             )}
+            <PrintOptionsDialog
+                open={printOptionsOpen}
+                onClose={() => setPrintOptionsOpen(false)}
+                onSave={handleSavePrintOptions}
+                paymentMethods={sessionDetails?.payment_methods || {}}
+                initialOptions={printOptions}
+                formatCurrency={formatCurrency}
+            />
+
             <CashMovementModal open={cashMovementModalOpen} onClose={() => setCashMovementModalOpen(false)} onSave={handleSaveMovement} activeSessionId={activeSessions.length > 0 ? activeSessions[0].id : null} userName={activeSessions.length > 0 ? getUserName(activeSessions[0]) : ''} isSaving={isSavingMovement} theme={theme} />
         </Box>
     );

@@ -18,7 +18,11 @@ const FinalizeClosureDialog = ({ open, onClose, sessionData, handleFinalizeClosu
 
     const { expectedCash, cashSales, totalIncome, totalExpense } = useMemo(() => {
         if (!sessionData) return { expectedCash: 0, cashSales: 0, totalIncome: 0, totalExpense: 0 };
-        const cashSalesAmount = sessionData.payment_methods?.Efectivo || 0;
+        const cashSalesAmount = sessionData.cash_sales != null
+            ? (parseFloat(sessionData.cash_sales) || 0)
+            : Object.entries(sessionData.payment_methods || {})
+                .filter(([method]) => String(method).toLowerCase().includes('efectivo'))
+                .reduce((sum, [, amount]) => sum + (parseFloat(amount) || 0), 0);
         const openingAmount = parseFloat(sessionData.opening_amount || 0);
         const income = parseFloat(sessionData.totalIncome || 0);
         const expense = parseFloat(sessionData.totalExpense || 0);

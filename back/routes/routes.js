@@ -53,6 +53,7 @@ import {
     getUserModules,
     updateUserModules,
     getCashSessionSummary,
+    getCashSessionPrintReport,
     getBusinessConfig,
     updateBusinessConfig
 } from "../controllers/Controller.js";
@@ -163,6 +164,7 @@ authenticatedRouter.get('/cash-sessions/active/:user_id', checkPermission('accio
 authenticatedRouter.get('/cash-sessions/history', checkPermission(['ver_mi_caja', 'ver_vista_caja_admin']), getCashSessionHistory);
 authenticatedRouter.get('/cash-sessions/summary/:user_id', checkPermission('ver_mi_caja'), getCurrentSessionSummary);
 authenticatedRouter.get('/cash-sessions/:session_id/summary', checkPermission(['ver_vista_caja_admin', 'ver_mi_caja']), getCashSessionSummary);
+authenticatedRouter.get('/cash-sessions/:session_id/print-report', checkPermission(['ver_vista_caja_admin', 'ver_mi_caja']), getCashSessionPrintReport);
 
 // --- RUTAS DE CLIENTES ---
 authenticatedRouter.get('/customers', checkPermission(['listar_clientes', 'ver_vista_clientes']), getCustomers);

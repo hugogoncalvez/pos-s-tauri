@@ -2476,6 +2476,62 @@ export const directCloseSessionByAdmin = async (req, res) => {
 };
 
 
+// --- HELPERS DE CAJA ---
+
+/**
+ * Indica si un método de pago corresponde a efectivo.
+ * Se usa includes para tolerar variantes como "Efectivo" o "efectivo".
+ */
+const isCashPaymentMethod = (method) => (
+    typeof method === 'string' && method.toLowerCase().includes('efectivo')
+);
+
+/**
+ * Suma los montos de sale_payments agrupados por método de pago.
+ * Es la fuente única para totales por método en caja y reportes.
+ */
+const buildPaymentMethodsSummary = (sales = []) => {
+    const totals = {};
+
+    for (const sale of sales) {
+        const plainSale = typeof sale?.toJSON === 'function' ? sale.toJSON() : sale;
+        for (const payment of plainSale?.sale_payments || []) {
+            const method = payment.payment?.method || 'Desconocido';
+            const amount = parseFloat(payment.amount || 0);
+            if (!Number.isFinite(amount)) continue;
+            totals[method] = (totals[method] || 0) + amount;
+        }
+    }
+
+    return totals;
+};
+
+/**
+ * Obtiene el total vendido en efectivo a partir del resumen por método.
+ */
+const getCashSalesFromPaymentMethods = (paymentMethods = {}) => (
+    Object.entries(paymentMethods).reduce((sum, [method, amount]) => (
+        isCashPaymentMethod(method) ? sum + parseFloat(amount || 0) : sum
+    ), 0)
+);
+
+/**
+ * Calcula el efectivo esperado de una sesión:
+ * apertura + ventas en efectivo + ingresos - egresos.
+ */
+const calculateExpectedCash = (session, paymentMethods = {}, movements = []) => {
+    const openingAmount = parseFloat(session?.opening_amount || 0);
+    const cashSales = getCashSalesFromPaymentMethods(paymentMethods);
+    const totalIncome = movements
+        .filter(m => m.type === 'ingreso')
+        .reduce((sum, m) => sum + parseFloat(m.amount || 0), 0);
+    const totalExpense = movements
+        .filter(m => m.type === 'egreso')
+        .reduce((sum, m) => sum + parseFloat(m.amount || 0), 0);
+
+    return roundMoney(openingAmount + cashSales + totalIncome - totalExpense);
+};
+
 // --- NUEVO FLUJO DE CIERRE DE CAJA EN 2 PASOS ---
 
 // Paso 1: Obtener el resumen para el cierre (para el cajero)
@@ -2503,15 +2559,8 @@ export const getSummaryForClose = async (req, res) => {
         });
 
         // Calcular totales por método de pago
-        const sales_by_method = {};
-        let total_sales = 0;
-        sales.forEach(sale => {
-            total_sales += parseFloat(sale.total_neto);
-            (sale.sale_payments || []).forEach(payment => {
-                const methodName = payment.payment?.method || 'Desconocido';
-                sales_by_method[methodName] = (sales_by_method[methodName] || 0) + parseFloat(payment.amount);
-            });
-        });
+        const sales_by_method = buildPaymentMethodsSummary(sales);
+        const total_sales = sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto || 0), 0);
 
         // Obtener movimientos de caja para la sesión actual
         const movements = await CashSessionMovementModel.findAll({ where: { cash_session_id: session.id } });
@@ -2529,7 +2578,8 @@ export const getSummaryForClose = async (req, res) => {
             sales_by_method,
             total_sales,
             totalIncome,
-            totalExpense
+            totalExpense,
+            cash_sales: getCashSalesFromPaymentMethods(sales_by_method)
         });
 
     } catch (error) {
@@ -2748,28 +2798,22 @@ export const getActiveCashSession = async (req, res) => {
             where: { cash_session_id: session.id }
         });
 
-        // Calcular total de ventas (todos los métodos de pago)
-        const salesResult = await SaleModel.findOne({
-            attributes: [
-                [db.fn('SUM', db.col('total_neto')), 'totalSales']
-            ],
+        const salesForCash = await SaleModel.findAll({
             where: { cash_session_id: session.id },
-            raw: true
+            attributes: ['id', 'total_neto'],
+            include: [{
+                model: SalePaymentModel,
+                as: 'sale_payments',
+                attributes: ['amount'],
+                include: [{
+                    model: PaymentModel,
+                    as: 'payment',
+                    attributes: ['method']
+                }]
+            }]
         });
-        const totalSales = parseFloat(salesResult?.totalSales || 0);
-
-        let totalIngresos = 0;
-        let totalEgresos = 0;
-
-        movements.forEach(movement => {
-            if (movement.type === 'ingreso') {
-                totalIngresos += parseFloat(movement.amount);
-            } else if (movement.type === 'egreso') {
-                totalEgresos += parseFloat(movement.amount);
-            }
-        });
-
-        const currentCash = parseFloat(session.opening_amount) + totalSales + totalIngresos - totalEgresos;
+        const paymentMethods = buildPaymentMethodsSummary(salesForCash);
+        const currentCash = calculateExpectedCash(session, paymentMethods, movements);
 
         return res.status(200).json({
             hasActiveSession: true,
@@ -2861,16 +2905,9 @@ export const getCashSessionHistory = async (req, res) => {
                 }]
             });
 
-            const paymentMethodsSummary = {};
-            sales.forEach(sale => {
-                (sale.sale_payments || []).forEach(p => {
-                    const methodName = p.payment?.method || 'Desconocido';
-                    paymentMethodsSummary[methodName] = (paymentMethodsSummary[methodName] || 0) + parseFloat(p.amount);
-                });
-            });
+            const paymentMethodsSummary = buildPaymentMethodsSummary(sales);
             plainSession.payment_methods = paymentMethodsSummary;
-
-            const cashSales = paymentMethodsSummary['Efectivo'] || 0;
+            plainSession.cash_sales = getCashSalesFromPaymentMethods(paymentMethodsSummary);
 
             // 2. Calcular movimientos de caja
             const movements = await CashSessionMovementModel.findAll({ where: { cash_session_id: session.id } });
@@ -2878,10 +2915,12 @@ export const getCashSessionHistory = async (req, res) => {
             const totalExpense = movements.filter(m => m.type === 'egreso').reduce((sum, m) => sum + parseFloat(m.amount), 0);
 
             // 3. Calcular monto esperado
-            const expected_cash = parseFloat(session.opening_amount) + cashSales + totalIncome - totalExpense;
+            const expected_cash = calculateExpectedCash(session, paymentMethodsSummary, movements);
 
             // 4. Recalcular discrepancias
             plainSession.expected_cash = expected_cash;
+            plainSession.totalIncome = totalIncome;
+            plainSession.totalExpense = totalExpense;
             if (plainSession.status === 'pendiente_cierre' || plainSession.status === 'cerrada') {
                 plainSession.preliminary_discrepancy = parseFloat(plainSession.cashier_declared_amount) - expected_cash;
             }
@@ -2890,7 +2929,11 @@ export const getCashSessionHistory = async (req, res) => {
             }
 
             // 5. Asignar el total de ventas correcto
-            plainSession.total_sales_at_close = sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto), 0);
+            const currentSalesTotal = sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto || 0), 0);
+            const storedSalesAtClose = parseFloat(plainSession.total_sales_at_close || 0);
+            plainSession.total_sales_at_close = plainSession.status === 'abierta'
+                ? currentSalesTotal
+                : (storedSalesAtClose > 0 ? storedSalesAtClose : currentSalesTotal);
 
 
             return plainSession;
@@ -3042,14 +3085,14 @@ export const getCurrentSessionSummary = async (req, res) => {
             return res.status(404).json({ message: 'No hay sesión de caja activa' });
         }
 
+        if (req.usuario?.rol_nombre === 'Cajero' && Number(user_id) !== Number(req.usuario.id)) {
+            return res.status(403).json({ message: 'No tienes permiso para ver la caja de otro usuario.' });
+        }
+
         // Obtener ventas de la sesión actual
         const sales = await SaleModel.findAll({
             where: {
-                user_id: user_id,
-                createdAt: {
-                    [Op.gte]: activeSession.opened_at,
-                    [Op.lte]: new Date()
-                }
+                cash_session_id: activeSession.id
             },
             include: [
                 {
@@ -3071,14 +3114,7 @@ export const getCurrentSessionSummary = async (req, res) => {
         });
 
         // Calcular totales por método de pago
-        const paymentMethodTotals = {};
-        sales.forEach(sale => {
-            const plainSale = sale.toJSON(); // Convertir a objeto plano
-            (plainSale.sale_payments || []).forEach(sp => {
-                const methodName = sp.payment?.method || 'Desconocido';
-                paymentMethodTotals[methodName] = (paymentMethodTotals[methodName] || 0) + parseFloat(sp.amount);
-            });
-        });
+        const paymentMethodTotals = buildPaymentMethodsSummary(sales);
 
         // Calcular totales
         const summary = {
@@ -3125,6 +3161,10 @@ export const getCashSessionSummary = async (req, res) => {
 
         if (!session) {
             return res.status(404).json({ message: 'Sesión de caja no encontrada' });
+        }
+
+        if (req.usuario?.rol_nombre === 'Cajero' && Number(session.user_id) !== Number(req.usuario.id)) {
+            return res.status(403).json({ message: 'No tienes permiso para ver esta sesión de caja.' });
         }
 
         // Obtener ventas de esta sesión específica
@@ -3174,40 +3214,27 @@ export const getCashSessionSummary = async (req, res) => {
             .filter(m => m.type === 'egreso')
             .reduce((sum, m) => sum + parseFloat(m.amount), 0);
 
+        const totalSales = sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto || 0), 0);
+        const paymentMethods = buildPaymentMethodsSummary(sales);
+        const storedSalesAtClose = parseFloat(session.total_sales_at_close || 0);
+        const totalSalesAtClose = session.status === 'abierta'
+            ? totalSales
+            : (storedSalesAtClose > 0 ? storedSalesAtClose : totalSales);
+
         const summary = {
             ...session.toJSON(),
             sales_count: sales.length,
-            total_sales: sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto), 0),
+            total_sales: totalSales,
+            total_sales_at_close: totalSalesAtClose,
             total_discounts: sales.reduce((sum, sale) => sum + parseFloat(sale.promotion_discount || 0), 0),
             sales: sales,
             totalIncome,
             totalExpense,
+            cash_sales: getCashSalesFromPaymentMethods(paymentMethods),
+            expected_cash: calculateExpectedCash(session, paymentMethods, session.movements || []),
             // Estadísticas adicionales
-            average_sale: sales.length > 0 ? sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto), 0) / sales.length : 0,
-            payment_methods: sales.reduce((acc, sale) => {
-                const plainSale = sale.toJSON();
-                if (!plainSale.sale_payments) {
-                    return acc;
-                }
-
-                let paymentsTotal = 0;
-                plainSale.sale_payments.forEach(p => {
-                    const method = p.payment?.method || 'Desconocido';
-                    const amount = parseFloat(p.amount || 0);
-                    acc[method] = (acc[method] || 0) + amount;
-                    paymentsTotal += amount;
-                });
-
-                const difference = parseFloat(plainSale.total_neto || 0) - paymentsTotal;
-                if (difference > 0.01) {
-                    const nonCashPayment = plainSale.sale_payments.find(p => p.payment?.method !== 'Efectivo');
-                    const targetPayment = nonCashPayment || plainSale.sale_payments[0];
-                    const method = targetPayment?.payment?.method || 'Desconocido';
-                    acc[method] = (acc[method] || 0) + difference;
-                }
-
-                return acc;
-            }, {}),
+            average_sale: sales.length > 0 ? totalSales / sales.length : 0,
+            payment_methods: paymentMethods,
             hourly_sales: sales.reduce((acc, sale) => {
                 const hour = new Date(sale.createdAt).getHours();
                 acc[hour] = (acc[hour] || 0) + 1;
@@ -3218,6 +3245,109 @@ export const getCashSessionSummary = async (req, res) => {
         res.json(summary);
     } catch (error) {
         console.error("Error al obtener resumen de sesión:", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * Devuelve los datos mínimos para imprimir el reporte de una sesión de caja,
+ * incluyendo las ventas necesarias para detallar los movimientos por método.
+ */
+export const getCashSessionPrintReport = async (req, res) => {
+    try {
+        const { session_id } = req.params;
+
+        const session = await CashSessionsModel.findByPk(session_id, {
+            include: [
+                {
+                    model: UsuarioModel,
+                    attributes: ['id', 'username'],
+                    include: [{
+                        model: RoleModel,
+                        as: 'rol',
+                        attributes: ['nombre']
+                    }]
+                },
+                {
+                    model: CashSessionMovementModel,
+                    as: 'movements',
+                    attributes: ['type', 'amount', 'description', 'createdAt'],
+                    order: [['createdAt', 'ASC']]
+                }
+            ]
+        });
+
+        if (!session) {
+            return res.status(404).json({ message: 'Sesión de caja no encontrada' });
+        }
+
+        if (req.usuario?.rol_nombre === 'Cajero' && Number(session.user_id) !== Number(req.usuario.id)) {
+            return res.status(403).json({ message: 'No tienes permiso para imprimir esta sesión de caja.' });
+        }
+
+        const sales = await SaleModel.findAll({
+            where: { cash_session_id: session.id },
+            attributes: ['id', 'createdAt', 'total_neto'],
+            include: [
+                {
+                    model: CustomerModel,
+                    attributes: ['name']
+                },
+                {
+                    model: SalePaymentModel,
+                    as: 'sale_payments',
+                    attributes: ['amount'],
+                    include: [{
+                        model: PaymentModel,
+                        as: 'payment',
+                        attributes: ['method']
+                    }]
+                }
+            ],
+            order: [['createdAt', 'ASC']]
+        });
+
+        const totalSales = sales.reduce((sum, sale) => sum + parseFloat(sale.total_neto || 0), 0);
+        const paymentMethods = buildPaymentMethodsSummary(sales);
+        const storedSalesAtClose = parseFloat(session.total_sales_at_close || 0);
+        const totalSalesAtClose = session.status === 'abierta'
+            ? totalSales
+            : (storedSalesAtClose > 0 ? storedSalesAtClose : totalSales);
+
+        const movements = session.movements || [];
+        const totalIncome = movements
+            .filter(m => m.type === 'ingreso')
+            .reduce((sum, m) => sum + parseFloat(m.amount || 0), 0);
+        const totalExpense = movements
+            .filter(m => m.type === 'egreso')
+            .reduce((sum, m) => sum + parseFloat(m.amount || 0), 0);
+
+        res.json({
+            ...session.toJSON(),
+            sales_count: sales.length,
+            total_sales: totalSales,
+            total_sales_at_close: totalSalesAtClose,
+            totalIncome,
+            totalExpense,
+            cash_sales: getCashSalesFromPaymentMethods(paymentMethods),
+            expected_cash: calculateExpectedCash(session, paymentMethods, movements),
+            payment_methods: paymentMethods,
+            sales: sales.map(sale => {
+                const plainSale = sale.toJSON();
+                return {
+                    id: plainSale.id,
+                    createdAt: plainSale.createdAt,
+                    total_neto: plainSale.total_neto,
+                    Customer: plainSale.Customer || null,
+                    sale_payments: (plainSale.sale_payments || []).map(payment => ({
+                        amount: payment.amount,
+                        payment: payment.payment ? { method: payment.payment.method } : null
+                    }))
+                };
+            })
+        });
+    } catch (error) {
+        console.error("Error al obtener reporte de impresión de caja:", error);
         res.status(500).json({ error: error.message });
     }
 };

@@ -21,8 +21,7 @@ import {
     TableRow,
     TableCell,
     TableBody,
-    Checkbox,
-    FormControlLabel
+    CircularProgress
 } from '@mui/material';
 import { StyledCard } from '../styledComponents/ui/StyledCard';
 import { StyledButton } from '../styledComponents/ui/StyledButton';
@@ -38,7 +37,8 @@ import {
     Print as PrintIcon,
     Money as MoneyIcon,
     Clear as ClearIcon,
-    KeyboardArrowDown
+    KeyboardArrowDown,
+    Settings as SettingsIcon
 } from '@mui/icons-material';
 import { motion } from "framer-motion";
 import moment from 'moment';
@@ -59,8 +59,11 @@ import { mostrarCarga } from '../functions/mostrarCarga'; // Importar mostrarCar
 import Swal from 'sweetalert2'; // Importar Swal
 import CloseCashSessionDialog from '../styledComponents/CloseCashSessionDialog';
 import { printCashSessionReport } from '../functions/printCashSessionReport';
+import { loadPrintOptions, savePrintOptions } from '../functions/printOptions';
+import PrintOptionsDialog from '../styledComponents/PrintOptionsDialog';
 import { EnhancedTable } from '../styledComponents/EnhancedTable';
 import CashMovementModal from '../styledComponents/CashMovementModal';
+import { Api } from '../api/api';
 import { useTheme } from '@mui/material/styles';
 import CajeroViewSkeleton from '../styledComponents/skeletons/CajeroViewSkeleton';
 
@@ -78,7 +81,6 @@ const CajeroView = () => {
     const [visibleFab, setVisibleFab] = useState(false);
     const [cashMovementModalOpen, setCashMovementModalOpen] = useState(false);
     const [viewingSessionId, setViewingSessionId] = useState(null);
-    const [printThermal, setPrintThermal] = useState(true);
 
     const queryClient = useQueryClient(); // Inicializar queryClient
 
@@ -100,6 +102,13 @@ const CajeroView = () => {
     const [totalRows, setTotalRows] = useState(0);
 
     const { usuario, isLoading: authLoading } = useContext(AuthContext);
+    const [printOptions, setPrintOptions] = useState(() => loadPrintOptions(usuario?.id));
+    const [printOptionsOpen, setPrintOptionsOpen] = useState(false);
+    const [printingSessionId, setPrintingSessionId] = useState(null);
+
+    useEffect(() => {
+        setPrintOptions(loadPrintOptions(usuario?.id));
+    }, [usuario?.id]);
 
     // Hook para obtener la sesión activa del usuario
     const {
@@ -255,6 +264,38 @@ const CajeroView = () => {
         return usuario?.username || 'Usuario';
     };
 
+    const printHelpers = { formatCurrency, formatDate, getUserName, businessConfig };
+
+    const handleSavePrintOptions = (options) => {
+        savePrintOptions(usuario?.id, options);
+        setPrintOptions(options);
+        setPrintOptionsOpen(false);
+    };
+
+    const handlePrintSession = async (session) => {
+        const detailMethods = Array.isArray(printOptions.detailMethods) ? printOptions.detailMethods : [];
+        if (detailMethods.length === 0) {
+            printCashSessionReport(session, printHelpers, printOptions);
+            return;
+        }
+
+        try {
+            setPrintingSessionId(session.id);
+            const { data } = await Api.get(`/cash-sessions/${session.id}/print-report`);
+            printCashSessionReport(data, printHelpers, printOptions);
+        } catch (error) {
+            mostrarError(error.response?.data?.message || 'No se pudo preparar el reporte de caja.', theme);
+        } finally {
+            setPrintingSessionId(null);
+        }
+    };
+
+    const handleCloseDetails = () => {
+        setDetailsDialogOpen(false);
+        setViewingSessionId(null);
+        setPrintOptionsOpen(false);
+    };
+
     const handleSaveMovement = async (movementData) => {
         try {
             await saveMovement({ url: '/cash-sessions/movement', values: movementData });
@@ -306,9 +347,11 @@ const CajeroView = () => {
                         <IconButton size="small" onClick={() => handleViewDetails(row)}><ViewIcon /></IconButton>
                     </Tooltip>
                     <Tooltip title="Imprimir reporte">
-                        <IconButton size="small" onClick={() => printCashSessionReport(row, { formatCurrency, formatDate, getUserName, businessConfig }, { isThermal: printThermal })}>
-                            <PrintIcon />
-                        </IconButton>
+                        <span>
+                            <IconButton size="small" disabled={printingSessionId === row.id} onClick={() => handlePrintSession(row)}>
+                                {printingSessionId === row.id ? <CircularProgress size={18} /> : <PrintIcon />}
+                            </IconButton>
+                        </span>
                     </Tooltip>
                 </>
             )
@@ -572,13 +615,10 @@ const CajeroView = () => {
                     theme={theme} // Pass the theme prop
                 />
 
-                <StyledDialog open={detailsDialogOpen} onClose={() => {
-                    setDetailsDialogOpen(false);
-                    setViewingSessionId(null); // Limpiar el ID al cerrar para permitir futuras selecciones
-                }} maxWidth="md" fullWidth>
+                <StyledDialog open={detailsDialogOpen} onClose={handleCloseDetails} maxWidth="md" fullWidth>
                     <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'background.dialog', color: 'text.primary' }}>
                         Detalles de Mi Sesión
-                        <IconButton onClick={() => { setDetailsDialogOpen(false); setViewingSessionId(null); }}>
+                        <IconButton onClick={handleCloseDetails}>
                             <CloseIcon color="error" />
                         </IconButton>
                     </DialogTitle>
@@ -648,20 +688,37 @@ const CajeroView = () => {
                         )}
                     </DialogContent>
                     <DialogActions sx={{ p: 2, backgroundColor: 'background.dialog' }}>
-                        <Tooltip title="Desmarcá para imprimir en A4">
-                            <FormControlLabel
-                                control={<Checkbox size="small" checked={printThermal} onChange={(e) => setPrintThermal(e.target.checked)} />}
-                                label="Imprimir en 80 mm"
-                                sx={{ mr: 'auto', ml: 1 }}
-                            />
-                        </Tooltip>
-                        <StyledButton sx={{ padding: '2px 12px' }} variant="outlined" color="secondary" onClick={() => {
-                            setDetailsDialogOpen(false);
-                            setViewingSessionId(null); // Limpiar el ID al cerrar
-                        }}>Cerrar</StyledButton>
-                        {sessionDetails && <StyledButton onClick={() => printCashSessionReport(sessionDetails, { formatCurrency, formatDate, getUserName, businessConfig }, { isThermal: printThermal })} variant="contained" startIcon={<PrintIcon />}>Imprimir</StyledButton>}
+                        <StyledButton
+                            sx={{ mr: 'auto', ml: 1, padding: '2px 12px' }}
+                            variant="outlined"
+                            color="secondary"
+                            startIcon={<SettingsIcon />}
+                            disabled={!sessionDetails}
+                            onClick={() => setPrintOptionsOpen(true)}
+                        >
+                            Opciones de impresión
+                        </StyledButton>
+                        <StyledButton sx={{ padding: '2px 12px' }} variant="outlined" color="secondary" onClick={handleCloseDetails}>Cerrar</StyledButton>
+                        {sessionDetails && (
+                            <StyledButton
+                                onClick={() => handlePrintSession(sessionDetails)}
+                                variant="contained"
+                                disabled={printingSessionId === sessionDetails.id}
+                                startIcon={printingSessionId === sessionDetails.id ? <CircularProgress size={18} color="inherit" /> : <PrintIcon />}
+                            >
+                                {printingSessionId === sessionDetails.id ? 'Preparando...' : 'Imprimir'}
+                            </StyledButton>
+                        )}
                     </DialogActions>
                 </StyledDialog>
+                <PrintOptionsDialog
+                    open={printOptionsOpen}
+                    onClose={() => setPrintOptionsOpen(false)}
+                    onSave={handleSavePrintOptions}
+                    paymentMethods={sessionDetails?.payment_methods || {}}
+                    initialOptions={printOptions}
+                    formatCurrency={formatCurrency}
+                />
             </Box>
         </motion.div>
     );

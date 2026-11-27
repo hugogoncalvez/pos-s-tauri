@@ -42,7 +42,11 @@ const CloseCashSessionDialog = ({
 
     const { expectedCash, cashSales, totalIncome, totalExpense } = useMemo(() => {
         if (!summary) return { expectedCash: 0, cashSales: 0, totalIncome: 0, totalExpense: 0 };
-        const cashS = summary.sales_by_method['Efectivo'] || 0;
+        const cashS = summary.cash_sales != null
+            ? (parseFloat(summary.cash_sales) || 0)
+            : Object.entries(summary.sales_by_method || {})
+                .filter(([method]) => String(method).toLowerCase().includes('efectivo'))
+                .reduce((sum, [, amount]) => sum + (parseFloat(amount) || 0), 0);
         const income = summary.totalIncome || 0;
         const expense = summary.totalExpense || 0;
         const expected = (summary.opening_amount || 0) + cashS + income - expense;
