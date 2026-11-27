@@ -213,9 +213,9 @@ const Corte = () => {
                                 </>
                             )}
 
-                            {/* Sección Pagos de Contado */}
+                            {/* Sección Ventas por Método de Pago */}
                             {renderSection(
-                                'Pagos de Contado',
+                                'Ventas por Método de Pago',
                                 <>
                                     {Object.entries(reportData.report.salesByPaymentMethod).map(([method, amount]) => (
                                         <Box key={method} display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
@@ -224,7 +224,7 @@ const Corte = () => {
                                         </Box>
                                     ))}
                                     <Divider sx={{ my: 1 }} />
-                                    {renderTotalsSection('Total Pagos Contado', reportData.report.totals.totalSalesAmount, 'primary.main')}
+                                    {renderTotalsSection('Total Ventas', reportData.report.totals.totalSalesAmount, 'primary.main')}
                                 </>
                             )}
 

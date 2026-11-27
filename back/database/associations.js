@@ -125,6 +125,10 @@ CashSessionMovementModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_sessio
 UsuarioModel.hasMany(CashSessionMovementModel, { foreignKey: 'user_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
 CashSessionMovementModel.belongsTo(UsuarioModel, { foreignKey: 'user_id' });
 
+// CashSessions <-> CustomerPayments (One-to-Many)
+CashSessionsModel.hasMany(CustomerPaymentsModel, { foreignKey: 'cash_session_id', as: 'customer_payments' });
+CustomerPaymentsModel.belongsTo(CashSessionsModel, { foreignKey: 'cash_session_id', as: 'cash_session' });
+
 // --- Asociaciones de Tickets Pendientes ---
 PendingTicketModel.belongsTo(UsuarioModel, { foreignKey: 'user_id' });
 UsuarioModel.hasMany(PendingTicketModel, { foreignKey: 'user_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });

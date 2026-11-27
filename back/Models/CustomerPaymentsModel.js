@@ -16,6 +16,14 @@ const CustomerPaymentsModel = db.define('customer_payments', {
             key: 'id'
         }
     },
+    cash_session_id: {
+        type: DataTypes.BIGINT,
+        allowNull: true,
+        references: {
+            model: 'cash_sessions',
+            key: 'id'
+        }
+    },
     amount: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
@@ -51,6 +59,9 @@ const CustomerPaymentsModel = db.define('customer_payments', {
         },
         {
             fields: ['payment_date']
+        },
+        {
+            fields: ['cash_session_id']
         }
     ]
 });
