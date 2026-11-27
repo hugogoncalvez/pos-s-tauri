@@ -103,6 +103,25 @@ const normalizePaymentMethod = (value = 'efectivo') => {
     return 'otro';
 };
 
+const normalizeBooleanFlag = (value, defaultValue = true) => {
+    if (value === undefined || value === null) return defaultValue;
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+        if (['true', '1', 'si', 'sí', 'on'].includes(normalized)) return true;
+    }
+    return Boolean(value);
+};
+
+const findOpenCashSessionForUser = async (userId, transaction = null) => {
+    if (!userId) return null;
+    return CashSessionsModel.findOne({
+        where: { user_id: userId, status: 'abierta' },
+        order: [['opened_at', 'DESC']],
+        transaction
+    });
+};
+
 const normalizePurchaseCondition = (value = 'cuenta corriente') => {
     const normalized = String(value).trim().toLowerCase().replace(/_/g, ' ');
     if (normalized === 'contado') return 'contado';
@@ -366,41 +385,51 @@ const createSupplierPaymentWithCash = async ({
     payment_method = 'efectivo',
     notes = null,
     cash_session_id = null,
+    affect_cash = true,
     payment_date = null
 }) => {
     const method = normalizePaymentMethod(payment_method);
+    const shouldAffectCash = method === 'efectivo' && normalizeBooleanFlag(affect_cash, true);
     let cashMovementId = null;
     let usedCashSessionId = null;
 
-    if (method === 'efectivo' && cash_session_id) {
-        const session = await CashSessionsModel.findByPk(cash_session_id, { transaction });
-        if (!session || session.status !== 'abierta') {
-            throw new ValidationError('La sesión de caja proporcionada no está abierta o no es válida.');
+    if (shouldAffectCash) {
+        let resolvedCashSessionId = cash_session_id;
+        if (!resolvedCashSessionId) {
+            const openSession = await findOpenCashSessionForUser(req.usuario?.id, transaction);
+            resolvedCashSessionId = openSession?.id || null;
         }
 
-        const description = purchase
-            ? `Pago a proveedor ${supplier.nombre} - Compra #${purchase.id}`
-            : `Pago a proveedor ${supplier.nombre}`;
-        const movement = await CashSessionMovementModel.create({
-            cash_session_id,
-            user_id: req.usuario.id,
-            type: 'egreso',
-            amount,
-            description
-        }, { transaction });
+        if (resolvedCashSessionId) {
+            const session = await CashSessionsModel.findByPk(resolvedCashSessionId, { transaction });
+            if (!session || session.status !== 'abierta') {
+                throw new ValidationError('La sesión de caja proporcionada no está abierta o no es válida.');
+            }
 
-        cashMovementId = movement.id;
-        usedCashSessionId = cash_session_id;
+            const description = purchase
+                ? `Pago a proveedor ${supplier.nombre} - Compra #${purchase.id}`
+                : `Pago a proveedor ${supplier.nombre}`;
+            const movement = await CashSessionMovementModel.create({
+                cash_session_id: resolvedCashSessionId,
+                user_id: req.usuario.id,
+                type: 'egreso',
+                amount,
+                description
+            }, { transaction });
 
-        await logAudit({
-            user_id: req.usuario.id,
-            action: 'CASH_EXPENSE',
-            entity_type: 'cash_session',
-            entity_id: cash_session_id,
-            session_id: cash_session_id,
-            new_values: { amount, description },
-            details: `Egreso de efectivo por pago a proveedor ${supplier.nombre}: ${amount}`
-        }, req, transaction);
+            cashMovementId = movement.id;
+            usedCashSessionId = resolvedCashSessionId;
+
+            await logAudit({
+                user_id: req.usuario.id,
+                action: 'CASH_EXPENSE',
+                entity_type: 'cash_session',
+                entity_id: resolvedCashSessionId,
+                session_id: resolvedCashSessionId,
+                new_values: { amount, description },
+                details: `Egreso de efectivo por pago a proveedor ${supplier.nombre}: ${amount}`
+            }, req, transaction);
+        }
     }
 
     const payment = await SupplierPaymentsModel.create({
@@ -920,7 +949,8 @@ export const createFullPurchase = async (req, res) => {
             tempValues,
             payment_condition,
             initial_payments = [],
-            cash_session_id
+            cash_session_id,
+            affect_cash = true
         } = req.body;
 
         const normalizedItems = normalizePurchaseItems(tempValues);
@@ -1017,7 +1047,8 @@ export const createFullPurchase = async (req, res) => {
                 amount: payment.amount,
                 payment_method: payment.payment_method,
                 notes: payment.notes,
-                cash_session_id
+                cash_session_id,
+                affect_cash
             });
         }
 
@@ -5498,7 +5529,7 @@ export const registerSupplierPayment = async (req, res) => {
     const transaction = await db.transaction();
     try {
         const { id: supplierId } = req.params;
-        const { amount, payment_method = 'efectivo', notes, cash_session_id, purchase_id, payment_date } = req.body;
+        const { amount, payment_method = 'efectivo', notes, cash_session_id, affect_cash = true, purchase_id, payment_date } = req.body;
 
         const supplier = await SupplierModel.findByPk(supplierId, {
             transaction,
@@ -5567,6 +5598,7 @@ export const registerSupplierPayment = async (req, res) => {
             payment_method,
             notes,
             cash_session_id,
+            affect_cash,
             payment_date
         });
 

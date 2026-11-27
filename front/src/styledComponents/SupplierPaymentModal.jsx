@@ -88,7 +88,8 @@ export const SupplierPaymentModal = ({ open, onClose, supplier, purchase, onSave
                     purchase_id: isPurchasePayment ? purchase.id : null,
                     cash_session_id: formData.payment_method === 'efectivo' && formData.affect_cash
                         ? activeSession?.id || null
-                        : null
+                        : null,
+                    affect_cash: formData.affect_cash
                 },
                 showSuccessAlert: false
             });

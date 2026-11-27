@@ -611,7 +611,8 @@ const PurchasesManager = () => {
                 }] : [],
                 cash_session_id: initialPayment.payment_method === 'efectivo' && initialPayment.affect_cash && activeSession?.id
                     ? activeSession.id
-                    : null
+                    : null,
+                affect_cash: initialPayment.affect_cash
             }),
             tempValues: tempItems.map(item => ({
                 stock_id: item.stock_id,
