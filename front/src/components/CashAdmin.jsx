@@ -440,10 +440,8 @@ const CashAdmin = () => {
                             <Typography variant="h4" color="success.main" fontWeight="bold">
                                 {formatCurrency(
                                     activeSessions && activeSessions.length > 0 ? activeSessions.reduce((sum, session) => {
-                                        if (session.status === 'abierta') {
+                                        if (session.status === 'abierta' || session.status === 'pendiente_cierre') {
                                             return sum + parseFloat(session.current_cash || session.opening_amount || 0);
-                                        } else if (session.status === 'pendiente_cierre') {
-                                            return sum + parseFloat(session.cashier_declared_amount || 0);
                                         }
                                         return sum;
                                     }, 0) : 0
