@@ -2813,13 +2813,23 @@ export const getActiveCashSession = async (req, res) => {
             }]
         });
         const paymentMethods = buildPaymentMethodsSummary(salesForCash);
-        const currentCash = calculateExpectedCash(session, paymentMethods, movements);
+        const totalSales = salesForCash.reduce((sum, sale) => sum + parseFloat(sale.total_neto || 0), 0);
+        const totalIncome = movements
+            .filter(m => m.type === 'ingreso')
+            .reduce((sum, m) => sum + parseFloat(m.amount || 0), 0);
+        const totalExpense = movements
+            .filter(m => m.type === 'egreso')
+            .reduce((sum, m) => sum + parseFloat(m.amount || 0), 0);
+        const openingAmount = parseFloat(session.opening_amount || 0);
 
         return res.status(200).json({
             hasActiveSession: true,
             session: {
                 ...session.toJSON(),
-                current_cash: currentCash
+                // Monto en Caja: incluye ventas de todos los métodos de pago.
+                current_cash: roundMoney(openingAmount + totalSales + totalIncome - totalExpense),
+                // Efectivo esperado: solo ventas en efectivo, para arqueo y cierre.
+                expected_cash: calculateExpectedCash(session, paymentMethods, movements)
             }
         });
 
@@ -3231,6 +3241,9 @@ export const getCashSessionSummary = async (req, res) => {
             totalIncome,
             totalExpense,
             cash_sales: getCashSalesFromPaymentMethods(paymentMethods),
+            // Monto en Caja: incluye ventas de todos los métodos de pago.
+            current_cash: roundMoney(parseFloat(session.opening_amount || 0) + totalSales + totalIncome - totalExpense),
+            // Efectivo esperado: solo ventas en efectivo, para arqueo y cierre.
             expected_cash: calculateExpectedCash(session, paymentMethods, session.movements || []),
             // Estadísticas adicionales
             average_sale: sales.length > 0 ? totalSales / sales.length : 0,

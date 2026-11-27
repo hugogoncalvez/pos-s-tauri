@@ -200,19 +200,27 @@ const CashAdmin = () => {
             if (cashSessions && cashSessions.sessions) {
                 const sessions = cashSessions.sessions;
                 const detailedSessions = await Promise.all(sessions.map(async (session) => {
-                    if (session.status === 'abierta') {
+                    const openingAmount = parseFloat(session.opening_amount) || 0;
+                    if (session.status === 'abierta' || session.status === 'pendiente_cierre') {
                         try {
                             const { data: summaryData } = await Api.get(`/cash-sessions/${session.id}/summary`);
-                            const current_cash = summaryData.expected_cash != null
-                                ? parseFloat(summaryData.expected_cash) || 0
-                                : parseFloat(session.opening_amount) || 0;
+                            const current_cash = summaryData.current_cash != null
+                                ? parseFloat(summaryData.current_cash) || 0
+                                : openingAmount
+                                    + (parseFloat(summaryData.total_sales) || 0)
+                                    + (parseFloat(summaryData.totalIncome) || 0)
+                                    - (parseFloat(summaryData.totalExpense) || 0);
                             return { ...session, current_cash };
                         } catch (error) {
                             console.error(`Error fetching summary for session ${session.id}:`, error);
-                            return { ...session, current_cash: parseFloat(session.opening_amount) }; // Fallback
+                            const fallbackSales = parseFloat(session.total_sales_at_close) || 0;
+                            const fallbackIncome = parseFloat(session.totalIncome) || 0;
+                            const fallbackExpense = parseFloat(session.totalExpense) || 0;
+                            return {
+                                ...session,
+                                current_cash: openingAmount + fallbackSales + fallbackIncome - fallbackExpense
+                            };
                         }
-                    } else if (session.status === 'pendiente_cierre') {
-                        return { ...session, current_cash: parseFloat(session.cashier_declared_amount || 0) };
                     }
                     return session;
                 }));
@@ -476,10 +484,8 @@ const CashAdmin = () => {
                             <Typography variant="h4" color="success.main" fontWeight="bold">
                                 {formatCurrency(
                                     activeSessions && activeSessions.length > 0 ? activeSessions.reduce((sum, session) => {
-                                        if (session.status === 'abierta') {
+                                        if (session.status === 'abierta' || session.status === 'pendiente_cierre') {
                                             return sum + parseFloat(session.current_cash || session.opening_amount || 0);
-                                        } else if (session.status === 'pendiente_cierre') {
-                                            return sum + parseFloat(session.cashier_declared_amount || 0);
                                         }
                                         return sum;
                                     }, 0) : 0
