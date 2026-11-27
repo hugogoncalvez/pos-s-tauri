@@ -1,6 +1,8 @@
 com.hugogoncalvez.possystem/
+.env-elCorralon
 .env.poli.local
 .env_poli24
+.env-Poli24
 mejoras.txt
 mi_cert.crt
 testPOS.csr
